@@ -2,7 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-*.csv
-*.tiff
-*.tif
-
+*/saved_files/
+*/source_info/
+.DS_Store
