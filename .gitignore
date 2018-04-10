@@ -2,6 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-*/saved_files/
-*/source_info/
+saved_files/
+source_info/
+general_project_files/
 *.DS_Store
+.DS_Store
