@@ -1,0 +1,1956 @@
+---
+title: "Estimate Profits"
+output:
+  html_notebook:
+    fig_caption: yes
+    toc: yes
+    toc_depth: 6
+  html_document:
+    toc: yes
+    toc_depth: '6'
+---
+
+```{r message=TRUE, error=FALSE, warning=F, echo=FALSE, prompt=FALSE}
+suppressPackageStartupMessages(
+  easypackages::libraries("knitr", "tidyverse", "bigrquery", "lubridate", "broom","rnaturalearth")
+)
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = F,error = FALSE, echo = FALSE, progress = F)
+
+knitr::knit_hooks$set(inline = function(x) {
+  prettyNum(round(x,2), big.mark = ",")
+})
+
+options(scipen = 999)
+source("../general_project_files/effort_mapping_functions.R")
+source("../general_project_files/ihs_functions.R")
+source("../general_project_files/gfw_themes.R")
+
+BQ_connection <-  dbConnect(dbi_driver(),dataset = "", project = "high-seas", billing = "world-fishing-827")
+
+bunker_and_reefers_high_seas_cost <- readRDS("../costs_and_subsidies/saved_files/bunker_and_reefers_high_seas_cost")
+```
+
+```{r mapping_resources, results = "hide"}
+world_map <- rnaturalearth::ne_coastline(scale = 'small', returnclass = c("sf"))
+
+max_lat = 90
+min_lat = -90
+max_lon = 180
+min_lon = -180
+cell_size  = 0.5
+one_over_cellsize = 2
+```
+
+```{r eval = F}
+sql = "SELECT
+  *,
+  revenue_per_fishing_KWh*hours*engine_power revenue,
+  catch_per_fishing_KWh*hours*engine_power catch,
+  revenue_per_fishing_KWh*hours*engine_power - apportioned_total_cost__low_bound profits__high_bound,
+  revenue_per_fishing_KWh*hours*engine_power - apportioned_total_cost__high_bound profits__low_bound,
+  revenue_per_fishing_KWh*hours*engine_power - apportioned_total_cost__low_bound + apportioned_subsidies profits_with_subsidies__high_bound,
+  revenue_per_fishing_KWh*hours*engine_power - apportioned_total_cost__high_bound + apportioned_subsidies profits_with_subsidies__low_bound,
+  revenue_per_fishing_KWh*hours*engine_power - apportioned_and_scaled_total_cost__low_bound scaled_profits__high_bound,
+  revenue_per_fishing_KWh*hours*engine_power - apportioned_and_scaled_total_cost__high_bound scaled_profits__low_bound,
+  revenue_per_fishing_KWh*hours*engine_power - apportioned_and_scaled_total_cost__low_bound + apportioned_subsidies scaled_profits_with_subsidies__high_bound,
+  revenue_per_fishing_KWh*hours*engine_power - apportioned_and_scaled_total_cost__high_bound + apportioned_subsidies scaled_profits_with_subsidies__low_bound,
+FROM (
+  SELECT
+    a.year year,
+    a.mmsi mmsi,
+    a.timestamp timestamp,
+    a.lon lon,
+    a.lat lat,
+    a.distance_from_shore distance_from_shore,
+    a.hours hours,
+    a.nnet_score nnet_score,
+    a.implied_speed implied_speed,
+    a.flag_country_name flag_country_name,
+    a.flag_iso3 flag_iso3,
+    a.sovereign_flag_country_name sovereign_flag_country_name,
+    a.sovereign_flag_iso3 sovereign_flag_iso3,
+    a.eez_name eez_name,
+    a.FAO_region FAO_region,
+    a.seg_id seg_id,
+    a.sub_gear_type sub_gear_type,
+    a.gear_type gear_type,
+    a.tonnage tonnage,
+    a.engine_power engine_power,
+    a.length length,
+    a.crew crew,
+    a.total_fishing_KW_hours total_fishing_KW_hours,
+    a.frac_fishing_energy frac_fishing_energy,
+    a.total_cost__low_bound total_cost__low_bound,
+    a.total_cost__high_bound total_cost__high_bound,
+    a.apportioned_subsidies apportioned_subsidies, 
+    a.apportioned_total_cost__low_bound apportioned_total_cost__low_bound,
+    a.apportioned_total_cost__high_bound apportioned_total_cost__high_bound,
+    a.apportioned_and_scaled_total_cost__low_bound apportioned_and_scaled_total_cost__low_bound,
+    a.apportioned_and_scaled_total_cost__high_bound apportioned_and_scaled_total_cost__high_bound,
+    a.apportioned_total_cost__low_bound - a.apportioned_subsidies apportioned_total_cost_minus_subsidies__low_bound,
+    a.apportioned_total_cost__high_bound - a.apportioned_subsidies apportioned_total_cost_minus_subsidies__high_bound,
+    a.apportioned_and_scaled_total_cost__low_bound - a.apportioned_subsidies apportioned_and_scaled_total_cost_minus_subsidies__low_bound,
+    a.apportioned_and_scaled_total_cost__high_bound - a.apportioned_subsidies apportioned_and_scaled_total_cost_minus_subsidies__high_bound,
+    CASE
+    WHEN a.sovereign_flag_iso3 in ('CHN') AND a.gear_type == 'squid_jigger' then c.revenue_per_fishing_KWh
+    WHEN a.sovereign_flag_iso3 in ('TWN', 'KOR') AND a.gear_type == 'squid_jigger' and a.FAO_region in (41,87) then c.revenue_per_fishing_KWh
+    ELSE b.revenue_per_fishing_KWh 
+    END AS revenue_per_fishing_KWh,
+    CASE
+    WHEN a.sovereign_flag_iso3 in ('CHN') AND a.gear_type == 'squid_jigger' then c.revenue_per_fishing_KW_day
+    WHEN a.sovereign_flag_iso3 in ('TWN', 'KOR') AND a.gear_type == 'squid_jigger' and a.FAO_region in (41,87) then c.revenue_per_fishing_KW_day
+    ELSE b.revenue_per_fishing_KW_day
+    END AS revenue_per_fishing_KW_day,
+    CASE
+    WHEN a.sovereign_flag_iso3 in ('CHN') AND a.gear_type == 'squid_jigger' then c.catch_per_fishing_KWh
+    WHEN a.sovereign_flag_iso3 in ('TWN', 'KOR') AND a.gear_type == 'squid_jigger' and a.FAO_region in (41,87) then c.catch_per_fishing_KWh
+    ELSE b.catch_per_fishing_KWh 
+    END AS catch_per_fishing_KWh,
+    CASE
+    WHEN a.sovereign_flag_iso3 in ('CHN') AND a.gear_type == 'squid_jigger' then c.catch_per_fishing_KW_day
+    WHEN a.sovereign_flag_iso3 in ('TWN', 'KOR') AND a.gear_type == 'squid_jigger' and a.FAO_region in (41,87) then c.catch_per_fishing_KW_day
+    ELSE b.catch_per_fishing_KW_day
+    END AS catch_per_fishing_KW_day
+  FROM (
+    SELECT
+  year,
+  mmsi,
+  timestamp,
+  lon,
+  lat,
+  distance_from_shore,
+  hours,
+  nnet_score,
+  implied_speed,
+  flag_country_name,
+  flag_iso3,
+  sovereign_flag_country_name,
+  if(sovereign_flag_iso3 == 'unknown', 'UNK', sovereign_flag_iso3) sovereign_flag_iso3,
+  regions,
+  eez_name,
+  FAO_region,
+  RFMO,
+  seg_id,
+  sub_gear_type,
+  gear_type,
+  length,
+  tonnage,
+  engine_power,
+  crew,
+  total_fishing_KW_hours,
+  frac_fishing_energy,
+  apportioned_subsidies,
+  scale_factor,
+  0.942*total_cost__low_bound total_cost__low_bound,
+  0.942*total_cost__high_bound total_cost__high_bound,
+  0.942*apportioned_total_cost__low_bound apportioned_total_cost__low_bound,
+  0.942*apportioned_total_cost__high_bound apportioned_total_cost__high_bound,
+  0.942*apportioned_and_scaled_total_cost__low_bound apportioned_and_scaled_total_cost__low_bound,
+  0.942*apportioned_and_scaled_total_cost__high_bound apportioned_and_scaled_total_cost__high_bound
+FROM
+  [high-seas:cost_model.apportioned_costs]
+    WHERE
+      nnet_score == 1
+      AND (eez_name IS NULL
+        AND (distance_from_shore >= 1852*10
+          OR FAO_region IN (88,
+            48,
+            58))) )a
+  LEFT JOIN (
+    SELECT
+      year,
+      sovereign_flag_iso3,
+      FAO_region,
+      revenue_per_fishing_KWh,
+      revenue_per_fishing_KW_day,
+      catch_per_fishing_KWh,
+      catch_per_fishing_KW_day
+    FROM
+      [high-seas:revenue.revenue_ratios_by_iso3_and_fao])b
+  ON
+    a.sovereign_flag_iso3 = b.sovereign_flag_iso3
+    AND a.FAO_region = b.FAO_region
+    AND a.year = b.year
+  LEFT JOIN (
+    SELECT
+      year,
+      sovereign_flag_iso3,
+      gear_type,
+      FAO_region,
+      revenue_per_fishing_KWh,
+      revenue_per_fishing_KW_day,
+      catch_per_fishing_KWh,
+      catch_per_fishing_KW_day
+    FROM
+      [high-seas:revenue.revenue_ratios_China_SJ] )c
+  ON
+    a.sovereign_flag_iso3 = c.sovereign_flag_iso3
+    AND a.FAO_region = c.FAO_region
+    AND a.year = c.year
+    AND a.gear_type = c.gear_type)"
+
+
+BQ_connection <-  dbConnect(dbi_driver(),dataset = "profits", project = "high-seas", billing = "world-fishing-827")
+
+if(dbExistsTable(BQ_connection, "high_seas_profits")){
+  dbRemoveTable(BQ_connection, "high_seas_profits") 
+  job <- insert_query_job(sql,"high-seas",destination_table = "profits.high_seas_profits")
+  job
+} else {job <- insert_query_job(sql,"high-seas",destination_table = "profits.high_seas_profits")
+  job}
+
+get_job("high-seas", job$jobReference$jobId)$status
+```
+
+```{sql connection = BQ_connection, output.var = "high_seas_profits_by_vessel_and_FAO_region", eval = F}
+SELECT
+  year, 
+  mmsi,
+  flag_country_name,
+  flag_iso3,
+  sovereign_flag_country_name,
+  sovereign_flag_iso3,
+  FAO_region,
+  sub_gear_type,
+  gear_type,
+  length,
+  tonnage,
+  sum(apportioned_total_cost__low_bound) high_seas_total_cost__low_bound,
+  sum(apportioned_total_cost__high_bound) high_seas_total_cost__high_bound,
+  sum(apportioned_total_cost_minus_subsidies__low_bound) high_seas_total_cost_minus_subsidies__low_bound,
+  sum(apportioned_total_cost_minus_subsidies__high_bound) high_seas_total_cost_minus_subsidies__high_bound,
+  sum(apportioned_and_scaled_total_cost__low_bound) high_seas_scaled_total_cost__low_bound,
+  sum(apportioned_and_scaled_total_cost__high_bound) high_seas_scaled_total_cost__high_bound,
+  sum(apportioned_and_scaled_total_cost_minus_subsidies__low_bound) high_seas_scaled_total_cost_minus_subsidies__low_bound,
+  sum(apportioned_and_scaled_total_cost_minus_subsidies__high_bound) high_seas_scaled_total_cost_minus_subsidies__high_bound,
+  sum(catch) catch,
+  sum(revenue) revenue,
+  sum(apportioned_subsidies) subsidies,
+  sum(profits__high_bound) profits__high_bound,
+  sum(profits__low_bound) profits__low_bound,
+  sum(profits_with_subsidies__high_bound) profits_with_subsidies__high_bound,
+  sum(profits_with_subsidies__low_bound) profits_with_subsidies__low_bound,
+  sum(scaled_profits__high_bound) scaled_profits__high_bound,
+  sum(scaled_profits__low_bound) scaled_profits__low_bound,
+  sum(scaled_profits_with_subsidies__high_bound) scaled_profits_with_subsidies__high_bound,
+  sum(scaled_profits_with_subsidies__low_bound) scaled_profits_with_subsidies__low_bound
+FROM
+  [high-seas:profits.high_seas_profits]
+  where year == 2016
+group by 
+  year,
+  mmsi,
+  flag_country_name,
+  flag_iso3,
+  sovereign_flag_country_name,
+  sovereign_flag_iso3,
+  FAO_region,
+  sub_gear_type,
+  gear_type,
+  length,
+  tonnage,
+```
+
+```{r, eval = FALSE}
+sql = "SELECT
+  a.year year,
+  a.mmsi mmsi,
+  a.timestamp timestamp,
+  a.lon lon,
+  a.lat lat,
+  a.distance_from_shore distance_from_shore,
+  a.hours hours,
+  a.nnet_score nnet_score,
+  a.speed speed,
+  a.flag_country_name flag_country_name,
+  a.flag_iso3 flag_iso3,
+  a.sovereign_flag_country_name sovereign_flag_country_name,
+  a.sovereign_flag_iso3 sovereign_flag_iso3,
+  a.eez_id eez_id,
+  a.FAO_region FAO_region,
+  a.seg_id seg_id,
+  a.sub_gear_type sub_gear_type,
+  a.gear_type gear_type,
+  a.tonnage tonnage,
+  a.engine_power engine_power,
+  a.length length,
+  a.crew crew,
+  a.total_fishing_KW_hours total_fishing_KW_hours,
+  a.frac_fishing_energy frac_fishing_energy,
+  a.total_cost__low_bound total_cost__low_bound,
+  a.total_cost__high_bound total_cost__high_bound,
+  a.apportioned_total_cost__low_bound apportioned_total_cost__low_bound,
+  a.apportioned_total_cost__high_bound apportioned_total_cost__high_bound,
+  a.apportioned_total_cost_minus_subsidies__low_bound apportioned_total_cost_minus_subsidies__low_bound,
+  a.apportioned_total_cost_minus_subsidies__high_bound apportioned_total_cost_minus_subsidies__high_bound,
+  b.revenue_per_fishing_KWh revenue_per_fishing_KWh,
+  b.revenue_per_fishing_KWh*hours*engine_power revenue,
+  b.catch_per_fishing_KWh*hours*engine_power catch,
+  a.apportioned_subsidies apportioned_subsidies,
+  b.revenue_per_fishing_KWh*hours*engine_power - apportioned_total_cost__low_bound profits__high_bound,
+  b.revenue_per_fishing_KWh*hours*engine_power - apportioned_total_cost__high_bound profits__low_bound,
+  b.revenue_per_fishing_KWh*hours*engine_power - apportioned_total_cost_minus_subsidies__low_bound profits_with_subsidies__high_bound,
+  b.revenue_per_fishing_KWh*hours*engine_power - apportioned_total_cost_minus_subsidies__high_bound profits_with_subsidies__low_bound,
+FROM (
+  SELECT
+  year year,
+  mmsi mmsi,
+  timestamp timestamp,
+  lon lon,
+  lat lat,
+  distance_from_shore distance_from_shore,
+  hours hours,
+  nnet_score nnet_score,
+  speed speed,
+  flag_country_name flag_country_name,
+  flag_iso3 flag_iso3,
+  sovereign_flag_country_name sovereign_flag_country_name,
+  sovereign_flag_iso3 sovereign_flag_iso3,
+  eez_id eez_id,
+  FAO_region FAO_region,
+  seg_id seg_id,
+  sub_gear_type sub_gear_type,
+  gear_type gear_type,
+  tonnage tonnage,
+  engine_power engine_power,
+  length length,
+  crew crew,
+  total_fishing_KW_hours total_fishing_KW_hours,
+  frac_fishing_energy frac_fishing_energy,
+  0.942*total_cost__low_bound total_cost__low_bound,
+  0.942*total_cost__high_bound total_cost__high_bound,
+  0.942*apportioned_total_cost__low_bound apportioned_total_cost__low_bound,
+  0.942*apportioned_total_cost__high_bound apportioned_total_cost__high_bound,
+  0.942*apportioned_total_cost__low_bound  - apportioned_subsidies apportioned_total_cost_minus_subsidies__low_bound,
+  0.942*apportioned_total_cost__high_bound - apportioned_subsidies apportioned_total_cost_minus_subsidies__high_bound,
+  apportioned_subsidies
+  FROM
+    [high-seas:cost_model.apportioned_indonesia_costs] 
+    where nnet_score ==1 and (eez_id IS NULL AND (distance_from_shore >= 1852*10 OR FAO_region IN (88, 48,58))) )a
+LEFT JOIN (
+  SELECT
+    year,
+    sovereign_flag_iso3,
+    FAO_region,
+    revenue_per_fishing_KWh,
+    catch_per_fishing_KWh
+  FROM
+    [high-seas:revenue.revenue_ratios_by_iso3_and_fao])b
+ON
+  a.sovereign_flag_iso3 = b.sovereign_flag_iso3
+  AND a.FAO_region = b.FAO_region 
+  AND a.year = b.year"
+
+BQ_connection <-  dbConnect(dbi_driver(),dataset = "profits", project = "high-seas", billing = "world-fishing-827")
+
+if(dbExistsTable(BQ_connection, "Indo_high_seas_profits")){
+  dbRemoveTable(BQ_connection, "Indo_high_seas_profits") 
+  job <- insert_query_job(sql,"high-seas",destination_table = "profits.Indo_high_seas_profits")
+  job
+} else {job <- insert_query_job(sql,"high-seas",destination_table = "profits.Indo_high_seas_profits")
+  job}
+
+get_job("high-seas",job$jobReference$jobId)$status
+```
+
+```{sql connection = BQ_connection, output.var = "Indo_high_seas_profits_by_vessel_and_FAO_region", eval = F}
+SELECT
+  year, 
+  mmsi,
+  flag_country_name,
+  flag_iso3,
+  sovereign_flag_country_name,
+  sovereign_flag_iso3,
+  FAO_region,
+  sub_gear_type,
+  gear_type,
+  length,
+  tonnage,
+  sum(apportioned_total_cost__low_bound) high_seas_total_cost__low_bound,
+  sum(apportioned_total_cost__high_bound) high_seas_total_cost__high_bound,
+  sum(apportioned_total_cost_minus_subsidies__low_bound) high_seas_total_cost_minus_subsidies__low_bound,
+  sum(apportioned_total_cost_minus_subsidies__high_bound) high_seas_total_cost_minus_subsidies__high_bound,
+  sum(catch) catch,
+  sum(revenue) revenue,
+  sum(apportioned_subsidies) subsidies,
+  sum(profits__high_bound) profits__high_bound,
+  sum(profits__low_bound) profits__low_bound,
+  sum(profits_with_subsidies__high_bound) profits_with_subsidies__high_bound,
+  sum(profits_with_subsidies__low_bound) profits_with_subsidies__low_bound,
+FROM
+  [high-seas:profits.Indo_high_seas_profits]
+    where year == 2016
+group by 
+year,
+  mmsi,
+  flag_country_name,
+  flag_iso3,
+  sovereign_flag_country_name,
+  sovereign_flag_iso3,
+  FAO_region,
+  sub_gear_type,
+  gear_type,
+  length,
+  tonnage,
+```
+
+```{r eval = F}
+write_csv(high_seas_profits_by_vessel_and_FAO_region, "saved_files/high_seas_profits_by_vessel_and_FAO_region.csv")
+write_csv(Indo_high_seas_profits_by_vessel_and_FAO_region, "saved_files/Indo_high_seas_profits_by_vessel_and_FAO_region.csv")
+```
+
+```{r}
+high_seas_profits_by_vessel_and_FAO_region <- read_csv("saved_files/high_seas_profits_by_vessel_and_FAO_region.csv") %>% 
+  filter(year == 2016)
+
+Indo_high_seas_profits_by_vessel_and_FAO_region <- read_csv("saved_files/Indo_high_seas_profits_by_vessel_and_FAO_region.csv") %>% 
+  filter(year == 2016)
+
+bunker_and_reefers_high_seas_cost <- readRDS("../costs_and_subsidies/saved_files/bunker_and_reefers_high_seas_cost") %>% 
+  filter(year == 2016)
+
+bunker_and_reefers_high_seas_cost_by_flag <- read_csv("../costs_and_subsidies/saved_files/total_cost_by_bunkers_and_reefers.csv") %>% 
+  filter(year == 2016) %>% 
+  group_by(flag_state) %>% 
+  summarise_at(vars(total_costs_high_seas_low, total_costs_high_seas_high), funs(sum))
+
+# bunker_and_reefers_high_seas_cost_by_flag %>% 
+#   arrange(desc(total_costs_high_seas_high))
+
+Indo_summary <- Indo_high_seas_profits_by_vessel_and_FAO_region %>% 
+  filter(!is.na(revenue)) %>% 
+  group_by(year) %>% 
+  summarise(Indo_catch = sum(catch),
+            Indo_revenue = sum(revenue),
+            Indo_subsidies = sum(subsidies),
+            Indo_costs_low_bound = sum(high_seas_total_cost__low_bound),
+            Indo_costs_high_bound = sum(high_seas_total_cost__high_bound),
+            Indo_profits_low_bound = sum(profits__low_bound),
+            Indo_profits_high_bound = sum(profits__high_bound),
+            Indo_profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            Indo_profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound),
+            ) 
+```
+
+
+### Initial Summary
+
+```{r}
+high_seas_profits_by_vessel_and_FAO_region %>% 
+  filter(!is.na(revenue)) %>% 
+  group_by(year) %>% 
+  summarise(catch = sum(catch),
+            revenue = sum(revenue),
+            subsidies = sum(subsidies),
+            unscaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            unscaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            unscaled__profits_low_bound = sum(profits__low_bound),
+            unscaled__profits_high_bound = sum(profits__high_bound),
+            unscaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            unscaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound),
+            scaled__costs_low_bound = sum(high_seas_scaled_total_cost__low_bound),
+            scaled__costs_high_bound = sum(high_seas_scaled_total_cost__high_bound),
+            scaled__profits_low_bound = sum(scaled_profits__low_bound),
+            scaled__profits_high_bound = sum(scaled_profits__high_bound),
+            scaled__profits_with_subsidies_low_bound = sum(scaled_profits_with_subsidies__low_bound),
+            scaled__profits_with_subsidies_high_bound = sum(scaled_profits_with_subsidies__high_bound)           
+            ) %>% 
+  gather(variable, value, -year, -revenue, -catch,-subsidies) %>% 
+  separate(variable, into = c("scaled", "variable"), sep =  "__") %>% 
+  spread(variable, value) %>% 
+  left_join(bunker_and_reefers_high_seas_cost %>% 
+              mutate_if(is.double, funs(.*10^6))) %>% 
+  left_join(Indo_summary) %>% 
+  mutate(catch = catch + Indo_catch,
+         revenue = revenue + Indo_revenue,
+         subsidies = subsidies + Indo_subsidies,
+         costs_low_bound = costs_low_bound + total_costs_high_seas_low + Indo_costs_low_bound,
+         costs_high_bound = costs_high_bound + total_costs_high_seas_high + Indo_costs_high_bound,
+         profits_low_bound = profits_low_bound - total_costs_high_seas_high + Indo_profits_low_bound,
+         profits_high_bound = profits_high_bound - total_costs_high_seas_low + Indo_profits_high_bound,
+         profits_with_subsidies_low_bound = profits_with_subsidies_low_bound - total_costs_high_seas_high + Indo_profits_with_subsidies_low_bound,
+         profits_with_subsidies_high_bound = profits_with_subsidies_high_bound - total_costs_high_seas_low + Indo_profits_with_subsidies_high_bound,
+         ) %>% 
+  select(scaled, catch, revenue, subsidies, costs_low_bound, costs_high_bound,  profits_low_bound, profits_high_bound,
+         profits_with_subsidies_low_bound,profits_with_subsidies_high_bound, -year) %>%
+  mutate_at(vars(catch), funs(round(./10^3))) %>% 
+  mutate_at(seq(3,10), funs(round(./10^6))) %>%
+  mutate(scaled = ifelse(scaled == "scaled", TRUE, FALSE)) %>% 
+  kable(col.names = c("Scaled","Catch","Revenue","Subsidies","Cost low","Cost high", "π low","π high","π*low", "π* high"),
+        caption = "Table SX: Summary of results")
+```
+
+### Summary by country
+
+```{r}
+summary_results_by_country <- bind_rows(
+   high_seas_profits_by_vessel_and_FAO_region %>% 
+   #na.omit(revenue) %>% 
+   filter(!is.na(revenue)) %>% 
+   group_by(year, sovereign_flag_iso3, sovereign_flag_country_name) %>% 
+   summarise(catch = sum(catch),
+             revenue = sum(revenue),
+             subsidies = sum(subsidies),
+             unscaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+             unscaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+             unscaled__profits_low_bound = sum(profits__low_bound),
+             unscaled__profits_high_bound = sum(profits__high_bound),
+             unscaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+             unscaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound),
+             scaled__costs_low_bound = sum(high_seas_scaled_total_cost__low_bound),
+             scaled__costs_high_bound = sum(high_seas_scaled_total_cost__high_bound),
+             scaled__profits_low_bound = sum(scaled_profits__low_bound),
+             scaled__profits_high_bound = sum(scaled_profits__high_bound),
+             scaled__profits_with_subsidies_low_bound = sum(scaled_profits_with_subsidies__low_bound),
+             scaled__profits_with_subsidies_high_bound = sum(scaled_profits_with_subsidies__high_bound)           
+             ) %>% 
+   gather(variable, value, -revenue,-sovereign_flag_iso3, -sovereign_flag_country_name,-year,-catch,-subsidies) %>% 
+   separate(variable, into = c("scaled", "variable"), sep =  "__") %>% 
+   spread(variable, value), 
+Indo_high_seas_profits_by_vessel_and_FAO_region %>% 
+  #na.omit(revenue) %>% 
+  filter(!is.na(revenue)) %>% 
+  group_by(year, sovereign_flag_iso3, sovereign_flag_country_name, sovereign_flag_country_name) %>% 
+  summarise(catch = sum(catch),
+            revenue = sum(revenue),
+            subsidies = sum(subsidies),
+            unscaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            unscaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            unscaled__profits_low_bound = sum(profits__low_bound),
+            unscaled__profits_high_bound = sum(profits__high_bound),
+            unscaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            unscaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound),
+            scaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            scaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            scaled__profits_low_bound = sum(profits__low_bound),
+            scaled__profits_high_bound = sum(profits__high_bound),
+            scaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            scaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound)           
+            ) %>% 
+  gather(variable, value, - revenue,-sovereign_flag_iso3,-sovereign_flag_country_name,-year, -catch,-subsidies) %>% 
+  separate(variable, into = c("scaled", "variable"), sep =  "__") %>% 
+  spread(variable, value)) %>% 
+  arrange(desc(revenue)) %>% 
+  mutate(scaled = ifelse(scaled == "scaled", T, F)) %>% 
+  ungroup() %>% 
+  select(country = sovereign_flag_iso3, 
+         sovereign_flag_country_name, scaled, catch, revenue, costs_low_bound, costs_high_bound,  profits_low_bound, profits_high_bound,subsidies, profits_with_subsidies_low_bound,profits_with_subsidies_high_bound, -year) 
+```
+
+#### Unscaled
+
+```{r}
+summary_results_by_country %>% 
+  filter(!scaled) %>% 
+  select(-scaled,-country) %>% 
+  mutate_at(vars(catch), funs(round(./10^3))) %>% 
+  mutate_at(seq(3,10), funs(round(./10^6))) %>%
+  arrange(desc(catch)) %>% 
+  top_n(14, catch) %>% 
+  kable(col.names = c("Country","Catch", "Revenue","Cost low bound","Cost high bound", "π low bound","π high bound","Subsidides","π* low bound", "π* high bound"),
+        caption = "Table SX: Summary of unscaled results by country for the top 14 countries in terms of catch")
+```
+
+#### Scaled
+
+```{r}
+summary_results_by_country %>% 
+  filter(scaled) %>% 
+  select(-scaled,-country) %>% 
+  mutate_at(vars(catch), funs(round(./10^3,2))) %>% 
+  mutate_at(seq(3,10), funs(round(./10^6,2))) %>%
+  arrange(desc(catch)) %>% 
+  top_n(14, catch) %>% 
+  mutate_if(is.numeric, round) %>% 
+  kable(col.names = c("Country","Catch", "Revenue","Cost low bound","Cost high bound", "π low bound","π high bound","Subsidides","π* low bound", "π* high bound"),
+        caption = "Table SX: Summary of scaled results by country for the top 14 countries in terms of catch")
+```
+
+```{r}
+(summary_plot_by_country <- summary_results_by_country %>% 
+  head(80) %>% 
+  select(country,scaled, revenue, profits_low_bound, profits_high_bound, profits_with_subsidies_low_bound, profits_with_subsidies_high_bound) %>% 
+  filter(scaled) %>% 
+  gather(var, value, -country,-revenue,-scaled) %>% 
+  #filter(country %in% c("CHN", "JPN", "TWN","KOR","ESP","FRA","MEX","IDN", "ECU", "USA","VUT")) %>% 
+  mutate(var = stringr::str_replace_all(var, "profits_with_subsidies", "π*"),
+         var = stringr::str_replace_all(var, "profits", "π"),
+         var = stringr::str_replace_all(var, "_", " ")) %>% 
+  group_by(country) %>% 
+  mutate(min = min(value),
+         max = max(value)) %>% 
+  ggplot()+
+  geom_linerange(aes(x = forcats::fct_reorder(country, value), ymin = min, ymax  = max), col = 'azure4')+
+  geom_point(aes(x = forcats::fct_reorder(country, value), y = value, shape = var,  col = value > 0), size = 2)+
+  geom_hline(aes(yintercept = 1), linetype = 3) +
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "", y = " Profits")+
+  scale_shape_manual(name = "Estimate", 
+                     values = c(1,2,16,17))+
+  theme(legend.margin = margin(t = 0, unit = 'cm'))+
+  scale_colour_manual(values = c("#FC4E07","#2E9FDF"), guide = FALSE))
+```
+
+### Summary by gear type
+
+```{r}
+summary_results_by_gear <- bind_rows(high_seas_profits_by_vessel_and_FAO_region %>% 
+  #na.omit(revenue) %>% 
+  filter(!is.na(revenue)) %>% 
+  group_by(year, sub_gear_type) %>% 
+  summarise(catch = sum(catch, na.rm = T),
+            revenue = sum(revenue, na.rm = T),
+            subsidies = sum(subsidies, na.rm = T),
+            unscaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            unscaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            unscaled__profits_low_bound = sum(profits__low_bound),
+            unscaled__profits_high_bound = sum(profits__high_bound),
+            unscaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            unscaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound),
+            scaled__costs_low_bound = sum(high_seas_scaled_total_cost__low_bound),
+            scaled__costs_high_bound = sum(high_seas_scaled_total_cost__high_bound),
+            scaled__profits_low_bound = sum(scaled_profits__low_bound),
+            scaled__profits_high_bound = sum(scaled_profits__high_bound),
+            scaled__profits_with_subsidies_low_bound = sum(scaled_profits_with_subsidies__low_bound),
+            scaled__profits_with_subsidies_high_bound = sum(scaled_profits_with_subsidies__high_bound)           
+            ) %>% 
+  gather(variable, value, - revenue,-sub_gear_type,-year,-subsidies,-catch) %>% 
+  separate(variable, into = c("scaled", "variable"), sep =  "__") %>% 
+  spread(variable, value), 
+Indo_high_seas_profits_by_vessel_and_FAO_region %>% 
+  #na.omit(revenue) %>% 
+  filter(!is.na(revenue)) %>% 
+  group_by(year, sub_gear_type) %>% 
+  summarise(catch = sum(catch, na.rm = T),
+            revenue = sum(revenue, na.rm = T),
+            subsidies = sum(subsidies, na.rm = T),
+            unscaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            unscaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            unscaled__profits_low_bound = sum(profits__low_bound),
+            unscaled__profits_high_bound = sum(profits__high_bound),
+            unscaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            unscaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound),
+            scaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            scaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            scaled__profits_low_bound = sum(profits__low_bound),
+            scaled__profits_high_bound = sum(profits__high_bound),
+            scaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            scaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound)           
+            ) %>% 
+  gather(variable, value, - revenue,-sub_gear_type,-year, -subsidies,-catch) %>% 
+  separate(variable, into = c("scaled", "variable"), sep =  "__") %>% 
+  spread(variable, value)) %>% 
+  mutate(scaled = ifelse(scaled == "scaled", T, F)) %>% 
+  ungroup() %>%
+  group_by(sub_gear_type, scaled) %>% 
+  summarize_all(sum) %>% 
+  select(gear_type = sub_gear_type,scaled, catch , revenue, costs_low_bound, costs_high_bound,  profits_low_bound, profits_high_bound, subsidies,  profits_with_subsidies_low_bound,profits_with_subsidies_high_bound, -year)
+```
+
+#### Unscaled
+
+```{r}
+summary_results_by_gear %>% 
+  ungroup() %>% 
+  filter(!scaled) %>% 
+  select(-scaled) %>% 
+  mutate_at(vars(catch), funs(round(./10^3, 2))) %>% 
+  mutate_at(seq(3,10), funs(round(./10^6))) %>%
+  arrange(desc(revenue)) %>% 
+  kable(col.names = c("Gear type",
+                      "Catch","Revenue","Cost low bound","Cost high bound", "π low bound","π high bound","Subsidides","π* low bound", "π* high bound"),
+        caption = "Table SX: Summary of unscaled results by gear type")
+```
+
+
+#### Scaled
+
+```{r}
+summary_results_by_gear %>% 
+  ungroup() %>% 
+  filter(scaled) %>% 
+  select(-scaled) %>% 
+  arrange(desc(revenue)) %>% 
+  mutate_at(vars(catch), funs(round(./10^3, 2))) %>% 
+  mutate_at(seq(3,10), funs(round(./10^6))) %>%
+  kable(col.names = c("Country", "Catch","Revenue","Cost low bound","Cost high bound", "π low bound","π high bound","Subsidies","π* low bound", "π* high bound"),
+        caption = "Table SX: Summary of scaled results by gear type")
+```
+
+
+```{r}
+(summary_plot_by_gear <- summary_results_by_gear %>% 
+  head(80) %>% 
+  select(gear_type,scaled, revenue, profits_low_bound, profits_high_bound, profits_with_subsidies_low_bound, profits_with_subsidies_high_bound) %>% 
+  filter(scaled) %>% 
+  gather(var, value, -gear_type,-revenue,-scaled) %>% 
+  #filter(country %in% c("CHN", "JPN", "TWN","KOR","ESP","FRA","MEX","IDN", "ECU", "USA","VUT")) %>% 
+  mutate(var = stringr::str_replace_all(var, "profits_with_subsidies", "π*"),
+         var = stringr::str_replace_all(var, "profits", "π"),
+         var = stringr::str_replace_all(var, "_", " ")) %>% 
+  group_by(gear_type) %>% 
+  mutate(min = min(value),
+         max = max(value)) %>% 
+  ggplot()+
+  geom_linerange(aes(x = forcats::fct_reorder(gear_type, value), ymin = min, ymax  = max), col = 'azure4')+
+  geom_point(aes(x = forcats::fct_reorder(gear_type, value), y = value, shape = var,  col = value > 0), size = 2)+
+  geom_hline(aes(yintercept = 1), linetype = 3) +
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "", y = " Profits")+
+  scale_shape_manual(name = "Estimate", 
+                     values = c(1,2,16,17))+
+  theme(legend.margin = margin(t = 0, unit = 'cm'))+
+  scale_colour_manual(values = c("#FC4E07","#2E9FDF"), guide = FALSE))
+```
+
+## Summary by country and FAO region
+
+```{r}
+summary_results_by_country_and_FAO <- bind_rows(high_seas_profits_by_vessel_and_FAO_region %>% 
+  #na.omit(revenue) %>% 
+  filter(!is.na(revenue)) %>% 
+  group_by(year, sovereign_flag_iso3, FAO_region) %>% 
+  summarise(catch = sum(catch, na.rm = T),
+            revenue = sum(revenue),
+            subsidies = sum(subsidies),
+            unscaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            unscaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            unscaled__profits_low_bound = sum(profits__low_bound),
+            unscaled__profits_high_bound = sum(profits__high_bound),
+            unscaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            unscaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound),
+            scaled__costs_low_bound = sum(high_seas_scaled_total_cost__low_bound),
+            scaled__costs_high_bound = sum(high_seas_scaled_total_cost__high_bound),
+            scaled__profits_low_bound = sum(scaled_profits__low_bound),
+            scaled__profits_high_bound = sum(scaled_profits__high_bound),
+            scaled__profits_with_subsidies_low_bound = sum(scaled_profits_with_subsidies__low_bound),
+            scaled__profits_with_subsidies_high_bound = sum(scaled_profits_with_subsidies__high_bound)           
+            ) %>% 
+  gather(variable, value, - revenue,-sovereign_flag_iso3,-year, -FAO_region, -catch,-subsidies) %>% 
+  separate(variable, into = c("scaled", "variable"), sep =  "__") %>% 
+  spread(variable, value), 
+Indo_high_seas_profits_by_vessel_and_FAO_region %>% 
+  #na.omit(revenue) %>% 
+  filter(!is.na(revenue)) %>% 
+  group_by(year, sovereign_flag_iso3, FAO_region) %>% 
+  summarise(catch = sum(catch, na.rm = T),
+            revenue = sum(revenue),
+            subsidies = sum(subsidies),
+            unscaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            unscaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            unscaled__profits_low_bound = sum(profits__low_bound),
+            unscaled__profits_high_bound = sum(profits__high_bound),
+            unscaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            unscaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound),
+            scaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            scaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            scaled__profits_low_bound = sum(profits__low_bound),
+            scaled__profits_high_bound = sum(profits__high_bound),
+            scaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            scaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound)           
+            ) %>% 
+  gather(variable, value, - revenue,-sovereign_flag_iso3,-year, -FAO_region, -catch,-subsidies) %>% 
+  separate(variable, into = c("scaled", "variable"), sep =  "__") %>% 
+  spread(variable, value)) %>% 
+  arrange(desc(revenue)) %>% 
+  mutate(scaled = ifelse(scaled == "scaled", T, F)) %>% 
+  ungroup() %>% 
+  select(country = sovereign_flag_iso3,FAO_region,scaled, catch, revenue, costs_low_bound, costs_high_bound,  profits_low_bound, profits_high_bound,subsidies, profits_with_subsidies_low_bound,profits_with_subsidies_high_bound, -year) 
+```
+
+
+#### Unscaled
+
+```{r}
+summary_results_by_country_and_FAO %>% 
+  filter(!scaled) %>%
+  select(-scaled) %>% 
+  mutate_at(vars(catch), funs(round(./10^3))) %>% 
+  mutate_at(seq(4,11), funs(round(./10^6))) %>%
+  head(40) %>% 
+    kable(col.names = c("Country", "FAO","Catch","Revenue","Cost low bound","Cost high bound", "π low bound","π high bound","subsidies","π* low bound", "π* high bound"),
+        caption = "Table SX: Summary of unscaled results by country and FAO region")
+```
+
+#### Scaled
+
+```{r}
+summary_results_by_country_and_FAO %>% 
+  filter(scaled) %>% 
+  select(-scaled) %>% 
+  mutate_at(vars(catch), funs(round(./10^3))) %>% 
+  mutate_at(seq(4,11), funs(round(./10^6))) %>%
+  head(40) %>%  
+    kable(col.names = c("Country", "FAO","Catch","Revenue","Cost low bound","Cost high bound", "π low bound","π high bound","Subsidies","π* low bound", "π* high bound"),
+        caption = "Table SX: Summary of scaled results by country and FAO region")
+```
+
+
+```{r }
+(summary_plot_by_country_and_FAO <- summary_results_by_country_and_FAO %>% 
+  head(100) %>% 
+  select(country,FAO_region,scaled, revenue, profits_low_bound, profits_high_bound, profits_with_subsidies_low_bound, profits_with_subsidies_high_bound) %>% 
+  filter(scaled) %>% 
+  gather(var, value, -country,-revenue,-scaled,-FAO_region) %>% 
+  #filter(country %in% c("CHN", "JPN", "TWN","KOR","ESP","FRA","MEX","IDN", "ECU", "USA","VUT")) %>% 
+  mutate(var = stringr::str_replace_all(var, "profits_with_subsidies", "π*"),
+         var = stringr::str_replace_all(var, "profits", "π"),
+         var = stringr::str_replace_all(var, "_", " ")) %>% 
+  mutate(country = paste(country, FAO_region)) %>% 
+  group_by(country) %>% 
+  mutate(min = min(value),
+         max = max(value)) %>% 
+  ggplot()+
+  geom_linerange(aes(x = forcats::fct_reorder(country, value), ymin = min, ymax  = max), col = 'azure4')+
+  geom_point(aes(x = forcats::fct_reorder(country, value), y = value, shape = var,  col = value > 0), size = 2)+
+  geom_hline(aes(yintercept = 1), linetype = 3) +
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "", y = " Profits")+
+  scale_shape_manual(name = "Estimate", 
+                     values = c(1,2,16,17))+
+  theme(legend.margin = margin(t = 0, unit = 'cm'))+
+  scale_colour_manual(values = c("#FC4E07","#2E9FDF"), guide = FALSE))
+```
+
+## Summary by country and FAO region and gear
+
+```{r}
+summary_results_by_country_and_FAO_and_gear <- bind_rows(high_seas_profits_by_vessel_and_FAO_region %>% 
+  #na.omit(revenue) %>% 
+  filter(!is.na(revenue)) %>% 
+  group_by(year, sovereign_flag_iso3, sovereign_flag_country_name,FAO_region, gear_type) %>% 
+  summarise(catch = sum(catch),
+            revenue = sum(revenue),
+            subsidies = sum(subsidies),
+            unscaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            unscaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            unscaled__profits_low_bound = sum(profits__low_bound),
+            unscaled__profits_high_bound = sum(profits__high_bound),
+            unscaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            unscaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound),
+            scaled__costs_low_bound = sum(high_seas_scaled_total_cost__low_bound),
+            scaled__costs_high_bound = sum(high_seas_scaled_total_cost__high_bound),
+            scaled__profits_low_bound = sum(scaled_profits__low_bound),
+            scaled__profits_high_bound = sum(scaled_profits__high_bound),
+            scaled__profits_with_subsidies_low_bound = sum(scaled_profits_with_subsidies__low_bound),
+            scaled__profits_with_subsidies_high_bound = sum(scaled_profits_with_subsidies__high_bound)           
+            ) %>% 
+  gather(variable, value, - revenue,-sovereign_flag_iso3,-sovereign_flag_country_name,-year, -FAO_region,-gear_type, -catch, -subsidies) %>% 
+  separate(variable, into = c("scaled", "variable"), sep =  "__") %>% 
+  spread(variable, value), 
+Indo_high_seas_profits_by_vessel_and_FAO_region %>% 
+  #na.omit(revenue) %>% 
+  filter(!is.na(revenue)) %>% 
+  group_by(year, sovereign_flag_iso3,sovereign_flag_country_name, FAO_region, gear_type) %>% 
+  summarise(catch = sum(catch),
+            revenue = sum(revenue),
+            subsidies = sum(subsidies),
+            unscaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            unscaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            unscaled__profits_low_bound = sum(profits__low_bound),
+            unscaled__profits_high_bound = sum(profits__high_bound),
+            unscaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            unscaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound),
+            scaled__costs_low_bound = sum(high_seas_total_cost__low_bound),
+            scaled__costs_high_bound = sum(high_seas_total_cost__high_bound),
+            scaled__profits_low_bound = sum(profits__low_bound),
+            scaled__profits_high_bound = sum(profits__high_bound),
+            scaled__profits_with_subsidies_low_bound = sum(profits_with_subsidies__low_bound),
+            scaled__profits_with_subsidies_high_bound = sum(profits_with_subsidies__high_bound)           
+            ) %>% 
+  gather(variable, value, - revenue,-sovereign_flag_iso3,-sovereign_flag_country_name,-year, -FAO_region,-gear_type,  -catch, -subsidies) %>% 
+  separate(variable, into = c("scaled", "variable"), sep =  "__") %>% 
+  spread(variable, value)) %>% 
+  arrange(desc(revenue)) %>% 
+  mutate(scaled = ifelse(scaled == "scaled", T, F)) %>% 
+  ungroup() %>% 
+  select(country = sovereign_flag_iso3,
+         sovereign_flag_country_name,
+         FAO_region,gear_type,scaled,catch, revenue, costs_low_bound, costs_high_bound,  profits_low_bound, profits_high_bound, subsidies, profits_with_subsidies_low_bound,profits_with_subsidies_high_bound, -year) 
+```
+
+#### Unscaled
+
+```{r}
+summary_results_by_country_and_FAO_and_gear %>% 
+  filter(!scaled) %>% 
+  select(-scaled, - sovereign_flag_country_name) %>% 
+  mutate(gear_type = case_when(
+    gear_type == "purse_seines" ~ "PS",
+    gear_type == "drifting_longlines" ~ "LL",
+    gear_type == "squid_jigger" ~ "SJ",
+    gear_type == "trawlers" ~ "TR",
+    gear_type == "pole_and_line" ~ "PL",
+    gear_type == "fixed_gear" ~ "FG",
+    gear_type == "other_fishing" ~ "OF"
+  )) %>% 
+  mutate_at(vars(catch), funs(round(./10^3))) %>% 
+  mutate_at(seq(5,12), funs(round(./10^6))) %>%
+  head(40) %>% 
+    kable(col.names = c("Country", "FAO", "Gear","Catch","Revenue","Cost low bound","Cost high bound", "π low bound","π high bound","Subsidies","π* low bound", "π* high bound"),
+        caption = "Table SX: Summary of unscaled results by country , FAO region, and gear")
+```
+
+#### Scaled
+
+```{r}
+summary_results_by_country_and_FAO_and_gear %>% 
+  filter(scaled) %>% 
+  select(-scaled, - sovereign_flag_country_name) %>% 
+   mutate(gear_type = case_when(
+    gear_type == "purse_seines" ~ "PS",
+    gear_type == "drifting_longlines" ~ "LL",
+    gear_type == "squid_jigger" ~ "SJ",
+    gear_type == "trawlers" ~ "TR",
+    gear_type == "pole_and_line" ~ "PL",
+    gear_type == "fixed_gear" ~ "FG",
+    gear_type == "other_fishing" ~ "OF"
+  )) %>% 
+mutate_at(vars(catch), funs(round(./10^3))) %>% 
+  mutate_at(seq(5,12), funs(round(./10^6))) %>%
+  head(40) %>% 
+    kable(col.names = c("Country", "FAO", "Gear","Catch","Revenue","Cost low bound","Cost high bound", "π low bound","π high bound","Subsidies","π* low bound", "π* high bound"),
+        caption = "Table SX: Summary of scaled results by country , FAO region, and gear")
+```
+
+
+```{r fig.height=7.5}
+(summary_plot_by_country_and_FAO_and_gear <- summary_results_by_country_and_FAO_and_gear %>% 
+   filter(scaled) %>%
+   mutate(gear_type = case_when(
+    gear_type == "purse_seines" ~ "PS",
+    gear_type == "drifting_longlines" ~ "LL",
+    gear_type == "squid_jigger" ~ "SJ",
+    gear_type == "trawlers" ~ "TR",
+    gear_type == "pole_and_line" ~ "PL",
+    gear_type == "fixed_gear" ~ "FG",
+    gear_type == "other_fishing" ~ "OF")) %>% 
+  head(50) %>% 
+  select(country,FAO_region,scaled, revenue, profits_low_bound, profits_high_bound, profits_with_subsidies_low_bound, profits_with_subsidies_high_bound,gear_type) %>% 
+  gather(var, value, -country,-revenue,-scaled,-FAO_region,-gear_type) %>% 
+  #filter(country %in% c("CHN", "JPN", "TWN","KOR","ESP","FRA","MEX","IDN", "ECU", "USA","VUT")) %>% 
+  mutate(var = stringr::str_replace_all(var, "profits_with_subsidies", "π*"),
+         var = stringr::str_replace_all(var, "profits", "π"),
+         var = stringr::str_replace_all(var, "_", " ")) %>% 
+  mutate(country = paste(country, FAO_region, gear_type)) %>% 
+  group_by(country) %>% 
+  mutate(min = min(value),
+         max = max(value)) %>% 
+  ggplot()+
+  geom_linerange(aes(x = forcats::fct_reorder(country, value), ymin = min, ymax  = max), col = 'azure4')+
+  geom_point(aes(x = forcats::fct_reorder(country, value), y = value, shape = var,  col = value > 0), size = 2)+
+  geom_hline(aes(yintercept = 1), linetype = 3) +
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "", y = " Profits")+
+  scale_shape_manual(name = "Estimate", 
+                     values = c(1,2,16,17))+
+  theme(legend.margin = margin(t = 0, unit = 'cm'))+
+  scale_colour_manual(values = c("#FC4E07","#2E9FDF"), guide = FALSE))
+```
+
+## Maps
+
+```{r}
+var_names <- list(
+  'profits' = "Profits low bound ",
+  'profits_low_labor_cost' = "Profits high bound (low labor cost)",
+  'profits_with_subsidies' = "Profits with subsidies low bound",
+  'profits_with_subsidies_high_bound_low_labor_cost' = "Profits with subsidies high bound (low labor cost)"
+)
+
+var_labeller <- function(variable,value){
+  return(var_names[value])
+}
+```
+
+```{sql connection = BQ_connection, output.var = "half_degree_binned_profits_by_iso3_and_fao_region", eval = F}
+SELECT
+  year, 
+  sovereign_flag_iso3 iso3,
+  FAO_Region FAO_Region,
+  FLOOR(lat*2)/2 +.25 lat_bin_center,
+  FLOOR(lon*2)/2 + .25 lon_bin_center,
+  sum(apportioned_total_cost__low_bound) high_seas_total_cost__low_bound,
+  sum(apportioned_total_cost__high_bound) high_seas_total_cost__high_bound,
+  sum(apportioned_total_cost_minus_subsidies__low_bound) high_seas_total_cost_minus_subsidies__low_bound,
+  sum(apportioned_total_cost_minus_subsidies__high_bound) high_seas_total_cost_minus_subsidies__high_bound,
+  sum(apportioned_and_scaled_total_cost__low_bound) high_seas_scaled_total_cost__low_bound,
+  sum(apportioned_and_scaled_total_cost__high_bound) high_seas_scaled_total_cost__high_bound,
+  sum(apportioned_and_scaled_total_cost_minus_subsidies__low_bound) high_seas_scaled_total_cost_minus_subsidies__low_bound,
+  sum(apportioned_and_scaled_total_cost_minus_subsidies__high_bound) high_seas_scaled_total_cost_minus_subsidies__high_bound,
+  sum(revenue) revenue,
+  sum(profits__high_bound) profits__high_bound,
+  sum(profits__low_bound) profits__low_bound,
+  sum(profits_with_subsidies__high_bound) profits_with_subsidies__high_bound,
+  sum(profits_with_subsidies__low_bound) profits_with_subsidies__low_bound,
+  sum(scaled_profits__high_bound) scaled_profits__high_bound,
+  sum(scaled_profits__low_bound) scaled_profits__low_bound,
+  sum(scaled_profits_with_subsidies__high_bound) scaled_profits_with_subsidies__high_bound,
+  sum(scaled_profits_with_subsidies__low_bound) scaled_profits_with_subsidies__low_bound
+  from
+  [high-seas:profits.high_seas_profits]
+  where revenue is not null
+   AND mmsi not in (224084620, 224107670) /* trawlers South Atlantic as PS*/
+   AND mmsi not in (431560000, 431757000, 432846000) /*Western Pacific research as PS*/
+   AND mmsi not in (431704470, 431267000, 431800050) /*north west pacific, squid jiggers as PS, and research vessel FRA */
+   AND mmsi not in (416000002) /* south atlantic */
+   ANd mmsi not in (431700260, 431797000,431704490) /* offsetting longliners, Panama */
+   and mmsi not in (412421007) /* DL track in EEZ north Pacific */
+   And mmsi not in (413322690,413322770) /*DL track in EEZ near NZ, good longliners, odd fishing */
+   AND mmsi not in (412420971, 412420973) /* odd squid jiggers tracking across Pacific */
+   AND mmsi not in (416121800) /*south Pacific track across EEZ */
+   AND mmsi NOT IN (412421005) /*squid jigger appears to be fishing across southern Atlantic during transit */
+   AND mmsi NOT IN (441051000,412420001) /*trawler, transitting south Atlantic */
+   AND mmsi NOT IN (432288000) /* research vessel, track across West Pacific EEZ, listed as drifting longliner */
+    and mmsi in (SELECT mmsi FROM [world-fishing-827:gfw_research_precursors.vi__allyears_best_label_fishing_20180328] group by mmsi)
+    and mmsi not in (412420624) and year == 2016
+  GROUP BY
+  year, 
+  iso3,
+  FAO_Region,
+  lat_bin_center,
+  lon_bin_center
+```
+
+```{sql connection = BQ_connection, output.var = "Indo_half_degree_binned_profits_by_iso3_and_fao_region", eval = F}
+SELECT
+  year,
+  sovereign_flag_iso3 iso3,
+  FAO_Region FAO_Region,
+  FLOOR(lat*2)/2 +.25 lat_bin_center,
+  FLOOR(lon*2)/2 + .25 lon_bin_center,
+  sum(apportioned_total_cost__low_bound) high_seas_total_cost__low_bound,
+  sum(apportioned_total_cost__high_bound) high_seas_total_cost__high_bound,
+  sum(apportioned_total_cost_minus_subsidies__low_bound) high_seas_total_cost_minus_subsidies__low_bound,
+  sum(apportioned_total_cost_minus_subsidies__high_bound) high_seas_total_cost_minus_subsidies__high_bound,
+  sum(apportioned_total_cost__low_bound) high_seas_scaled_total_cost__low_bound,
+  sum(apportioned_total_cost__high_bound) high_seas_scaled_total_cost__high_bound,
+  sum(apportioned_total_cost_minus_subsidies__low_bound) high_seas_scaled_total_cost_minus_subsidies__low_bound,
+  sum(apportioned_total_cost_minus_subsidies__high_bound) high_seas_scaled_total_cost_minus_subsidies__high_bound,
+  sum(revenue) revenue,
+  sum(profits__high_bound) profits__high_bound,
+  sum(profits__low_bound) profits__low_bound,
+  sum(profits_with_subsidies__high_bound) profits_with_subsidies__high_bound,
+  sum(profits_with_subsidies__low_bound) profits_with_subsidies__low_bound,
+  sum(profits__high_bound) scaled_profits__high_bound,
+  sum(profits__low_bound) scaled_profits__low_bound,
+  sum(profits_with_subsidies__high_bound) scaled_profits_with_subsidies__high_bound,
+  sum(profits_with_subsidies__low_bound) scaled_profits_with_subsidies__low_bound
+  from
+  [high-seas:profits.Indo_high_seas_profits]
+  where  revenue is not null and year == 2016
+  GROUP BY
+  year,
+  iso3,
+  FAO_Region,
+  lat_bin_center,
+  lon_bin_center
+```
+
+```{r eval = F}
+half_degree_binned_profits_by_iso3_and_fao_region <- bind_rows(
+  half_degree_binned_profits_by_iso3_and_fao_region,
+  Indo_half_degree_binned_profits_by_iso3_and_fao_region
+  )
+```
+
+
+```{r, eval = F}
+write_csv(half_degree_binned_profits_by_iso3_and_fao_region,
+          "saved_files/half_degree_binned_profits_by_iso3_and_fao_region.csv")
+```
+
+
+```{r}
+half_degree_binned_profits_by_iso3_and_fao_region <- read_csv(
+  "saved_files/half_degree_binned_profits_by_iso3_and_fao_region.csv"
+  )
+```
+
+### Global
+
+#### Unscaled 
+
+```{r}
+(high_seas_profits_2016_unscaled <- half_degree_binned_profits_by_iso3_and_fao_region %>%
+   filter(year == 2016) %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+   summarize(profits = sum(profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_high_low_labor_cost = sum(profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  filter(profits != 0) %>% 
+  gather(var, value, -lon_bin_center,-lat_bin_center) %>% 
+   ungroup() %>% 
+  ggplot() +
+  geom_sf(data = world_map, size = .1) +
+  geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+                interpolate = F, 
+                show.legend = T) +
+   scale_fill_gradientn("Profits (thousand usd)", 
+                        colors = c('#a50026','#d73027','#f46d43','#f46d43','#fdae61','#fdae61','#fee090','#fee090','gray',
+                                   '#e0f3f8','#e0f3f8','#abd9e9','#abd9e9','#74add1','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks()))+
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(5)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 label.theme = element_text(angle = 0, size = rel(5)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   facet_wrap("var", strip.position = "bottom") +
+   theme(legend.position = "bottom",
+         legend.text = element_text(color = "black", size = rel(.15)),
+         legend.title = element_text(color = "black", size = rel(.15)),
+         strip.text = element_text(angle = 0, size = 4),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+#### Scaled 
+
+```{r}
+(high_seas_profits_2016_scaled <- half_degree_binned_profits_by_iso3_and_fao_region %>%
+   filter(year == 2016) %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+   summarize(profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_high_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  filter(profits != 0) %>% 
+  gather(var, value, -lon_bin_center,-lat_bin_center) %>% 
+  ungroup() %>% 
+  ggplot() +
+  geom_sf(data = world_map, size = .1) +
+  geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+                interpolate = F, 
+                show.legend = T) +
+   scale_fill_gradientn("Profits (thousand usd)", 
+                        colors = c('#a50026','#d73027','#f46d43','#f46d43','#fdae61','#fdae61','#fee090','#fee090','gray',
+                                   '#e0f3f8','#e0f3f8','#abd9e9','#abd9e9','#74add1','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks()))+
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(5)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 label.theme = element_text(angle = 0, size = rel(5)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   facet_wrap("var", strip.position = "bottom") +
+   theme(legend.position = "bottom",
+         legend.text = element_text(color = "black", size = rel(.15)),
+         legend.title = element_text(color = "black", size = rel(.15)),
+         strip.text = element_text(angle = 0, size = 4),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+### By country
+
+#### China
+```{r, CHN_scaled_map}
+(high_seas_profits_2016_scaled_CHN <- half_degree_binned_profits_by_iso3_and_fao_region %>%
+  filter(iso3 == "CHN", year == 2016) %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+   summarize(profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_high_bound_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  filter(profits != 0) %>% 
+  gather(var, value, -lon_bin_center,-lat_bin_center) %>% 
+   ungroup() %>% 
+  ggplot() +
+  geom_sf(data = world_map, size = .1) +
+  geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+                interpolate = F, 
+                show.legend = T) +
+   scale_fill_gradientn("Profits (thousand usd)", 
+                        colors = c('#a50026','#d73027','#f46d43','#f46d43','#fdae61','#fee090','gray',
+                                   '#e0f3f8','#abd9e9','#74add1','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks()))+
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(10)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 label.theme = element_text(angle = 0, size = rel(10)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   labs(title = "China",
+        subtitle = "Scaled")+
+   facet_wrap("var", strip.position = "top", labeller = var_labeller) +
+   theme(legend.position = "bottom",
+         legend.text = element_text(color = "black", size = rel(.15)),
+         legend.title = element_text(color = "black", size = rel(.15)),
+         strip.text = element_text(angle = 0, size = 10),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+#### Taiwan
+
+```{r, TWN_scaled_map}
+(high_seas_profits_2016_scaled_TWN <- half_degree_binned_profits_by_iso3_and_fao_region %>%
+  filter(iso3 == "TWN") %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+   summarize(profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_high_bound_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  filter(profits != 0) %>% 
+  gather(var, value, -lon_bin_center,-lat_bin_center) %>% 
+   ungroup() %>% 
+  ggplot() +
+  geom_sf(data = world_map, size = .1) +
+  geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+                interpolate = F, 
+                show.legend = T) +
+   scale_fill_gradientn("Profits (thousand usd)", 
+                        colors = c('#a50026','#d73027','#f46d43','#f46d43','#fdae61','#fee090','gray',
+                                   '#e0f3f8','#abd9e9','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks()))+
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(10)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 label.theme = element_text(angle = 0, size = rel(10)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   labs(title = "Taiwan",
+        subtitle = "Scaled")+
+   facet_wrap("var", strip.position = "top", labeller = var_labeller) +
+   theme(legend.position = "bottom",
+         legend.text = element_text(color = "black", size = rel(.15)),
+         legend.title = element_text(color = "black", size = rel(.15)),
+         strip.text = element_text(angle = 0, size = 10),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+#### Japan
+```{r, JPN_scaled_map}
+(high_seas_profits_2016_scaled_JPN <- half_degree_binned_profits_by_iso3_and_fao_region %>%
+  filter(iso3 == "JPN") %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+   summarize(profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_high_bound_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  filter(profits != 0) %>% 
+  gather(var, value, -lon_bin_center,-lat_bin_center) %>% 
+   ungroup() %>% 
+  ggplot() +
+  geom_sf(data = world_map, size = .1) +
+  geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+                interpolate = F, 
+                show.legend = T) +
+   scale_fill_gradientn("Profits (thousand usd)", 
+                        colors = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','gray',
+                                   '#e0f3f8','#abd9e9','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks()))+
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(5)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 label.theme = element_text(angle = 0, size = rel(5)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   labs(title = "Japan",
+        subtitle = "Scaled")+
+   facet_wrap("var", strip.position = "top", labeller = var_labeller) +
+   theme(legend.position = "bottom",
+         legend.text = element_text(color = "black", size = rel(.15)),
+         legend.title = element_text(color = "black", size = rel(.15)),
+         strip.text = element_text(angle = 0, size = 6),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+#### South Korea
+
+```{r, KOR_scaled_map}
+(high_seas_profits_2016_scaled_KOR <- half_degree_binned_profits_by_iso3_and_fao_region %>%
+  filter(iso3 == "KOR") %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+   summarize(profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_high_bound_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  filter(profits != 0) %>% 
+  gather(var, value, -lon_bin_center,-lat_bin_center) %>% 
+   ungroup() %>% 
+  ggplot() +
+  geom_sf(data = world_map, size = .1) +
+  geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+                interpolate = F, 
+                show.legend = T) +
+   scale_fill_gradientn("Profits (thousand usd)", 
+                        colors = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','gray',
+                                   '#e0f3f8','#abd9e9','#74add1','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks()))+
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(5)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 label.theme = element_text(angle = 0, size = rel(5)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   labs(title = "South Korea",
+        subtitle = "Scaled")+
+   facet_wrap("var", strip.position = "top", labeller = var_labeller) +
+   theme(legend.position = "bottom",
+         legend.text = element_text(color = "black", size = rel(.15)),
+         legend.title = element_text(color = "black", size = rel(.15)),
+         strip.text = element_text(angle = 0, size = 6),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+#### Spain
+
+```{r, ESP_scaled_map}
+(high_seas_profits_2016_scaled_ESP <- half_degree_binned_profits_by_iso3_and_fao_region %>%
+  filter(iso3 == "ESP") %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+   summarize(profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_high_bound_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  filter(profits != 0) %>% 
+  gather(var, value, -lon_bin_center,-lat_bin_center) %>% 
+   ungroup() %>% 
+  ggplot() +
+  geom_sf(data = world_map, size = .1) +
+  geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+                interpolate = F, 
+                show.legend = T) +
+   scale_fill_gradientn("Profits (thousand usd)", 
+                        colors = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','gray',
+                                   '#e0f3f8','#abd9e9','#74add1','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks()))+
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(5)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 label.theme = element_text(angle = 0, size = rel(5)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   labs(title = "Spain",
+        subtitle = "Scaled")+
+   facet_wrap("var", strip.position = "top", labeller = var_labeller) +
+   theme(legend.position = "bottom",
+         legend.text = element_text(color = "black", size = rel(.15)),
+         legend.title = element_text(color = "black", size = rel(.15)),
+         strip.text = element_text(angle = 0, size = 6),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+#### France
+
+```{r, FRA_scaled_map}
+(high_seas_profits_2016_scaled_FRA <- half_degree_binned_profits_by_iso3_and_fao_region %>%
+  filter(iso3 == "FRA") %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+   summarize(profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_high_bound_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  filter(profits != 0) %>% 
+  gather(var, value, -lon_bin_center,-lat_bin_center) %>% 
+   ungroup() %>% 
+  ggplot() +
+  geom_sf(data = world_map, size = .1) +
+  geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+                interpolate = F, 
+                show.legend = T) +
+   scale_fill_gradientn("Profits (thousand usd)", 
+                        colors = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','gray',
+                                   '#e0f3f8','#abd9e9','#abd9e9','#74add1','#74add1','#4575b4','#4575b4','#313695','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks()))+
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(5)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 label.theme = element_text(angle = 0, size = rel(5)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   labs(title = "France",
+        subtitle = "Scaled")+
+   facet_wrap("var", strip.position = "top", labeller = var_labeller) +
+   theme(legend.position = "bottom",
+         legend.text = element_text(color = "black", size = rel(.15)),
+         legend.title = element_text(color = "black", size = rel(.15)),
+         strip.text = element_text(angle = 0, size = 6),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+#### Portugal
+
+```{r, PRT_scaled_map}
+(high_seas_profits_2016_scaled_PRT <- half_degree_binned_profits_by_iso3_and_fao_region %>%
+  filter(iso3 == "PRT") %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+   summarize(profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_high_bound_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  filter(profits != 0) %>% 
+  gather(var, value, -lon_bin_center,-lat_bin_center) %>% 
+   ungroup() %>% 
+  ggplot() +
+  geom_sf(data = world_map, size = .1) +
+  geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+                interpolate = F, 
+                show.legend = T) +
+   scale_fill_gradientn("Profits (thousand usd)", 
+                        colors = c('#a50026','#d73027','#f46d43','#f46d43','#fdae61','#fee090','gray',
+                                   '#e0f3f8','#abd9e9','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(20),
+                                                  minor_breaks = scales::regular_minor_breaks()))+
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(5)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 label.theme = element_text(angle = 0, size = rel(5)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   labs(title = "Portugal",
+        subtitle = "Scaled")+
+   facet_wrap("var", strip.position = "top", labeller = var_labeller) +
+   theme(legend.position = "bottom",
+         legend.text = element_text(color = "black", size = rel(.15)),
+         legend.title = element_text(color = "black", size = rel(.15)),
+         strip.text = element_text(angle = 0, size = 6),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+#### Russia
+
+```{r, Russia, eval = F}
+half_degree_binned_profits_by_iso3_and_fao_region %>%
+  filter(iso3 == "RUS") %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+   summarize(profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_high_bound_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  filter(profits != 0) %>% 
+  gather(var, value, -lon_bin_center,-lat_bin_center) %>% 
+  ungroup() %>% 
+  ggplot() +
+  geom_sf(data = world_map, size = .1) +
+  geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+                interpolate = F, 
+                show.legend = T) +
+   scale_fill_gradientn("Profits (thousand usd)", 
+                        colors = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','gray',
+                                   '#e0f3f8','#abd9e9','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(20),
+                                                  minor_breaks = scales::regular_minor_breaks()))+
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(5)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 label.theme = element_text(angle = 0, size = rel(5)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   labs(
+        subtitle = "Scaled")+
+   facet_wrap("var", strip.position = "top", labeller = var_labeller) +
+   theme(legend.position = "bottom",
+         legend.text = element_text(color = "black", size = rel(.15)),
+         legend.title = element_text(color = "black", size = rel(.15)),
+         strip.text = element_text(angle = 0, size = 6),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent'))
+```
+
+
+## By Gear type 
+
+```{sql connection = BQ_connection, output.var = "half_degree_binned_profits_by_gear_type", eval = F}
+SELECT
+  year,
+  gear_type gear_type,
+  FAO_Region FAO_Region,
+  FLOOR(lat*2)/2 +.25 lat_bin_center,
+  FLOOR(lon*2)/2 + .25 lon_bin_center,
+  sum(apportioned_total_cost__low_bound) high_seas_total_cost__low_bound,
+  sum(apportioned_total_cost__high_bound) high_seas_total_cost__high_bound,
+  sum(apportioned_total_cost_minus_subsidies__low_bound) high_seas_total_cost_minus_subsidies__low_bound,
+  sum(apportioned_total_cost_minus_subsidies__high_bound) high_seas_total_cost_minus_subsidies__high_bound,
+  sum(apportioned_and_scaled_total_cost__low_bound) high_seas_scaled_total_cost__low_bound,
+  sum(apportioned_and_scaled_total_cost__high_bound) high_seas_scaled_total_cost__high_bound,
+  sum(apportioned_and_scaled_total_cost_minus_subsidies__low_bound) high_seas_scaled_total_cost_minus_subsidies__low_bound,
+  sum(apportioned_and_scaled_total_cost_minus_subsidies__high_bound) high_seas_scaled_total_cost_minus_subsidies__high_bound,
+  sum(revenue) revenue,
+  sum(profits__high_bound) profits__high_bound,
+  sum(profits__low_bound) profits__low_bound,
+  sum(profits_with_subsidies__high_bound) profits_with_subsidies__high_bound,
+  sum(profits_with_subsidies__low_bound) profits_with_subsidies__low_bound,
+  sum(scaled_profits__high_bound) scaled_profits__high_bound,
+  sum(scaled_profits__low_bound) scaled_profits__low_bound,
+  sum(scaled_profits_with_subsidies__high_bound) scaled_profits_with_subsidies__high_bound,
+  sum(scaled_profits_with_subsidies__low_bound) scaled_profits_with_subsidies__low_bound
+  from
+  [high-seas:profits.high_seas_profits]
+  where  mmsi not in (224084620, 224107670) /* trawlers South Atlantic as PS*/
+AND mmsi not in (431560000, 431757000, 432846000) /*Western Pacific research as PS*/
+AND mmsi not in (431704470, 431267000, 431800050) /*north west pacific, squid jiggers as PS, and research vessel FRA */
+AND mmsi not in (416000002) /* south atlantic */
+ANd mmsi not in (431700260, 431797000,431704490) /* offsetting longliners, Panama */
+and mmsi not in (412421007) /* DL track in EEZ north Pacific */
+And mmsi not in (413322690,413322770) /*DL track in EEZ near NZ, good longliners, odd fishing */
+AND mmsi not in (412420971, 412420973) /* odd squid jiggers tracking across Pacific */
+AND mmsi not in (416121800) /*south Pacific track across EEZ */
+AND mmsi NOT IN (412421005) /*squid jigger appears to be fishing across southern Atlantic during transit */
+AND mmsi NOT IN (441051000,412420001) /*trawler, transitting south Atlantic */
+AND mmsi NOT IN (432288000) /* research vessel, track across West Pacific EEZ, listed as drifting longliner */
+and year == 2016
+  GROUP BY
+  year, 
+  gear_type,
+  FAO_Region,
+  lat_bin_center,
+  lon_bin_center
+```
+```{sql connection = BQ_connection, output.var = "Indo_half_degree_binned_profits_by_gear_type", eval = F}
+SELECT
+  year,
+  gear_type gear_type,
+  FAO_Region FAO_Region,
+  FLOOR(lat*2)/2 +.25 lat_bin_center,
+  FLOOR(lon*2)/2 + .25 lon_bin_center,
+  sum(apportioned_total_cost__low_bound) high_seas_total_cost__low_bound,
+  sum(apportioned_total_cost__high_bound) high_seas_total_cost__high_bound,
+  sum(apportioned_total_cost_minus_subsidies__low_bound) high_seas_total_cost_minus_subsidies__low_bound,
+  sum(apportioned_total_cost_minus_subsidies__high_bound) high_seas_total_cost_minus_subsidies__high_bound,
+  sum(revenue) revenue,
+  sum(profits__high_bound) profits__high_bound,
+  sum(profits__low_bound) profits__low_bound,
+  sum(profits_with_subsidies__high_bound) profits_with_subsidies__high_bound,
+  sum(profits_with_subsidies__low_bound) profits_with_subsidies__low_bound,
+  from
+  [high-seas:profits.Indo_high_seas_profits] 
+  where year == 2016
+  GROUP BY
+  year, 
+  gear_type,
+  FAO_Region,
+  lat_bin_center,
+  lon_bin_center
+```
+
+```{r, eval = F}
+half_degree_binned_profits_by_gear_type <- bind_rows(half_degree_binned_profits_by_gear_type %>% 
+  group_by(gear_type, lat_bin_center, lon_bin_center) %>% 
+  summarize(profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_and_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000
+             ),
+
+Indo_half_degree_binned_profits_by_gear_type %>% 
+    group_by(gear_type, lat_bin_center, lon_bin_center) %>% 
+  summarize(profits = sum(profits__low_bound, na.rm = T)/1000,
+             profits_low_labor_cost = sum(profits__high_bound, na.rm = T)/1000,
+             profits_with_subsidies = sum(profits_with_subsidies__low_bound, na.rm = T)/1000,
+             profits_with_subsidies_and_low_labor_cost = sum(profits_with_subsidies__high_bound, na.rm = T)/1000
+             ))
+```
+
+```{r, eval = F}
+write_csv(half_degree_binned_profits_by_gear_type,
+          "saved_files/half_degree_binned_profits_by_gear_type.csv")
+```
+
+```{r}
+half_degree_binned_profits_by_gear_type <- read_csv("saved_files/half_degree_binned_profits_by_gear_type.csv")
+```
+
+#### Trawlers
+
+```{r}
+(Trawlers_profits_map_scaled <- half_degree_binned_profits_by_gear_type %>%
+   filter(profits != 0) %>% 
+   filter(gear_type == "trawlers") %>% 
+   gather(var, value, -lon_bin_center, -lat_bin_center, - gear_type) %>% 
+   ungroup() %>% 
+   ggplot() +
+   geom_sf(data = world_map, size = .1) +
+   geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+               interpolate = F, 
+               show.legend = T) +
+   scale_fill_gradientn("Thousand $", 
+                        colors = c('#a50026','#d73027','#f46d43','#f46d43','#fdae61','#fee090','gray','#e0f3f8','#abd9e9','#74add1','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks())) +
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(4)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 barwidth = 8,
+                                 label.theme = element_text(angle = 0, size = rel(4)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   facet_wrap("var")+
+   labs(title = "Fishing Profits in the High Seas",
+        subtitle = "Trawlers",
+        caption = "Scaled")+
+   theme(plot.title = element_text(size = 8),
+         plot.subtitle  = element_text(size = 8))+
+   theme(legend.position = "bottom",
+         strip.text = element_text(angle = 0, size = 4),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+#### Longlines
+
+
+
+```{r}
+(Longliners_profits_map_scaled <- half_degree_binned_profits_by_gear_type %>%
+   filter(profits != 0) %>% 
+   filter(gear_type == "drifting_longlines") %>% 
+   gather(var, value, -lon_bin_center, -lat_bin_center, - gear_type) %>% 
+   ungroup() %>%
+   ggplot() +
+   geom_sf(data = world_map, size = .1) +
+   geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+               interpolate = F, 
+               show.legend = T) +
+   scale_fill_gradientn("Thousand $", 
+                        colors = c('#a50026','#d73027','#f46d43','#f46d43','#fdae61','#fee090','gray','#e0f3f8','#abd9e9','#74add1','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks())) +
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(4)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 barwidth = 8,
+                                 label.theme = element_text(angle = 0, size = rel(4)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   facet_wrap("var")+
+   labs(title = "Fishing Profits in the High Seas",
+        subtitle = "Drifting longlines",
+        caption = "Scaled")+
+   theme(plot.title = element_text(size = 8),
+         plot.subtitle  = element_text(size = 8))+
+   theme(legend.position = "bottom",
+         strip.text = element_text(angle = 0, size = 4),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+
+#### Purse Seines
+
+
+```{r}
+(purse_seines_profits_map_scaled <- half_degree_binned_profits_by_gear_type %>%
+   filter(gear_type == "purse_seines") %>% 
+   gather(var, value, -lon_bin_center, -lat_bin_center, - gear_type) %>% 
+   ungroup() %>%
+   ggplot() +
+   geom_sf(data = world_map, size = .1) +
+   geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+               interpolate = F, 
+               show.legend = T) +
+   scale_fill_gradientn("Thousand $", 
+                        colors = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','gray','#e0f3f8','#abd9e9','#74add1','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks())) +
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(4)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 barwidth = 8,
+                                 label.theme = element_text(angle = 0, size = rel(4)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   facet_wrap("var")+
+   labs(title = "Fishing Profits in the High Seas",
+        subtitle = "Purse Seines",
+        caption = "Scaled")+
+   theme(plot.title = element_text(size = 8),
+         plot.subtitle  = element_text(size = 8))+
+   theme(legend.position = "bottom",
+         strip.text = element_text(angle = 0, size = 4),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+
+#### Squid Jiggers
+
+
+
+```{r}
+(squid_jigger_profits_map_scaled <- half_degree_binned_profits_by_gear_type %>%
+   filter(gear_type == "squid_jigger") %>% 
+   gather(var, value, -lon_bin_center, -lat_bin_center, - gear_type) %>% 
+   ungroup() %>%
+   ggplot() +
+   geom_sf(data = world_map, size = .1) +
+   geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+               interpolate = F, 
+               show.legend = T) +
+   scale_fill_gradientn("Thousand $", 
+                        colors = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','gray','#e0f3f8','#abd9e9','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks())) +
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(4)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 barwidth = 8,
+                                 label.theme = element_text(angle = 0, size = rel(4)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   facet_wrap("var")+
+   labs(title = "Fishing Profits in the High Seas",
+        subtitle = "Squid Jigger",
+        caption = "Scaled")+
+   theme(plot.title = element_text(size = 8),
+         plot.subtitle  = element_text(size = 8))+
+   theme(legend.position = "bottom",
+         strip.text = element_text(angle = 0, size = 4),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+#### Pole and Line
+
+```{r}
+(pole_and_line_profits_map_scaled <- half_degree_binned_profits_by_gear_type %>%
+   filter(gear_type == "pole_and_line") %>% 
+   gather(var, value, -lon_bin_center, -lat_bin_center, - gear_type) %>% 
+   ungroup() %>%
+   ggplot() +
+   geom_sf(data = world_map, size = .1) +
+   geom_raster(aes(lon_bin_center, lat_bin_center, fill = value), 
+               interpolate = F, 
+               show.legend = T) +
+   scale_fill_gradientn("Thousand $", 
+                        colors = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','gray','#e0f3f8','#abd9e9','#74add1','#4575b4','#313695'),
+                        trans = scales::trans_new("ihs_trans", 
+                                                  transform = ihs,
+                                                  inverse = ihs_inverse,
+                                                  breaks = ihs_breaks(10),
+                                                  minor_breaks = scales::regular_minor_breaks())) +
+   guides(fill = guide_colourbar(title.position = "top", 
+                                 title.hjust = 0.5,
+                                 title.theme = element_text(angle = 0, size = rel(4)),
+                                 keyheight = .2,
+                                 keywidth = .2,
+                                 barheight = .25,
+                                 barwidth = 8,
+                                 label.theme = element_text(angle = 0, size = rel(4)))) +
+   scale_x_continuous(expand = c(0,0)) +
+   scale_y_continuous(expand = c(0,0)) +
+   light_gfw_theme() +
+   facet_wrap("var")+
+   labs(title = "Fishing Profits in the High Seas",
+        subtitle = "Pole and Line",
+        caption = "Scaled")+
+   theme(plot.title = element_text(size = 8),
+         plot.subtitle  = element_text(size = 8))+
+   theme(legend.position = "bottom",
+         strip.text = element_text(angle = 0, size = 4),
+         strip.placement = "bottom",
+         strip.background = element_rect(fill = 'transparent')))
+```
+
+
+## % fishing area with negative profits
+
+```{r}
+high_seas_unprofitable_area <- half_degree_binned_profits_by_iso3_and_fao_region %>%
+  filter(year == 2016) %>% 
+  group_by(lon_bin_center, lat_bin_center) %>% 
+  summarize(unscaled__profits = sum(profits__low_bound, na.rm = T)/1000,
+            unscaled__profits_low_labor_cost = sum(profits__high_bound, na.rm = T)/1000,
+            unscaled__profits_with_subsidies = sum(profits_with_subsidies__low_bound, na.rm = T)/1000,
+            unscaled__profits_with_subsidies_high_low_labor_cost = sum(profits_with_subsidies__high_bound, na.rm = T)/1000,
+            scaled__profits = sum(scaled_profits__low_bound, na.rm = T)/1000,
+            scaled__profits_low_labor_cost = sum(scaled_profits__high_bound, na.rm = T)/1000,
+            scaled__profits_with_subsidies = sum(scaled_profits_with_subsidies__low_bound, na.rm = T)/1000,
+            scaled__profits_with_subsidies_high_low_labor_cost = sum(scaled_profits_with_subsidies__high_bound, na.rm = T)/1000) %>% 
+  gather(variable, value, -lat_bin_center, -lon_bin_center) %>% 
+  separate(variable, into = c("scaled", "variable"), sep =  "__") %>% 
+  spread(variable, value) %>% 
+  mutate(area = cos(NISTunits::NISTdegTOradian(lat_bin_center))*(111/2)^2) %>% 
+  ungroup() %>% 
+  group_by(scaled) %>% 
+  summarise(fished_area = sum(area),
+            unprofitable_area = sum(area[profits < 0], na.rm = T)/fished_area,
+            unprofitable_area_with_low_labor_cost = sum(area[profits_low_labor_cost < 0], na.rm = T)/fished_area,
+            unprofitable_area_with_subsidies = sum(area[profits_with_subsidies < 0],na.rm = T)/fished_area,
+            unprofitable_area_with_subsidies_and_low_labor_cost = sum(area[profits_with_subsidies_high_low_labor_cost < 0],na.rm = T)/fished_area) %>% 
+  mutate_if(is.numeric, round,2)
+
+high_seas_unprofitable_area
+```
+
+## Generate combined binned results file.
+
+```{sql connection = BQ_connection, output.var = "half_degree_binned_results"}
+SELECT
+  year, 
+  FLOOR(lat*2)/2 +.25 lat_bin_center,
+  FLOOR(lon*2)/2 + .25 lon_bin_center,
+  sum(hours*engine_power) fishing_KWH,
+  0.5*(sum(apportioned_and_scaled_total_cost__low_bound) + sum(apportioned_and_scaled_total_cost__high_bound)) mean_costs,
+  sum(revenue) revenue,
+  0.5*(sum(scaled_profits__high_bound) + sum(scaled_profits__low_bound)) mean_scaled_profits,
+  0.5*(sum(scaled_profits_with_subsidies__high_bound)  + sum(scaled_profits_with_subsidies__low_bound)) mean_scaled_profits_with_subsidies,
+  sum(scaled_profits_with_subsidies__high_bound) scaled_profits_low_labor_cost
+  from
+  [high-seas:profits.high_seas_profits]
+  where  nnet_score == 1
+   AND mmsi not in (224084620, 224107670) /* trawlers South Atlantic as PS*/
+   and mmsi not in (412420624)
+   AND mmsi not in (431560000, 431757000, 432846000) /*Western Pacific research as PS*/
+   AND mmsi not in (431704470, 431267000, 431800050) /*north west pacific, squid jiggers as PS, and research vessel FRA */
+   AND mmsi not in (416000002) /* south atlantic */
+   ANd mmsi not in (431700260, 431797000,431704490) /* offsetting longliners, Panama */
+   and mmsi not in (412421007) /* DL track in EEZ north Pacific */
+   And mmsi not in (413322690,413322770) /*DL track in EEZ near NZ, good longliners, odd fishing */
+   AND mmsi not in (412420971, 412420973) /* odd squid jiggers tracking across Pacific */
+   AND mmsi not in (416121800) /*south Pacific track across EEZ */
+   AND mmsi NOT IN (412421005) /*squid jigger appears to be fishing across southern Atlantic during transit */
+   AND mmsi NOT IN (441051000,412420001) /*trawler, transitting south Atlantic */
+   AND mmsi NOT IN (432288000) /* research vessel, track across West Pacific EEZ, listed as drifting longliner */
+   and mmsi in (SELECT mmsi FROM [world-fishing-827:gfw_research_precursors.vi__allyears_best_label_fishing_20180328] group by mmsi)
+   and year == 2016
+  GROUP BY
+  year,
+  lat_bin_center,
+  lon_bin_center
+```
+
+```{sql connection = BQ_connection, output.var = "Indo_half_degree_binned_results"}
+SELECT
+year, 
+  FLOOR(lat*2)/2 +.25 lat_bin_center,
+  FLOOR(lon*2)/2 + .25 lon_bin_center,
+  sum(hours*engine_power) fishing_KWH,
+  0.5*(sum(apportioned_total_cost__low_bound) + sum(apportioned_total_cost__high_bound)) mean_costs,
+  sum(revenue) revenue,
+  0.5*(sum(profits__high_bound) + sum(profits__low_bound)) mean_scaled_profits,
+  0.5*(sum(profits_with_subsidies__high_bound)  + sum(profits_with_subsidies__low_bound)) mean_scaled_profits_with_subsidies,
+  sum(profits_with_subsidies__high_bound) scaled_profits_low_labor_cost
+  from
+  [high-seas:profits.Indo_high_seas_profits]
+  where  nnet_score == 1
+  and year == 2016
+  GROUP BY
+  year,
+  lat_bin_center,
+  lon_bin_center
+```
+
+```{r}
+half_degree_binned_results <- bind_rows(half_degree_binned_results, Indo_half_degree_binned_results)
+
+write_csv(half_degree_binned_results, "saved_files/half_degree_binned_results.csv")
+```

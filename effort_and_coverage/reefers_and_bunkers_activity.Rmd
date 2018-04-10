@@ -1,0 +1,1433 @@
+---
+title: "Activity Bunkers and Reefers "
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(sp)
+library(rgdal)
+library(rgeos)
+library(tidyverse)
+library(bigrquery)
+library(lubridate)
+library(sf)
+library(party)
+library(partykit)
+library(rpart)
+library(doMC)
+library(AER)
+library(caret)
+set.seed(123)
+
+world_map <- rnaturalearth::ne_coastline(scale = 'small', returnclass = c("sf"))
+
+extrafont::loadfonts()
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "", project  = "high-seas", billing = "world-fishing-827")
+
+world_eez <- st_read("../general_project_files/world_eez/", "eez_lr")
+
+source("../general_project_files/functions.R")
+source("../general_project_files/gfw_themes.R")
+```
+
+```{r message=FALSE}
+complete_high_seas_reefers_and_bunkers_characteristics <- read_csv(
+  "../vessel_characteristics/saved_files/complete_high_seas_reefers_and_bunkers_characteristics.csv"
+  )
+
+complete_ais_vessel_characteristics <- read_csv(
+  "../vessel_characteristics/saved_files/complete_ais_vessel_characteristics.csv"
+  )
+
+complete_high_seas_indo_vms_characteristic <- read_csv(
+  "../vessel_characteristics/saved_files/complete_high_seas_indo_vms_characteristics.csv"
+  )
+```
+
+# Combine reefers and bunkers encounters
+
+```{r message=FALSE}
+reefer_encounters <- read_csv("saved_files/all_encounters_reefer_with_fishing_vessel.csv")
+
+reefer_encounters <- reefer_encounters %>% 
+  mutate(type = "reefer") %>% 
+  select(year, type, mmsi = transhipment_vessel_mmsi, flag_country_name = transhipment_vessel_flag_country_name, flag_iso3 = transhipment_vessel_flag_iso3, lon, lat, start_timestamp, end_timestamp, event_duration_hr, encounter_country, with_high_seas_vessel, fishing_vessel_mmsi, fishing_vessel_flag_country_name, fishing_vessel_flag_iso3) 
+
+
+bunker_encounters <- read_csv("saved_files/all_encounters_bunker_with_fishing_vessel.csv")
+
+bunker_encounters <- bunker_encounters %>% 
+  mutate(type = "bunker") %>% 
+  select(year, type,mmsi = bunker_vessel_mmsi, flag_country_name = bunker_vessel_flag_country_name, flag_iso3 = bunker_vessel_flag_iso3, lon, lat, start_timestamp, end_timestamp, event_duration_hr, encounter_country, with_high_seas_vessel, fishing_vessel_mmsi, fishing_vessel_flag_country_name, fishing_vessel_flag_iso3)
+
+all_encounters <- bind_rows(reefer_encounters, bunker_encounters)
+```
+
+```{r}
+all_encounters <- all_encounters %>% 
+  mutate(encounter_country = ifelse(encounter_country %in% c("Antarctica") | is.na(encounter_country), "High Seas", encounter_country))
+
+write_csv(all_encounters, "saved_files/all_encounters_with_fishing_vessels.csv")
+```
+
+
+# Summarize effort by vessel
+
+## Encounters
+
+```{r}
+encounters_by_vessel <- all_encounters %>% 
+  filter(year > 2012 & year < 2017) %>% 
+  replace_na(list(fishing_vessel_flag_iso3 = "unknown")) %>% 
+  group_by(year, mmsi, type, flag_country_name, flag_iso3) %>% 
+  summarise(all_encounters = n(),
+            encounters_with_high_seas_vessels = sum(with_high_seas_vessel),
+            encounters_on_high_seas = sum(encounter_country == "High Seas"),
+            encounters_with_high_seas_vessels_on_high_seas = sum(with_high_seas_vessel & encounter_country == "High Seas"),
+            distinct_flags = n_distinct(fishing_vessel_flag_iso3),
+            most_common_encounter_flag = names(table(fishing_vessel_flag_iso3))[which.max(table(fishing_vessel_flag_iso3))])
+```
+
+## Activity
+
+```{sql, connection = BQ_connection , output.var = "activity_by_vessel_2013_2016", eval = F}
+SELECT
+  a.year year,
+  a.mmsi mmsi,
+  a.days days,
+  a.days_on_high_seas days_on_high_seas,
+  a.hours hours,
+  a.hours_on_high_seas hours_on_high_seas,
+FROM (SELECT
+    YEAR(timestamp) year,
+    mmsi,
+    EXACT_COUNT_DISTINCT(DATE(timestamp)) days,
+    EXACT_COUNT_DISTINCT(IF(eez_iso3  IS NULL
+        AND (distance_from_shore >= 10*1852
+          OR INTEGER(FAO_region) IN (88,
+            48,
+            58)), DATE(timestamp), NULL)) days_on_high_seas,
+    SUM(hours) hours,
+    SUM(IF(eez_iso3 IS NULL
+        AND (distance_from_shore >= 10*1852
+          OR INTEGER(FAO_region) IN (88,
+            48,
+            58)), hours, 0)) hours_on_high_seas
+  FROM
+    [world-fishing-827:gfw_research.pipeline_p_p550_daily]
+  WHERE
+    _PARTITIONTIME BETWEEN TIMESTAMP('2013-01-01')
+    AND TIMESTAMP('2016-12-31')
+    AND lat < 80
+    AND lat > -80
+    AND lon < 180
+    AND lon > -180
+    and seg_id in (select seg_id from [world-fishing-827:gfw_research.pipeline_p_p550_daily_segs] where good_seg)
+    AND (distance_from_shore > 1000
+      OR (implied_speed > .1
+        AND implied_speed < 20))
+  GROUP BY
+    year,
+    mmsi) a
+INNER JOIN (
+ SELECT
+  year,
+  mmsi,
+  type,
+  sub_type,
+  flag_state ,
+  gap_hours,
+  gap_days,
+FROM
+  [high-seas:vessel_characteristics.complete_high_seas_reefers_and_bunkers_characteristics])b
+ON
+  a.mmsi = b.mmsi
+  AND a.year = b.year
+```
+
+```{sql, connection = BQ_connection, output.var = "activity_by_indo_vessel", eval = F}
+SELECT
+  YEAR(timestamp) year,
+  transmitter_no,
+  EXACT_COUNT_DISTINCT(DATE(timestamp)) days,
+  EXACT_COUNT_DISTINCT(IF(eez_id  IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48, 58)), DATE(timestamp), NULL)) days_on_high_seas,
+  SUM(hours) hours,
+  SUM(IF(eez_id IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48,58)), hours, 0)) hours_on_high_seas,
+FROM
+  [high-seas:Indonesia.indo_vms_nn]
+WHERE
+  raw_registered_gear_type == "Transporter"
+  AND mmsi is not null
+  AND lat < 80
+  AND lat > -80
+  AND lon < 180
+  AND lon >-180
+  AND (distance_from_shore > 1000 OR (speed  > .1 AND speed < 20))
+GROUP BY
+  year,
+  transmitter_no
+  having year < 2017 
+```
+
+```{r, eval = F}
+activity_by_indo_vessel <- activity_by_indo_vessel %>% 
+  mutate(mmsi = transmitter_no + 1000000000) %>% 
+  select(-transmitter_no)
+```
+
+```{r, eval = F}
+activity_by_vessel_2013_2016 <- complete_high_seas_reefers_and_bunkers_characteristics %>% 
+  select(year, mmsi, type, ship_name, sub_type, flag_country_name = flag_state, length, tonnage, engine_power, crew, gap_days, gap_hours) %>% 
+  left_join(activity_by_vessel_2013_2016, by = c('year', 'mmsi')) 
+
+
+indo_filled_activity <- activity_by_vessel_2013_2016 %>% 
+  filter(is.na(days)) %>% 
+  select(-days, -days_on_high_seas, -hours, -hours_on_high_seas) %>% 
+  left_join(activity_by_indo_vessel, by = c('year', 'mmsi')) 
+
+activity_by_vessel <- bind_rows(activity_by_vessel_2013_2016 %>% 
+                                  filter(!is.na(days)),
+                                indo_filled_activity)
+```
+
+## Effort
+
+```{r, eval = F}
+effort_by_high_seas_reefers_and_bunkers <- activity_by_vessel %>% 
+  left_join(encounters_by_vessel %>% 
+              ungroup() %>% 
+              select(year, mmsi, all_encounters, encounters_with_high_seas_vessels, encounters_on_high_seas, encounters_with_high_seas_vessels_on_high_seas, distinct_flags, most_common_encounter_flag), by = c("year","mmsi"))
+
+write_csv(effort_by_high_seas_reefers_and_bunkers, "saved_files/effort_by_high_seas_reefers_and_bunkers.csv")
+```
+
+# Summarize effort by vessel by FAO region
+
+## Encounters by FAO region
+
+```{r}
+effort_by_high_seas_reefers_and_bunkers <- read_csv("saved_files/effort_by_high_seas_reefers_and_bunkers.csv")
+```
+
+```{r}
+major_FAO_shp <- st_read("../general_project_files/major_fao_regions/", "major_FAO")
+
+all_encounters_sf <- st_as_sf(all_encounters %>% 
+                                      mutate(mean_lon = lon, mean_lat = lat), coords = c("mean_lon", "mean_lat"), 
+                                    crs = st_crs(major_FAO_shp))
+
+all_encounters_by_FAO <- st_join(all_encounters_sf, major_FAO_shp)
+```
+
+```{r}
+encounters_by_vessel_by_FAO <- all_encounters_by_FAO %>% 
+  st_set_geometry(NULL) %>% 
+  filter(year > 2012 & year < 2017) %>% 
+  replace_na(list(fishing_vessel_flag_iso3 = "unknown")) %>% 
+  mutate(FAO_region = as.integer(as.character(F_CODE))) %>% 
+  group_by(year, mmsi, type, flag_country_name, flag_iso3, FAO_region) %>% 
+  summarise(all_encounters = n(),
+            encounters_with_high_seas_vessels = sum(with_high_seas_vessel),
+            encounters_on_high_seas = sum(encounter_country == "High Seas"),
+            encounters_with_high_seas_vessels_on_high_seas = sum(with_high_seas_vessel & encounter_country == "High Seas"),
+            distinct_flags = n_distinct(fishing_vessel_flag_iso3),
+            most_common_encounter_flag = names(table(fishing_vessel_flag_iso3))[which.max(table(fishing_vessel_flag_iso3))])
+```
+
+## Activity by FAO region
+
+```{sql, connection = BQ_connection , output.var = "activity_by_vessel_by_FAO_2013_2016", eval = F}
+SELECT
+  a.year year,
+  a.mmsi mmsi,
+  a.FAO_region FAO_region, 
+  a.days days,
+  a.days_on_high_seas days_on_high_seas,
+  a.hours hours,
+  a.hours_on_high_seas hours_on_high_seas,
+FROM (
+  SELECT
+    YEAR(timestamp) year,
+    mmsi,
+    FAO_region,
+    EXACT_COUNT_DISTINCT(DATE(timestamp)) days,
+    EXACT_COUNT_DISTINCT(IF(eez_iso3  IS NULL
+        AND (distance_from_shore >= 10*1852
+          OR INTEGER(FAO_region) IN (88,
+            48,
+            58)), DATE(timestamp), NULL)) days_on_high_seas,
+    SUM(hours) hours,
+    SUM(IF(eez_iso3 IS NULL
+        AND (distance_from_shore >= 10*1852
+          OR INTEGER(FAO_region) IN (88,
+            48,
+            58)), hours, 0)) hours_on_high_seas
+  FROM
+    [world-fishing-827:gfw_research.pipeline_p_p550_daily]
+  WHERE
+    _PARTITIONTIME BETWEEN TIMESTAMP('2013-01-01')
+    AND TIMESTAMP('2016-12-31')
+    AND lat < 80
+    AND lat > -80
+    AND lon < 180
+    AND lon > -180
+    and seg_id in (select seg_id from [world-fishing-827:gfw_research.pipeline_p_p550_daily_segs] where good_seg)
+    AND (distance_from_shore > 1000
+      OR (implied_speed > .1
+        AND implied_speed < 20))
+  GROUP BY
+    year,
+    mmsi,
+    FAO_region) a
+INNER JOIN (
+  SELECT
+    year,
+    mmsi,
+    type,
+    sub_type,
+    flag_state,
+    gap_hours,
+    gap_days,
+  FROM
+    [high-seas:vessel_characteristics.complete_high_seas_reefers_and_bunkers_characteristics])b
+ON
+  a.mmsi = b.mmsi
+  AND a.year = b.year
+```
+
+
+```{sql, connection = BQ_connection, output.var = "activity_by_indo_vessels_by_FAO", eval = F}
+SELECT
+  YEAR(timestamp) year,
+  transmitter_no,
+  FAO_region,
+  EXACT_COUNT_DISTINCT(DATE(timestamp)) days,
+  EXACT_COUNT_DISTINCT(IF(eez_id  IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48, 58)), DATE(timestamp), NULL)) days_on_high_seas,
+  SUM(hours) hours,
+  SUM(IF(eez_id IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48,58)), hours, 0)) hours_on_high_seas,
+FROM
+  [high-seas:Indonesia.indo_vms_nn]
+WHERE
+  raw_registered_gear_type == "Transporter"
+  AND lat < 80
+  AND lat > -80
+  AND lon < 180
+  AND lon >-180
+  AND (distance_from_shore > 1000 OR (speed  > .1 AND speed < 20))
+GROUP BY
+  year,
+  transmitter_no,
+  FAO_region,
+  having year < 2017
+```
+
+```{r, eval = F}
+activity_by_indo_vessels_by_FAO <- activity_by_indo_vessels_by_FAO %>% 
+  mutate(mmsi = transmitter_no + 1000000000) %>% 
+  select(year, mmsi, everything(), -transmitter_no) %>% 
+  inner_join(complete_high_seas_reefers_and_bunkers_characteristics %>% select(year, mmsi))
+```
+
+```{r, eval = F}
+activity_by_vessel_by_FAO <- bind_rows(activity_by_vessel_by_FAO_2013_2016 %>% 
+                                         mutate(FAO_region = as.integer(FAO_region)),
+                                       activity_by_indo_vessels_by_FAO) %>% 
+  filter(!is.na(FAO_region))
+```
+
+```{r, eval = F}
+activity_by_vessel_by_FAO <- activity_by_vessel_by_FAO %>% 
+  inner_join(complete_high_seas_reefers_and_bunkers_characteristics %>% 
+               select(year, type, mmsi, imo, call_sign, ship_name, sub_type, flag_state, length, tonnage, engine_power, aux_engine_power, crew, gap_days, gap_hours), by = c("year","mmsi")) %>% 
+  select(year, mmsi, FAO_region, type, ship_name, sub_type, flag_country_name = flag_state, length, tonnage, engine_power, crew, gap_days, gap_hours, days, days_on_high_seas, hours, hours_on_high_seas)
+```
+
+## Effort by FAO region
+
+```{r, eval = F}
+effort_by_high_seas_reefers_and_bunkers_by_FAO <- activity_by_vessel_by_FAO %>% 
+  left_join(encounters_by_vessel_by_FAO %>% 
+              ungroup() %>% 
+              select(year, mmsi, FAO_region,all_encounters, encounters_with_high_seas_vessels, encounters_on_high_seas, encounters_with_high_seas_vessels_on_high_seas, distinct_flags, most_common_encounter_flag), by = c("year","mmsi", "FAO_region"))
+
+write_csv(effort_by_high_seas_reefers_and_bunkers_by_FAO, "saved_files/effort_by_high_seas_reefers_and_bunkers_by_FAO.csv")
+```
+
+```{r}
+effort_by_high_seas_reefers_and_bunkers_by_FAO %>% 
+  filter(year == 2016) %>% 
+  group_by(FAO_region) %>% 
+  summarise(n = sum(encounters_with_high_seas_vessels_on_high_seas, na.rm = T),
+            n_bunker = sum(encounters_with_high_seas_vessels_on_high_seas[type == "bunker"], na.rm = T),
+            n_reefer = sum(encounters_with_high_seas_vessels_on_high_seas[type == "reefer"], na.rm = T),) %>% 
+  filter(n > 0) %>% 
+  arrange(desc(n))
+```
+
+# Summarize effort by vessel by RFMO region
+
+## Encounters by RFMO
+
+```{r}
+all_rfmos_shp <- st_read("../general_project_files/RFMOs/", "all_rfmos")
+
+all_encounters_by_rfmo <- st_join(all_encounters_sf, all_rfmos_shp)
+```
+
+```{r}
+encounters_by_vessel_by_RFMO <- all_encounters_by_rfmo %>% 
+  st_set_geometry(NULL) %>% 
+  mutate(RFMO = as.character(RFB)) %>% 
+  filter(year > 2012 & year < 2017) %>% 
+  replace_na(list(fishing_vessel_flag_iso3 = "unknown")) %>% 
+  group_by(year, mmsi, type, flag_country_name, flag_iso3, RFMO) %>% 
+  summarise(all_encounters = n(),
+            encounters_with_high_seas_vessels = sum(with_high_seas_vessel),
+            encounters_on_high_seas = sum(encounter_country == "High Seas"),
+            encounters_with_high_seas_vessels_on_high_seas = sum(with_high_seas_vessel & encounter_country == "High Seas"),
+            distinct_flags = n_distinct(fishing_vessel_flag_iso3),
+            most_common_encounter_flag = names(table(fishing_vessel_flag_iso3))[which.max(table(fishing_vessel_flag_iso3))])
+```
+
+## Activity by RFMO
+
+```{sql, connection = BQ_connection , output.var = "activity_by_vessel_by_RFMO_2015_2016"}
+SELECT
+  a.year year,
+  a.mmsi mmsi,
+  // WCPFC
+  EXACT_COUNT_DISTINCT(IF(is_WCPFC IS TRUE, DATE(a.timestamp), NULL)) days__WCPFC,
+  SUM(IF(is_WCPFC IS TRUE, a.hours, 0)) hours__WCPFC,
+  // WCPFC high seas
+  EXACT_COUNT_DISTINCT(IF(is_WCPFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.hours IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__WCPFC,
+  SUM(IF(is_WCPFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__WCPFC,
+  // IOTC
+  EXACT_COUNT_DISTINCT(IF(is_IOTC IS TRUE, DATE(a.timestamp), NULL)) days__IOTC,
+  SUM(IF(is_IOTC IS TRUE, a.hours, 0)) hours__IOTC,
+  // IOTC high seas
+  EXACT_COUNT_DISTINCT(IF(is_IOTC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__IOTC,
+  SUM(IF(is_IOTC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__IOTC,
+  // ICCAT
+  EXACT_COUNT_DISTINCT(IF(is_ICCAT IS TRUE, DATE(a.timestamp), NULL)) days__ICCAT,
+  SUM(IF(is_ICCAT IS TRUE, a.hours, 0)) hours__ICCAT,
+  // ICCAT high seas
+  EXACT_COUNT_DISTINCT(IF(is_ICCAT IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__ICCAT,
+  SUM(IF(is_ICCAT IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__ICCAT,
+  // IATTC
+  EXACT_COUNT_DISTINCT(IF(is_IATTC IS TRUE, DATE(a.timestamp), NULL)) days__IATTC,
+  SUM(IF(is_IATTC IS TRUE, a.hours, 0)) hours__IATTC,
+  // IATTC high seas
+  EXACT_COUNT_DISTINCT(IF(is_IATTC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__IATTC,
+  SUM(IF(is_IATTC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__IATTC,
+  // SPRFMO
+  EXACT_COUNT_DISTINCT(IF(is_SPRFMO IS TRUE, DATE(a.timestamp), NULL)) days__SPRFMO,
+  SUM(IF(is_SPRFMO IS TRUE, a.hours, 0)) hours__SPRFMO,
+  // SPRFMO high seas
+  EXACT_COUNT_DISTINCT(IF(is_SPRFMO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SPRFMO,
+  SUM(IF(is_SPRFMO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SPRFMO,
+  // FFA
+  EXACT_COUNT_DISTINCT(IF(is_FFA IS TRUE, DATE(a.timestamp), NULL)) days__FFA,
+  SUM(IF(is_FFA IS TRUE, a.hours, 0)) hours__FFA,
+  // FFA high seas
+  EXACT_COUNT_DISTINCT(IF(is_FFA IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__FFA,
+  SUM(IF(is_FFA IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__FFA,
+  // NPFC
+  EXACT_COUNT_DISTINCT(IF(is_NPFC IS TRUE, DATE(a.timestamp), NULL)) days__NPFC,
+  SUM(IF(is_NPFC IS TRUE, a.hours, 0)) hours__NPFC,
+  // NPFC high seas
+  EXACT_COUNT_DISTINCT(IF(is_NPFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__NPFC,
+  SUM(IF(is_NPFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__NPFC,
+  // NEAFC
+  EXACT_COUNT_DISTINCT(IF(is_NEAFC IS TRUE, DATE(a.timestamp), NULL)) days__NEAFC,
+  SUM(IF(is_NEAFC IS TRUE, a.hours, 0)) hours__NEAFC,
+  // NEAFC high seas
+  EXACT_COUNT_DISTINCT(IF(is_NEAFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__NEAFC,
+  SUM(IF(is_NEAFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__NEAFC,
+  // CCSBT
+  EXACT_COUNT_DISTINCT(IF(is_CCSBT IS TRUE, DATE(a.timestamp), NULL)) days__CCSBT,
+  SUM(IF(is_CCSBT IS TRUE, a.hours, 0)) hours__CCSBT,
+  // CCSBT high seas
+  EXACT_COUNT_DISTINCT(IF(is_CCSBT IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__CCSBT,
+  SUM(IF(is_CCSBT IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__CCSBT,
+  // SIOFA
+  EXACT_COUNT_DISTINCT(IF(is_SIOFA IS TRUE, DATE(a.timestamp), NULL)) days__SIOFA,
+  SUM(IF(is_SIOFA IS TRUE, a.hours, 0)) hours__SIOFA,
+  // SIOFA high seas
+  EXACT_COUNT_DISTINCT(IF(is_SIOFA IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SIOFA,
+  SUM(IF(is_SIOFA IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SIOFA,
+  // SPC
+  EXACT_COUNT_DISTINCT(IF(is_SPC IS TRUE, DATE(a.timestamp), NULL)) days__SPC,
+  SUM(IF(is_SPC IS TRUE, a.hours, 0)) hours__SPC,
+  // SPC high seas
+  EXACT_COUNT_DISTINCT(IF(is_SPC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SPC,
+  SUM(IF(is_SPC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SPC,
+  // CCAMLR
+  EXACT_COUNT_DISTINCT(IF(is_CCAMLR IS TRUE, DATE(a.timestamp), NULL)) days__CCAMLR,
+  SUM(IF(is_CCAMLR IS TRUE, a.hours, 0)) hours__CCAMLR,
+  // CCAMLR high seas
+  EXACT_COUNT_DISTINCT(IF(is_CCAMLR IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__CCAMLR,
+  SUM(IF(is_CCAMLR IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__CCAMLR,
+  // NAFO
+  EXACT_COUNT_DISTINCT(IF(is_NAFO IS TRUE, DATE(a.timestamp), NULL)) days__NAFO,
+  SUM(IF(is_NAFO IS TRUE, a.hours, 0)) hours__NAFO,
+  // NAFO high seas
+  EXACT_COUNT_DISTINCT(IF(is_NAFO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__NAFO,
+  SUM(IF(is_NAFO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__NAFO,
+  // SEAFO
+  EXACT_COUNT_DISTINCT(IF(is_SEAFO IS TRUE, DATE(a.timestamp), NULL)) days__SEAFO,
+  SUM(IF(is_SEAFO IS TRUE, a.hours, 0)) hours__SEAFO,
+  // SEAFO high seas
+  EXACT_COUNT_DISTINCT(IF(is_SEAFO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SEAFO,
+  SUM(IF(is_SEAFO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SEAFO,
+FROM (
+  SELECT
+    YEAR(timestamp) year,
+    timestamp,
+    mmsi,
+    eez_name,
+    distance_from_shore,
+    integer(FAO_region) FAO_region ,
+    hours,
+    REGEXP_MATCH(regions,"rfmo:WCPFC") is_WCPFC,
+    REGEXP_MATCH(regions,"rfmo:IOTC") is_IOTC,
+    REGEXP_MATCH(regions,"rfmo:ICCAT") is_ICCAT,
+    REGEXP_MATCH(regions,"rfmo:IATTC") is_IATTC,
+    REGEXP_MATCH(regions,"rfmo:SPRFMO") is_SPRFMO,
+    REGEXP_MATCH(regions,"rfmo:FFA") is_FFA,
+    REGEXP_MATCH(regions,"rfmo:NPFC") is_NPFC,
+    REGEXP_MATCH(regions,"rfmo:NEAFC") is_NEAFC,
+    REGEXP_MATCH(regions,"rfmo:CCSBT") is_CCSBT,
+    REGEXP_MATCH(regions,"rfmo:SIOFA") is_SIOFA,
+    REGEXP_MATCH(regions,"rfmo:SPC") is_SPC,
+    REGEXP_MATCH(regions,"rfmo:CCAMLR") is_CCAMLR,
+    REGEXP_MATCH(regions,"rfmo:NAFO") is_NAFO,
+    REGEXP_MATCH(regions,"rfmo:SEAFO") is_SEAFO,
+  FROM
+    TABLE_DATE_RANGE([world-fishing-827:scratch_david.allvessels_hours_], TIMESTAMP('2015-01-01'), TIMESTAMP('2016-12-31'))
+  WHERE
+    lat < 80
+    AND lat > -80
+    AND lon < 180
+    AND lon > -180
+    AND (distance_from_shore > 1000
+      OR (implied_speed > .1
+        AND implied_speed < 20)))a
+INNER JOIN (
+  SELECT
+    year,
+    mmsi,
+  FROM
+    [high-seas:vessel_characteristics.complete_high_seas_reefers_and_bunkers_characteristics])b
+ON
+  a.mmsi = b.mmsi
+  AND a.year = b.year
+GROUP BY
+  year,
+  mmsi
+```
+
+```{r}
+activity_by_vessel_by_RFMO_2015_2016 <- activity_by_vessel_by_RFMO_2015_2016 %>%
+  gather(key, value, c(seq(-1,-2))) %>% 
+  separate(key, into = c("variable", "RFMO"), sep =  "__") %>% 
+  spread(variable, value) %>% 
+  filter(days > 0 & hours > 0) %>% 
+  rename(days_on_high_seas = days_hs, hours_on_high_seas = hours_hs)
+```
+
+```{sql, connection = BQ_connection , output.var = "activity_by_vessel_by_RFMO_2013_2014"}
+SELECT
+  a.year year,
+  a.mmsi mmsi,
+  // WCPFC
+  EXACT_COUNT_DISTINCT(IF(is_WCPFC IS TRUE, DATE(a.timestamp), NULL)) days__WCPFC,
+  SUM(IF(is_WCPFC IS TRUE, a.hours, 0)) hours__WCPFC,
+  // WCPFC high seas
+  EXACT_COUNT_DISTINCT(IF(is_WCPFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.hours IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__WCPFC,
+  SUM(IF(is_WCPFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__WCPFC,
+  // IOTC
+  EXACT_COUNT_DISTINCT(IF(is_IOTC IS TRUE, DATE(a.timestamp), NULL)) days__IOTC,
+  SUM(IF(is_IOTC IS TRUE, a.hours, 0)) hours__IOTC,
+  // IOTC high seas
+  EXACT_COUNT_DISTINCT(IF(is_IOTC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__IOTC,
+  SUM(IF(is_IOTC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__IOTC,
+  // ICCAT
+  EXACT_COUNT_DISTINCT(IF(is_ICCAT IS TRUE, DATE(a.timestamp), NULL)) days__ICCAT,
+  SUM(IF(is_ICCAT IS TRUE, a.hours, 0)) hours__ICCAT,
+  // ICCAT high seas
+  EXACT_COUNT_DISTINCT(IF(is_ICCAT IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__ICCAT,
+  SUM(IF(is_ICCAT IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__ICCAT,
+  // IATTC
+  EXACT_COUNT_DISTINCT(IF(is_IATTC IS TRUE, DATE(a.timestamp), NULL)) days__IATTC,
+  SUM(IF(is_IATTC IS TRUE, a.hours, 0)) hours__IATTC,
+  // IATTC high seas
+  EXACT_COUNT_DISTINCT(IF(is_IATTC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__IATTC,
+  SUM(IF(is_IATTC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__IATTC,
+  // SPRFMO
+  EXACT_COUNT_DISTINCT(IF(is_SPRFMO IS TRUE, DATE(a.timestamp), NULL)) days__SPRFMO,
+  SUM(IF(is_SPRFMO IS TRUE, a.hours, 0)) hours__SPRFMO,
+  // SPRFMO high seas
+  EXACT_COUNT_DISTINCT(IF(is_SPRFMO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SPRFMO,
+  SUM(IF(is_SPRFMO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SPRFMO,
+  // FFA
+  EXACT_COUNT_DISTINCT(IF(is_FFA IS TRUE, DATE(a.timestamp), NULL)) days__FFA,
+  SUM(IF(is_FFA IS TRUE, a.hours, 0)) hours__FFA,
+  // FFA high seas
+  EXACT_COUNT_DISTINCT(IF(is_FFA IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__FFA,
+  SUM(IF(is_FFA IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__FFA,
+  // NPFC
+  EXACT_COUNT_DISTINCT(IF(is_NPFC IS TRUE, DATE(a.timestamp), NULL)) days__NPFC,
+  SUM(IF(is_NPFC IS TRUE, a.hours, 0)) hours__NPFC,
+  // NPFC high seas
+  EXACT_COUNT_DISTINCT(IF(is_NPFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__NPFC,
+  SUM(IF(is_NPFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__NPFC,
+  // NEAFC
+  EXACT_COUNT_DISTINCT(IF(is_NEAFC IS TRUE, DATE(a.timestamp), NULL)) days__NEAFC,
+  SUM(IF(is_NEAFC IS TRUE, a.hours, 0)) hours__NEAFC,
+  // NEAFC high seas
+  EXACT_COUNT_DISTINCT(IF(is_NEAFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__NEAFC,
+  SUM(IF(is_NEAFC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__NEAFC,
+  // CCSBT
+  EXACT_COUNT_DISTINCT(IF(is_CCSBT IS TRUE, DATE(a.timestamp), NULL)) days__CCSBT,
+  SUM(IF(is_CCSBT IS TRUE, a.hours, 0)) hours__CCSBT,
+  // CCSBT high seas
+  EXACT_COUNT_DISTINCT(IF(is_CCSBT IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__CCSBT,
+  SUM(IF(is_CCSBT IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__CCSBT,
+  // SIOFA
+  EXACT_COUNT_DISTINCT(IF(is_SIOFA IS TRUE, DATE(a.timestamp), NULL)) days__SIOFA,
+  SUM(IF(is_SIOFA IS TRUE, a.hours, 0)) hours__SIOFA,
+  // SIOFA high seas
+  EXACT_COUNT_DISTINCT(IF(is_SIOFA IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SIOFA,
+  SUM(IF(is_SIOFA IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SIOFA,
+  // SPC
+  EXACT_COUNT_DISTINCT(IF(is_SPC IS TRUE, DATE(a.timestamp), NULL)) days__SPC,
+  SUM(IF(is_SPC IS TRUE, a.hours, 0)) hours__SPC,
+  // SPC high seas
+  EXACT_COUNT_DISTINCT(IF(is_SPC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SPC,
+  SUM(IF(is_SPC IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SPC,
+  // CCAMLR
+  EXACT_COUNT_DISTINCT(IF(is_CCAMLR IS TRUE, DATE(a.timestamp), NULL)) days__CCAMLR,
+  SUM(IF(is_CCAMLR IS TRUE, a.hours, 0)) hours__CCAMLR,
+  // CCAMLR high seas
+  EXACT_COUNT_DISTINCT(IF(is_CCAMLR IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__CCAMLR,
+  SUM(IF(is_CCAMLR IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__CCAMLR,
+  // NAFO
+  EXACT_COUNT_DISTINCT(IF(is_NAFO IS TRUE, DATE(a.timestamp), NULL)) days__NAFO,
+  SUM(IF(is_NAFO IS TRUE, a.hours, 0)) hours__NAFO,
+  // NAFO high seas
+  EXACT_COUNT_DISTINCT(IF(is_NAFO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__NAFO,
+  SUM(IF(is_NAFO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__NAFO,
+  // SEAFO
+  EXACT_COUNT_DISTINCT(IF(is_SEAFO IS TRUE, DATE(a.timestamp), NULL)) days__SEAFO,
+  SUM(IF(is_SEAFO IS TRUE, a.hours, 0)) hours__SEAFO,
+  // SEAFO high seas
+  EXACT_COUNT_DISTINCT(IF(is_SEAFO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SEAFO,
+  SUM(IF(is_SEAFO IS TRUE
+      AND a.eez_name IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SEAFO,
+FROM (
+  SELECT
+    YEAR(timestamp) year,
+    timestamp,
+    mmsi,
+    eez_name,
+    distance_from_shore,
+    integer(FAO_region) FAO_region ,
+    hours,
+    REGEXP_MATCH(regions,"rfmo:WCPFC") is_WCPFC,
+    REGEXP_MATCH(regions,"rfmo:IOTC") is_IOTC,
+    REGEXP_MATCH(regions,"rfmo:ICCAT") is_ICCAT,
+    REGEXP_MATCH(regions,"rfmo:IATTC") is_IATTC,
+    REGEXP_MATCH(regions,"rfmo:SPRFMO") is_SPRFMO,
+    REGEXP_MATCH(regions,"rfmo:FFA") is_FFA,
+    REGEXP_MATCH(regions,"rfmo:NPFC") is_NPFC,
+    REGEXP_MATCH(regions,"rfmo:NEAFC") is_NEAFC,
+    REGEXP_MATCH(regions,"rfmo:CCSBT") is_CCSBT,
+    REGEXP_MATCH(regions,"rfmo:SIOFA") is_SIOFA,
+    REGEXP_MATCH(regions,"rfmo:SPC") is_SPC,
+    REGEXP_MATCH(regions,"rfmo:CCAMLR") is_CCAMLR,
+    REGEXP_MATCH(regions,"rfmo:NAFO") is_NAFO,
+    REGEXP_MATCH(regions,"rfmo:SEAFO") is_SEAFO,
+  FROM
+    TABLE_DATE_RANGE([world-fishing-827:scratch_david.allvessels_hours_], TIMESTAMP('2013-01-01'), TIMESTAMP('2014-12-31'))
+  WHERE
+    lat < 80
+    AND lat > -80
+    AND lon < 180
+    AND lon > -180
+    AND (distance_from_shore > 1000
+      OR (implied_speed > .1
+        AND implied_speed < 20)))a
+INNER JOIN (
+  SELECT
+    year,
+    mmsi,
+  FROM
+    [high-seas:vessel_characteristics.complete_high_seas_reefers_and_bunkers_characteristics])b
+ON
+  a.mmsi = b.mmsi
+  AND a.year = b.year
+GROUP BY
+  year,
+  mmsi
+```
+
+```{r}
+activity_by_vessel_by_RFMO_2013_2014 <- activity_by_vessel_by_RFMO_2013_2014 %>%
+  gather(key, value, c(seq(-1,-2))) %>% 
+  separate(key, into = c("variable", "RFMO"), sep =  "__") %>% 
+  spread(variable, value) %>% 
+  filter(days > 0 & hours > 0) %>% 
+  rename(days_on_high_seas = days_hs, hours_on_high_seas = hours_hs)
+```
+
+```{sql, connection = BQ_connection , output.var = "activity_by_indo_vessels_by_RFMO"}
+SELECT
+  b.year year,
+  b.mmsi mmsi,
+  // WCPFC
+  EXACT_COUNT_DISTINCT(IF(is_WCPFC IS TRUE, DATE(a.timestamp), NULL)) days__WCPFC,
+  SUM(IF(is_WCPFC IS TRUE, a.hours, 0)) hours__WCPFC,
+  // WCPFC high seas
+  EXACT_COUNT_DISTINCT(IF(is_WCPFC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.hours IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__WCPFC,
+  SUM(IF(is_WCPFC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__WCPFC,
+  // IOTC
+  EXACT_COUNT_DISTINCT(IF(is_IOTC IS TRUE, DATE(a.timestamp), NULL)) days__IOTC,
+  SUM(IF(is_IOTC IS TRUE, a.hours, 0)) hours__IOTC,
+  // IOTC high seas
+  EXACT_COUNT_DISTINCT(IF(is_IOTC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__IOTC,
+  SUM(IF(is_IOTC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__IOTC,
+  // ICCAT
+  EXACT_COUNT_DISTINCT(IF(is_ICCAT IS TRUE, DATE(a.timestamp), NULL)) days__ICCAT,
+  SUM(IF(is_ICCAT IS TRUE, a.hours, 0)) hours__ICCAT,
+  // ICCAT high seas
+  EXACT_COUNT_DISTINCT(IF(is_ICCAT IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__ICCAT,
+  SUM(IF(is_ICCAT IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__ICCAT,
+  // IATTC
+  EXACT_COUNT_DISTINCT(IF(is_IATTC IS TRUE, DATE(a.timestamp), NULL)) days__IATTC,
+  SUM(IF(is_IATTC IS TRUE, a.hours, 0)) hours__IATTC,
+  // IATTC high seas
+  EXACT_COUNT_DISTINCT(IF(is_IATTC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__IATTC,
+  SUM(IF(is_IATTC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__IATTC,
+  // SPRFMO
+  EXACT_COUNT_DISTINCT(IF(is_SPRFMO IS TRUE, DATE(a.timestamp), NULL)) days__SPRFMO,
+  SUM(IF(is_SPRFMO IS TRUE, a.hours, 0)) hours__SPRFMO,
+  // SPRFMO high seas
+  EXACT_COUNT_DISTINCT(IF(is_SPRFMO IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SPRFMO,
+  SUM(IF(is_SPRFMO IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SPRFMO,
+  // FFA
+  EXACT_COUNT_DISTINCT(IF(is_FFA IS TRUE, DATE(a.timestamp), NULL)) days__FFA,
+  SUM(IF(is_FFA IS TRUE, a.hours, 0)) hours__FFA,
+  // FFA high seas
+  EXACT_COUNT_DISTINCT(IF(is_FFA IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__FFA,
+  SUM(IF(is_FFA IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__FFA,
+  // NPFC
+  EXACT_COUNT_DISTINCT(IF(is_NPFC IS TRUE, DATE(a.timestamp), NULL)) days__NPFC,
+  SUM(IF(is_NPFC IS TRUE, a.hours, 0)) hours__NPFC,
+  // NPFC high seas
+  EXACT_COUNT_DISTINCT(IF(is_NPFC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__NPFC,
+  SUM(IF(is_NPFC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__NPFC,
+  // NEAFC
+  EXACT_COUNT_DISTINCT(IF(is_NEAFC IS TRUE, DATE(a.timestamp), NULL)) days__NEAFC,
+  SUM(IF(is_NEAFC IS TRUE, a.hours, 0)) hours__NEAFC,
+  // NEAFC high seas
+  EXACT_COUNT_DISTINCT(IF(is_NEAFC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__NEAFC,
+  SUM(IF(is_NEAFC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__NEAFC,
+  // CCSBT
+  EXACT_COUNT_DISTINCT(IF(is_CCSBT IS TRUE, DATE(a.timestamp), NULL)) days__CCSBT,
+  SUM(IF(is_CCSBT IS TRUE, a.hours, 0)) hours__CCSBT,
+  // CCSBT high seas
+  EXACT_COUNT_DISTINCT(IF(is_CCSBT IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__CCSBT,
+  SUM(IF(is_CCSBT IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__CCSBT,
+  // SIOFA
+  EXACT_COUNT_DISTINCT(IF(is_SIOFA IS TRUE, DATE(a.timestamp), NULL)) days__SIOFA,
+  SUM(IF(is_SIOFA IS TRUE, a.hours, 0)) hours__SIOFA,
+  // SIOFA high seas
+  EXACT_COUNT_DISTINCT(IF(is_SIOFA IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SIOFA,
+  SUM(IF(is_SIOFA IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SIOFA,
+  // SPC
+  EXACT_COUNT_DISTINCT(IF(is_SPC IS TRUE, DATE(a.timestamp), NULL)) days__SPC,
+  SUM(IF(is_SPC IS TRUE, a.hours, 0)) hours__SPC,
+  // SPC high seas
+  EXACT_COUNT_DISTINCT(IF(is_SPC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SPC,
+  SUM(IF(is_SPC IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SPC,
+  // CCAMLR
+  EXACT_COUNT_DISTINCT(IF(is_CCAMLR IS TRUE, DATE(a.timestamp), NULL)) days__CCAMLR,
+  SUM(IF(is_CCAMLR IS TRUE, a.hours, 0)) hours__CCAMLR,
+  // CCAMLR high seas
+  EXACT_COUNT_DISTINCT(IF(is_CCAMLR IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__CCAMLR,
+  SUM(IF(is_CCAMLR IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__CCAMLR,
+  // NAFO
+  EXACT_COUNT_DISTINCT(IF(is_NAFO IS TRUE, DATE(a.timestamp), NULL)) days__NAFO,
+  SUM(IF(is_NAFO IS TRUE, a.hours, 0)) hours__NAFO,
+  // NAFO high seas
+  EXACT_COUNT_DISTINCT(IF(is_NAFO IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__NAFO,
+  SUM(IF(is_NAFO IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__NAFO,
+  // SEAFO
+  EXACT_COUNT_DISTINCT(IF(is_SEAFO IS TRUE, DATE(a.timestamp), NULL)) days__SEAFO,
+  SUM(IF(is_SEAFO IS TRUE, a.hours, 0)) hours__SEAFO,
+  // SEAFO high seas
+  EXACT_COUNT_DISTINCT(IF(is_SEAFO IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), DATE(a.timestamp), NULL)) days_hs__SEAFO,
+  SUM(IF(is_SEAFO IS TRUE
+      AND a.eez_id IS NULL
+      AND (a.distance_from_shore >= 10*1852
+        OR a.FAO_region IN (88,
+          48,
+          58)), a.hours, 0)) hours_hs__SEAFO,
+FROM (
+  SELECT
+    YEAR(timestamp) year,
+    timestamp,
+    mmsi,
+    eez_id,
+    distance_from_shore,
+    FAO_region,
+    nnet_score,
+    hours,
+    REGEXP_MATCH(regions,"rfmo:WCPFC") is_WCPFC,
+    REGEXP_MATCH(regions,"rfmo:IOTC") is_IOTC,
+    REGEXP_MATCH(regions,"rfmo:ICCAT") is_ICCAT,
+    REGEXP_MATCH(regions,"rfmo:IATTC") is_IATTC,
+    REGEXP_MATCH(regions,"rfmo:SPRFMO") is_SPRFMO,
+    REGEXP_MATCH(regions,"rfmo:FFA") is_FFA,
+    REGEXP_MATCH(regions,"rfmo:NPFC") is_NPFC,
+    REGEXP_MATCH(regions,"rfmo:NEAFC") is_NEAFC,
+    REGEXP_MATCH(regions,"rfmo:CCSBT") is_CCSBT,
+    REGEXP_MATCH(regions,"rfmo:SIOFA") is_SIOFA,
+    REGEXP_MATCH(regions,"rfmo:SPC") is_SPC,
+    REGEXP_MATCH(regions,"rfmo:CCAMLR") is_CCAMLR,
+    REGEXP_MATCH(regions,"rfmo:NAFO") is_NAFO,
+    REGEXP_MATCH(regions,"rfmo:SEAFO") is_SEAFO,
+  FROM
+    [high-seas:Indonesia.indo_vms_nn]
+  WHERE
+    lat < 80
+    AND lat > -80
+    AND lon < 180
+    AND lon >-180
+    AND (distance_from_shore > 1000
+      OR (speed > .1
+        AND speed < 20))) a
+INNER JOIN (
+  SELECT
+    year,
+    mmsi,
+  FROM
+    [high-seas:vessel_characteristics.complete_high_seas_reefers_and_bunkers_characteristics]  
+  GROUP BY
+    year,
+    mmsi) b
+ON
+  a.mmsi = b.mmsi
+  AND a.year = b.year
+GROUP BY
+  year,
+  mmsi,
+```
+
+```{r}
+activity_by_indo_vessels_by_RFMO <- activity_by_indo_vessels_by_RFMO %>%
+  gather(key, value, c(seq(-1,-2))) %>% 
+  separate(key, into = c("variable", "RFMO"), sep =  "__") %>% 
+  spread(variable, value) %>% 
+  filter(days > 0 & hours > 0) %>% 
+  rename(days_on_high_seas = days_hs, hours_on_high_seas = hours_hs)
+```
+
+
+```{r}
+activity_by_vessel_by_RFMO <- bind_rows(activity_by_vessel_by_RFMO_2013_2014 ,
+                                       activity_by_vessel_by_RFMO_2015_2016 ,
+                                       activity_by_indo_vessels_by_RFMO) 
+
+activity_by_vessel_by_RFMO <- activity_by_vessel_by_RFMO %>% 
+  inner_join(complete_high_seas_reefers_and_bunkers_characteristics %>% 
+               select(year, type, mmsi, imo, call_sign, ship_name, sub_type, flag_state, length, tonnage, engine_power, aux_engine_power, crew, gap_days, gap_hours), by = c("year","mmsi")) %>% 
+  select(year, mmsi, RFMO, type, ship_name, sub_type, flag_country_name = flag_state, length, tonnage, engine_power, crew, gap_days, gap_hours, days, days_on_high_seas, hours, hours_on_high_seas)
+```
+
+## Effort by RFMO
+
+```{r}
+effort_by_high_seas_reefers_and_bunkers_by_RFMO <- activity_by_vessel_by_RFMO %>% 
+  left_join(encounters_by_vessel_by_RFMO %>% 
+              ungroup() %>% 
+              select(year, mmsi, RFMO,all_encounters, encounters_with_high_seas_vessels, encounters_on_high_seas, encounters_with_high_seas_vessels_on_high_seas, distinct_flags, most_common_encounter_flag), by = c("year","mmsi", "RFMO"))
+
+write_csv(effort_by_high_seas_reefers_and_bunkers_by_RFMO, "saved_files/effort_by_high_seas_reefers_and_bunkers_by_RFMO.csv")
+```
+
+```{r}
+effort_by_high_seas_reefers_and_bunkers_by_RFMO <- read_csv(
+  "saved_files/effort_by_high_seas_reefers_and_bunkers_by_RFMO.csv"
+)
+```
+
+
+```{r}
+effort_by_high_seas_reefers_and_bunkers_by_RFMO %>% 
+  filter(year == 2016) %>% 
+  group_by(RFMO) %>% 
+  summarise(n = sum(encounters_with_high_seas_vessels_on_high_seas, na.rm = T),
+            n_bunker = sum(encounters_with_high_seas_vessels_on_high_seas[type == "bunker"], na.rm = T),
+            n_reefer = sum(encounters_with_high_seas_vessels_on_high_seas[type == "reefer"], na.rm = T),) %>% 
+  filter(n > 0) %>% 
+  arrange(desc(n))
+```
+
+# Where do the encounters take place?
+
+#### High seas vs Low seas
+
+```{r}
+all_encounters %>% 
+  filter(year == 2016) %>% 
+  group_by(encounter_country) %>% 
+  summarize(all_encounters = n(),
+            bunker_encounters = sum(type == "bunker"),
+            reefer_encounters = sum(type == "reefer"))%>% 
+  mutate(percent_all = round(100*all_encounters/sum(all_encounters), 1),
+         percent_bunker = round(100*bunker_encounters/sum(bunker_encounters), 1),
+         percent_reefer = round(100*reefer_encounters/sum(reefer_encounters), 1)) %>% 
+  arrange(desc(all_encounters))
+```
+
+We see that 40% of all encounters we see take place in the high seas. Of these `r round(100*nrow(filter(all_encounters, encounter_country == "High Seas", year == 2016, with_high_seas_vessel))/nrow(filter(all_encounters, encounter_country == "High Seas", year == 2016)),2)` % involve fishing vessels that spends more than 5% of its fishign effort in the high seas. 
+
+```{r}
+all_encounters %>% 
+  filter(year == 2016, with_high_seas_vessel, encounter_country == "High Seas") %>% 
+  ggplot()+
+  geom_sf(data = world_map) +
+  geom_point(aes(lon, lat, col = flag_country_name, shape = type), size = .3)+
+  light_gfw_theme()+
+  labs(title = "Encounters on the high seas (2016)")+
+  guides(color = guide_legend(title = "flag state",
+                              nrow = 3,
+                              title.position = "top",
+                              title.hjust = .5,
+                              override.aes = list(size = 1)),
+         shape = guide_legend(title = "Type",
+                              nrow = 2,
+                              title.position = "top",
+                              title.hjust = .5,
+                              override.aes = list(size = 1)))+
+  scale_shape_manual(values=c(1, 2))+
+  theme(legend.key = element_blank(),
+        legend.margin = margin(0,0,0,0,'cm'),
+        legend.key.width = unit(1,"line"),
+        legend.key.height = unit(1,"line"),
+        legend.text = element_text(size = 8))
+```
+
+#### By RFMO
+
+```{r}
+all_encounters_by_rfmo %>% 
+  st_set_geometry(NULL) %>% 
+  filter(year == 2016, with_high_seas_vessel, encounter_country == "High Seas") %>% 
+  group_by(RFB) %>% 
+  summarize(all_encounters = n(),
+            bunker_encounters = sum(type == "bunker"),
+            reefer_encounters = sum(type == "reefer"))%>% 
+  arrange(desc(all_encounters)) %>% 
+  left_join(all_rfmos_shp %>% 
+              st_set_geometry(NULL) %>% 
+              group_by(RFB) %>% 
+              summarise(area = sum(area))
+              ) %>% 
+  mutate(area = area*10^(-6),
+         encounters_per_km2 = all_encounters*10^6/area,
+         fraction_encounters =  all_encounters/sum(all_encounters)) %>% 
+  select(-area) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+
+#### By gear
+
+```{r}
+all_encounters <- all_encounters %>% 
+  left_join(complete_ais_vessel_characteristics %>% 
+              select(year,fishing_vessel_mmsi = mmsi, gear_type_all_years)) %>%
+  left_join(complete_high_seas_indo_vms_characteristic %>% 
+              select(year, fishing_vessel_mmsi = mmsi,gfw_gear)) %>% 
+  mutate(fishing_vessel_gear = ifelse(is.na(gear_type_all_years), gfw_gear, gear_type_all_years)) %>% 
+  select(-gear_type_all_years, -gfw_gear)
+```
+
+```{r}
+all_encounters %>% 
+  filter(year == 2016, with_high_seas_vessel, encounter_country == "High Seas") %>% 
+  group_by(fishing_vessel_gear, type) %>% 
+  summarize(n_encounters = n()) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = fct_reorder(fishing_vessel_gear, n_encounters), y = n_encounters, group = type, fill = type))+
+  geom_col(position = 'dodge')+
+  labs(x = "", y = "No. encounters")+
+  hrbrthemes::theme_ipsum()
+```
+
+```{r}
+all_encounters %>% 
+  filter(year == 2016, with_high_seas_vessel, encounter_country == "High Seas") %>% 
+  ggplot()+
+  geom_sf(data = world_map) +
+  geom_point(aes(lon, lat, col = fishing_vessel_gear, shape = type), size = .3)+
+  light_gfw_theme()+
+  labs(title = "Encounters on the high seas (2016)")+
+  guides(color = guide_legend(title = "Gear type of fishing vessel",
+                              nrow = 3,
+                              title.position = "top",
+                              title.hjust = .5,
+                              override.aes = list(size = 1)),
+         shape = guide_legend(title = "Type",
+                              nrow = 2,
+                              title.position = "top",
+                              title.hjust = .5,
+                              override.aes = list(size = 1)))+
+  scale_shape_manual(values=c(1, 2))+
+  theme(legend.key = element_blank(),
+        legend.margin = margin(0,0,0,0,'cm'),
+        legend.key.width = unit(1,"line"),
+        legend.key.height = unit(1,"line"),
+        legend.text = element_text(size = 8))
+```
+
+#### By Country and gear 
+
+```{r}
+all_encounters %>% 
+  filter(year == 2016, with_high_seas_vessel, encounter_country == "High Seas") %>% 
+  group_by(fishing_vessel_flag_country_name, fishing_vessel_gear, type) %>% 
+  summarize(n_encounters = n()) %>% 
+  arrange(desc(n_encounters)) %>%
+  mutate(fleet = paste(fishing_vessel_flag_country_name, stringr::str_replace_all(fishing_vessel_gear, "_", " "))) %>% 
+  ungroup() %>% 
+  top_n(20, n_encounters) %>% 
+  ggplot()+
+  geom_col(aes(x = fct_reorder(fleet, n_encounters), n_encounters, fill = type, group = type), position = 'dodge')+
+  labs(x = "", y = "No. encounters")+
+  hrbrthemes::theme_ipsum()+
+  coord_flip()
+```
+

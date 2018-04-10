@@ -1,0 +1,741 @@
+---
+title: 'High Seas Revenue from Sea Around Us and Reg Watson '
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '6'
+---
+
+```{r setup, echo = F}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+library(plotly)
+library(tidyverse)
+library(bigrquery)
+library(DBI)
+library(forcats)
+library(knitr)
+library(sf)
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "", project = "world-fishing-827")
+
+source("../general_project_files/effort_mapping_functions.R")
+source("../general_project_files/gfw_themes.R")
+source("../general_project_files/functions.R")
+
+options(scipen = 999)
+
+world_map <- rnaturalearth::ne_coastline(scale = 'small', returnclass = c("sf"))
+
+max_lat = 90
+min_lat = -90
+max_lon = 180
+min_lon = -180
+cell_size  = 0.5
+one_over_cellsize = 2
+```
+
+
+# Sea Around Us 
+
+First we need to load and clean up the names in the database and fix many many errors. 
+
+```{r load_revenue_by_country}
+sau_data <- read_csv("source_info/updated_SAU_revenue/HighSeas_2014_Oct12.csv", 
+                     col_types =  cols(catch_sum = col_number(),
+                                       landed_value = col_number(),
+                                       year = col_number()), 
+                     n_max = Inf,
+                     progress = FALSE)
+
+effort_by_fao <- read_csv("../effort_and_coverage/saved_files/effort_by_high_seas_vessels_by_FAO_region.csv")
+```
+
+```{r}
+country_lookup_table <- data_frame(fishing_entity = unique(sau_data$fishing_entity))
+
+country_lookup_table$iso3 <- countrycode::countrycode(country_lookup_table$fishing_entity,  "country.name", "iso3c")
+
+country_lookup_table$iso3[country_lookup_table$fishing_entity == "New Caledonia (France)"] <- "NCL"
+country_lookup_table$iso3[country_lookup_table$fishing_entity == "Faeroe Isl. (Denmark)"] <- "FRO"
+country_lookup_table$iso3[country_lookup_table$fishing_entity %in% c("Guam (USA)", "North Marianas (USA)")] <- "USA"
+country_lookup_table$iso3[country_lookup_table$fishing_entity == "Réunion (France)"] <- "REU"
+country_lookup_table$iso3[country_lookup_table$fishing_entity == "Micronesia"] <- "FSM"
+country_lookup_table$iso3[country_lookup_table$fishing_entity == "Saint Pierre & Miquelon (France)"] <- "SPM"
+country_lookup_table$iso3[country_lookup_table$fishing_entity == "Tokelau (New Zealand)"] <- "NZL"
+```
+
+```{r}
+binned_high_seas_effort <- read_csv("../effort_and_coverage/saved_files/binned_high_seas_effort.csv")
+
+binned_indo_high_seas_effort <-read_csv("../effort_and_coverage/saved_files/binned_indo_vms_high_seas_effort.csv")
+
+effort_by_Indo_high_seas_vessels <- read_csv("../effort_and_coverage/saved_files/effort_by_Indo_high_seas_vessels.csv")
+
+effort_by_Indo_high_seas_vessels_by_FAO_region <- read_csv("../effort_and_coverage/saved_files/effort_by_Indo_high_seas_vessels_by_FAO_region.csv")
+
+binned_ais_vms_high_seas_effort <- bind_rows(binned_high_seas_effort %>% 
+  select(year, lon_bin_center, lat_bin_center, FAO_region , flag_country_name, flag_iso3, sovereign_flag_country_name, sovereign_flag_iso3, gear_type , sub_gear_type , hours, fishing_hours, KW_hours, fishing_KW_hours),
+binned_indo_high_seas_effort %>% 
+   mutate(flag_country_name = "Indonesia",
+                   flag_iso3 = "IDN",
+                   sovereign_flag_country_name = flag_country_name,
+                   sovereign_flag_iso3 = flag_iso3) %>% 
+  left_join(effort_by_Indo_high_seas_vessels %>% 
+              distinct(raw_registered_gear_type, gfw_gear, gfw_sub_gear)) %>% 
+  select(year, lon_bin_center, lat_bin_center,FAO_region = FAO_Region, flag_country_name, flag_iso3, sovereign_flag_country_name, sovereign_flag_iso3, gear_type = gfw_gear, sub_gear_type = gfw_sub_gear, hours, fishing_hours, KW_hours, fishing_KW_hours))
+```
+
+```{r}
+high_seas_gfw_countries <- binned_ais_vms_high_seas_effort %>% 
+  filter(!(sovereign_flag_country_name == "Spain" & flag_country_name != "Spain")) %>% 
+  filter(!(sovereign_flag_country_name == "Taiwan" & flag_country_name != "Taiwan")) %>% 
+  distinct(flag_iso3, flag_country_name, sovereign_flag_iso3, sovereign_flag_country_name)
+```
+
+```{sql, connection = BQ_connection , output.var = "all_gfw_countries"}
+SELECT
+  flag_country_name,
+  flag_iso3,
+  sovereign_flag_country_name,
+  sovereign_flag_iso3
+FROM
+  [high-seas:vessel_characteristics.complete_ais_vessel_characteristics]
+GROUP BY
+  flag_country_name,
+  flag_iso3,
+  sovereign_flag_country_name,
+  sovereign_flag_iso3
+```
+
+```{r}
+all_gfw_countries <- all_gfw_countries %>% 
+  filter(!(sovereign_flag_country_name == "Spain" & flag_country_name != "Spain")) %>% 
+  filter(!(sovereign_flag_country_name == "Taiwan" & flag_country_name != "Taiwan")) 
+```
+
+Match to high seas GFW countries
+
+```{r}
+country_lookup_table <- country_lookup_table %>% 
+  left_join(high_seas_gfw_countries %>% 
+              rename(iso3 = flag_iso3)
+            ) 
+```
+
+Match to all countries
+
+```{r}
+country_lookup_table <- country_lookup_table %>% 
+  left_join(all_gfw_countries %>% 
+              select(iso3 = flag_iso3, country_name = flag_country_name)) %>% 
+  mutate(flag_country_name = ifelse(is.na(flag_country_name), country_name, flag_country_name)) %>% 
+  select(-country_name) %>% 
+  mutate(sovereign_flag_country_name = ifelse(is.na(sovereign_flag_country_name),flag_country_name,sovereign_flag_country_name ),
+         sovereign_flag_iso3 = ifelse(is.na(sovereign_flag_iso3),iso3,sovereign_flag_iso3)) %>% 
+  mutate(sovereign_flag_country_name = ifelse(is.na(sovereign_flag_country_name),fishing_entity, sovereign_flag_country_name ),
+         flag_country_name = ifelse(is.na(flag_country_name),fishing_entity,flag_country_name)) 
+
+sau_data <- sau_data %>% 
+  left_join(country_lookup_table)
+
+fao_id_lookup <- read_tsv("source_info/fao_id_lookup.txt") 
+
+sau_data <- sau_data %>% 
+  rename(FAO_Region = fao_area) %>% 
+  left_join(fao_id_lookup) %>% 
+  select(year, fishing_entity, flag_country_name, flag_iso3 = iso3, sovereign_flag_country_name, sovereign_flag_iso3, FAO_Region,fao_area_name, lat_bin_center = lat,  lon_bin_center = lon , everything())
+```
+
+In total, SAU reports `r sum(sau_data$landed_value)/1000000000` billion dollars in revenue from fishing in the high seas in 2014. The following are the top countries in their database:
+
+```{r}
+sau_data %>%
+  group_by(sovereign_flag_country_name) %>% 
+  summarize(revenue = round(sum(landed_value)/1000000,2),
+            catch = round(sum(catch)/1000,2)) %>% 
+  mutate(percent = round(100*revenue/sum(revenue),2)) %>% 
+  arrange(desc(revenue)) %>% 
+  ungroup()
+```
+
+## SAU corrections
+
+### Indonesia
+
+We know Indonesia does not fish in regions other than 57
+
+```{r}
+sau_data <- sau_data %>% 
+  filter(!(sovereign_flag_iso3 == "IDN" & !FAO_Region %in% c(51,57)))
+```
+
+### China
+
+We know that currently SAU underestimates China's Squid jiggers catch on the high seas FAO 87 by half (they allocate to inside Peru's EEZ). They are missing about 180 million $ and 161 thousand tons of squid. 
+
+```{r}
+sau_data <- sau_data %>% 
+  mutate(catch = ifelse(FAO_Region == 87 & scientific_name == "Dosidicus gigas" & sovereign_flag_iso3 == "CHN", catch/0.507, catch),
+         landed_value = ifelse(FAO_Region == 87 & scientific_name == "Dosidicus gigas" & sovereign_flag_iso3 == "CHN", landed_value/0.442, landed_value))
+```
+
+Similarly, China's Squid jiggers landings on the high seas FAO 41 are underestimated. They report 356 M but the official number is 392 M. 
+
+```{r}
+sau_data <- sau_data %>% 
+  mutate(landed_value = ifelse(FAO_Region == 41 & scientific_name == "Illex argentinus" & sovereign_flag_iso3 == "CHN", landed_value/0.905, landed_value))
+```
+
+Similarly, we can use the official SPRFMO estimates of squid catch for Taiwan and South Korea to validate SAU. We find that SAU underestimates catch by both countries by `r round(100*(1-sum(filter(sau_data,FAO_Region == 87, fishing_entity == "Taiwan", stringr::str_detect(scientific_name,"Dosidicus"))$catch)/4795))` and `r round(100*(1-sum(filter(sau_data,FAO_Region == 87, fishing_entity == "Korea (South)", stringr::str_detect(scientific_name,"Dosidicus"))$catch)/7203))` % for Taiwan and South Korea respectively.
+
+```{r}
+sau_data <- sau_data %>%
+  mutate(
+    catch = case_when(
+      FAO_Region == 87 & scientific_name == "Dosidicus gigas" & sovereign_flag_iso3 == "KOR" ~ catch/0.815,
+      FAO_Region == 87 & scientific_name == "Dosidicus gigas" & sovereign_flag_iso3 == "TWN" ~ catch/0.91,
+      TRUE ~ catch
+    ),
+    landed_value = case_when(
+      FAO_Region == 87 & scientific_name == "Dosidicus gigas" & sovereign_flag_iso3 == "KOR" ~ landed_value/0.815,
+      FAO_Region == 87 & scientific_name == "Dosidicus gigas" & sovereign_flag_iso3 == "TWN" ~ landed_value/0.91,
+      TRUE ~ landed_value
+    )
+  )
+```
+
+### Chile
+
+We also know that SAU overestimates Chile's catch dramatically. Official report to the SPRFMO is 3983 tons, while SAU reports `r sum(filter(sau_data, sovereign_flag_iso3 == "CHL", FAO_Region == 87)$catch)`. The official number is only `r 3983/sum(filter(sau_data, sovereign_flag_iso3 == "CHL", FAO_Region == 87)$catch)` % of SAU. So we downscale accordingly. 
+
+```{r}
+sau_data <- sau_data %>% 
+  mutate(catch = ifelse(FAO_Region == 87 & sovereign_flag_iso3 == "CHL", catch*0.012, catch),
+         landed_value = ifelse(FAO_Region == 87 & sovereign_flag_iso3 == "CHL", landed_value*0.012, landed_value))
+```
+
+### Sri Lanka
+
+Similarly, SAU overestimates Sri Lanka's high seas catch by 4x. The country's report to the IOTC suggest that catch was 31276 tons. SAU estimates `r sum(filter(sau_data, sovereign_flag_iso3 == "LKA")$catch)`. The official estimate is `r 100*31276/sum(filter(sau_data, sovereign_flag_iso3 == "LKA")$catch)` % so we need to downscale accordingly.
+
+
+```{r}
+sau_data <- sau_data %>% 
+  mutate(catch = ifelse(sovereign_flag_iso3 == "LKA", catch*0.25, catch),
+         landed_value = ifelse(sovereign_flag_iso3 == "LKA", landed_value*0.25, landed_value))
+```
+
+### India
+
+India's high seas catch is also being overestimated. The country's official report to the IOTC states 7000 tons of tuna caught outside the EEZ, while SAU reports `r sum(filter(sau_data, sovereign_flag_iso3 == "IND")$catch)` tons. The official estimate is `r 100*7000/sum(filter(sau_data, sovereign_flag_iso3 == "IND")$catch)` % so we need to downscale accordingly.
+
+```{r}
+sau_data <- sau_data %>% 
+  mutate(catch = ifelse(sovereign_flag_iso3 == "IND", catch*0.042, catch),
+         landed_value = ifelse(sovereign_flag_iso3 == "IND", landed_value*0.042, landed_value))
+```
+
+### Russia
+
+Finally, turns out SAU dramatically underestimates Russian catch on the North East Atlantic. According to the aggregated catch statistics of the [North East Atlantic Fisheries Commision ](https://www.neafc.org/system/files/Aggregated-catch-statistics-2014-final.pdf), Russia caught 185000 tons in the regulatory area. SAU reports `r sum(filter(sau_data, sovereign_flag_iso3 == "RUS", FAO_Region == 27)$catch)` which is only `r (100*sum(filter(sau_data, sovereign_flag_iso3 == "RUS", FAO_Region == 27)$catch)/185000)` % of the reported catch!
+
+Using SAU prices of the species reported in the official NEAFC report, we estimate the revenue to be 148.31 million. SAU has `r sum(filter(sau_data, sovereign_flag_iso3 == "RUS", FAO_Region == 27)$landed_value)/10^6`.  This means we need to scale up revenue 
+
+```{r}
+ sau_data <- sau_data %>% 
+   mutate(catch = ifelse(sovereign_flag_iso3 == "RUS" & FAO_Region == 27, catch/0.107, catch),
+          landed_value = ifelse(sovereign_flag_iso3 == "RUS" & FAO_Region == 27 , landed_value/0.218, landed_value))
+```
+
+### Lithuania and Estonia
+
+SAU dropped some HS catch of Lithuania and Estonia in FAO 27.  For Lithuania, SAU has only 0.08 million and is missing $2,756,870.  
+
+```{r}
+sau_data %>% 
+  ungroup() %>%  
+  filter(flag_iso3 %in% c("LTU")) %>% 
+  group_by(flag_iso3, FAO_Region) %>% 
+  summarize(revenue = round(sum(landed_value)/1000000,2),
+            catch = sum(catch))
+```
+
+```{r}
+sau_data <- sau_data %>% 
+   mutate(catch = ifelse(sovereign_flag_iso3 == "LTU" & FAO_Region == 27, catch/0.009, catch),
+          landed_value = ifelse(sovereign_flag_iso3 == "LTU" & FAO_Region == 27 , landed_value/0.028, landed_value))
+```
+
+And for Estonia, SAU does not have anything in region 27. Thus, we just add the missing catch and revenue to a random pixel in the region. Since we are not using SAU 0.5º data, this does not matter. 
+
+```{r}
+sau_data %>% 
+  ungroup() %>%  
+  filter(flag_iso3 %in% c("EST")) %>% 
+  group_by(flag_iso3, FAO_Region) %>% 
+  summarize(revenue = round(sum(landed_value)/1000000,2),
+            catch = sum(catch))
+```
+
+```{r}
+add_EST <- sau_data %>% 
+  filter(flag_iso3 %in% c("EST")) %>% 
+  head(1)
+
+add_EST$FAO_Region <- 27
+add_EST$fao_area_name <- "Atlantic, Northeast"
+add_EST$lat_bin_center <- 55.75
+add_EST$lon_bin_center <- -16.75
+add_EST$scientific_name <- "Unknown"
+add_EST$catch <- 5730
+add_EST$landed_value <- 9106880
+
+sau_data <- bind_rows(sau_data, add_EST)
+```
+
+### Crabs in FAO region 27
+
+Catch of crabs is missing in FAO region 27 
+
+```{r}
+missing_crabs <- read_csv("source_info/updated_SAU_revenue/FAO27_HS_Crabs.csv") %>% 
+  filter(Year == 2014) %>% 
+  select(fishing_entity = `Fishing Country`, missing_catch = `HS Catch`, misssing_landed_value = `Landed Value`) %>% 
+  group_by(fishing_entity) %>% 
+  summarise(missing_catch = sum(missing_catch),
+            misssing_landed_value = sum(misssing_landed_value))
+```
+
+```{r}
+(crab_scale <- sau_data %>% 
+  ungroup() %>%  
+  filter(flag_iso3 %in% c("LTU", "RUS","NOR","LVA"), FAO_Region == 27) %>% 
+  group_by(flag_iso3, FAO_Region) %>% 
+  summarize(landed_value = sum(landed_value),
+            catch = sum(catch)) %>% 
+  left_join(missing_crabs %>% 
+              mutate(flag_iso3 = countrycode::countrycode(fishing_entity, "country.name", "iso3c")),
+            by = "flag_iso3") %>% 
+  mutate(f_catch = catch/(catch + missing_catch),
+         f_landed_value = landed_value/(landed_value + misssing_landed_value)) %>% 
+  select(flag_iso3,FAO_Region, f_catch, f_landed_value) %>% 
+  mutate_if(is.numeric, round, 3))
+```
+
+```{r}
+sau_data <- sau_data %>% 
+   mutate(catch = case_when(
+     sovereign_flag_iso3 == "LTU" & FAO_Region == 27 ~ catch/0.735,
+     sovereign_flag_iso3 == "NOR" & FAO_Region == 27 ~ catch/0.990,
+     sovereign_flag_iso3 == "RUS" & FAO_Region == 27 ~ catch/0.994,
+     TRUE ~ catch),
+     landed_value = case_when(
+     sovereign_flag_iso3 == "LTU" & FAO_Region == 27 ~ landed_value/0.5,
+     sovereign_flag_iso3 == "NOR" & FAO_Region == 27 ~ landed_value/0.725,
+     sovereign_flag_iso3 == "RUS" & FAO_Region == 27 ~ landed_value/0.784,
+     TRUE ~ landed_value)
+     )
+```
+
+After these adjustments, total high seas catch and landed value are:
+
+```{r}
+sau_data %>% 
+  summarize(revenue = round(sum(landed_value, na.rm = T)/1000000,2),
+            catch = sum(catch, na.rm = T))
+```
+
+```{r}
+(summary_revenue_by_country <- sau_data %>% 
+  filter(!is.na(sovereign_flag_iso3)) %>% 
+   group_by(sovereign_flag_country_name, sovereign_flag_iso3) %>% 
+   summarize(revenue = round(sum(landed_value)/1000000,2),
+            catch = round(sum(catch)/1000,2)) %>%
+   ungroup() %>% 
+   mutate(percent = round(100*revenue/sum(revenue),2)) %>% 
+   arrange(desc(revenue)) %>% 
+   ungroup() %>% 
+   mutate())
+```
+
+```{r}
+(revenue_by_country.plot <- summary_revenue_by_country %>% 
+  top_n(10, revenue) %>% 
+  filter(!is.na(sovereign_flag_country_name)) %>% 
+  ggplot(aes(x = forcats::fct_reorder(sovereign_flag_country_name, revenue), y = revenue, fill = desc(revenue))) +
+  geom_bar(stat = "identity") +
+  guides(fill = FALSE) +
+  coord_flip() +
+  theme_minimal() +
+  theme(axis.title.x = element_text(margin = margin(10,0,0,0))) +
+  labs(x = "", y = "Revenue (million usd)") +
+  hrbrthemes::theme_ipsum()+
+  geom_text(data = summary_revenue_by_country %>% 
+              top_n(6, revenue), 
+            aes(x =  forcats::fct_reorder(sovereign_flag_country_name, revenue),
+                y = revenue, 
+                label = paste(round(percent),"%",sep = "")),
+            position = position_dodge(1), 
+            hjust = -.1,
+            size = 2) +
+  ggsci::scale_fill_material("deep-purple", reverse = T)+
+  theme(axis.text.x   = element_text(size = 8),
+        axis.text.y   = element_text(size = 8)))
+```
+
+Aditionally, we can explore what's the most productive FAO region...
+
+```{r}
+sau_data %>%
+  filter(!is.na(sovereign_flag_iso3)) %>% 
+  group_by(FAO_Region, fao_area_name) %>% 
+  summarize(revenue = sum(landed_value)/1000000) %>% 
+  arrange(desc(revenue)) %>% 
+  ungroup() %>% 
+  mutate(percent = 100*revenue/sum(revenue)) %>% 
+  ungroup() %>% 
+  slice(1:10)
+```
+
+... and by country within FAO region: 
+
+```{r revenue_by_region}
+(summary_revenue_by_country_and_FAO <- sau_data %>%
+   filter(!is.na(sovereign_flag_iso3)) %>% 
+  group_by(sovereign_flag_iso3,  FAO_Region, fao_area_name) %>% 
+  summarize(revenue = sum(landed_value)/1000000) %>% 
+  arrange(desc(revenue)) %>% 
+  ungroup() %>% 
+  mutate(percent = 100*revenue/sum(revenue)))
+```
+
+```{r}
+(revenue_by_country_and_FAO.plot <- summary_revenue_by_country_and_FAO %>% 
+  top_n(20, revenue) %>% 
+  filter(!is.na(sovereign_flag_iso3)) %>% 
+  unite(fleet, sovereign_flag_iso3, FAO_Region) %>% 
+  mutate(fleet = stringr::str_replace_all(fleet, "_"," ")) %>% 
+  ggplot(aes(x = forcats::fct_reorder(fleet, revenue), y = revenue, fill = desc(revenue))) +
+  geom_bar(stat = "identity") +
+  guides(fill = FALSE) +
+  coord_flip() +
+  theme_minimal() +
+  theme(axis.title.x = element_text(margin = margin(10,0,0,0))) +
+  labs(x = "", y = "Revenue (million usd)") +
+  hrbrthemes::theme_ipsum()+
+  geom_text(data = summary_revenue_by_country_and_FAO %>% 
+              top_n(5, revenue) %>% 
+              filter(!is.na(sovereign_flag_iso3)) %>% 
+              unite(fleet, sovereign_flag_iso3, FAO_Region) %>% 
+              mutate(fleet = stringr::str_replace_all(fleet, "_"," ")) , 
+            aes(x =  forcats::fct_reorder(fleet, revenue),
+                y = revenue, 
+                label = paste(round(percent),"%",sep = "")),
+            position = position_dodge(1), 
+            hjust = -.1,
+            size = 2) +
+  ggsci::scale_fill_material("green", reverse = T)+
+  theme(axis.text.x   = element_text(size = 8),
+        axis.text.y   = element_text(size = 8)))
+
+write_csv(sau_data, "saved_files/processed_sau_data_2014.csv")
+```
+
+```{r}
+sau_data <- read_csv("saved_files/processed_sau_data_2014.csv") %>% 
+    filter(!is.na(sovereign_flag_iso3))
+```
+
+## Matching at Flag and  FAO region level
+
+### All catch but Squid
+
+```{r}
+high_seas_effort_by_flag_and_FAO_region <- bind_rows(
+  effort_by_fao %>%
+    filter(!(sovereign_flag_iso3 %in% c("CHN") & gear_type == "squid_jigger") |
+             (sovereign_flag_iso3 %in% c("CHN") & is.na(gear_type))) %>%
+  filter(!(sovereign_flag_iso3 %in% c("KOR", "TWN") &
+           gear_type == "squid_jigger" &
+           FAO_region %in% c(41,87)) |
+           (sovereign_flag_iso3 %in% c("KOR", "TWN") & is.na(gear_type))) %>% 
+    group_by(year, sovereign_flag_iso3, FAO_region) %>%
+    summarise(fishing_KW_hours_hs = sum(fishing_KW_hours_hs, na.rm = T),
+              fishing_KW_days_hs = sum(fishing_KW_days_hs, na.rm = T)),
+  effort_by_Indo_high_seas_vessels_by_FAO_region %>%
+    group_by(year, FAO_region) %>%
+    summarise(fishing_KW_hours_hs = sum(fishing_KW_hours_hs,  na.rm = T),
+              fishing_KW_days_hs = sum(fishing_KW_days_hs, na.rm = T)) %>%
+    mutate(sovereign_flag_iso3 = "IDN") %>%
+    select(year, sovereign_flag_iso3, everything())
+) %>%
+  filter(!is.na(FAO_region), fishing_KW_hours_hs > 0)
+
+high_seas_effort_by_flag_and_FAO_region <- high_seas_effort_by_flag_and_FAO_region %>% 
+  replace_na(list(sovereign_flag_iso3 = "UNK"))
+```
+
+```{r}
+matched_revenue_at_fao_level_all_years <- sau_data %>%
+  filter(!(sovereign_flag_iso3 %in% c("CHN") & 
+             (stringr::str_detect(scientific_name,"Dosidicus") |
+                stringr::str_detect(scientific_name,"Illex") |
+                 stringr::str_detect(scientific_name,"Teuthida")))) %>% 
+  filter(!(sovereign_flag_iso3 %in% c("TWN", "KOR") & FAO_Region %in% c(41,87) &
+             (stringr::str_detect(scientific_name,"Dosidicus") |
+                stringr::str_detect(scientific_name,"Illex") |
+                 stringr::str_detect(scientific_name,"Teuthida")))) %>% 
+  rename(FAO_region = FAO_Region) %>% 
+  group_by(FAO_region, sovereign_flag_iso3) %>%
+  summarize(revenue = sum(landed_value),
+            catch = sum(catch)) %>% 
+  ungroup() %>% 
+  left_join(high_seas_effort_by_flag_and_FAO_region)
+
+matched_revenue_at_fao_level_all_years %>%
+  filter(year == 2016) %>% 
+  #group_by(sovereign_flag_iso3) %>% 
+  summarise(revenue = sum(revenue)/10^6) %>% 
+  arrange(desc(revenue))
+```
+
+
+```{r}
+matched_revenue_at_fao_level_all_years %>%
+  mutate(revenue = round(revenue/10^6)) %>% 
+  filter(year == 2016) %>% 
+  arrange(desc(revenue))
+```
+
+### Squid for CHN, TWN, KOR
+
+```{r}
+matched_revenue_China_SJ <- sau_data %>%
+  rename(FAO_region = FAO_Region) %>% 
+  filter((sovereign_flag_iso3 %in% c("CHN") & (stringr::str_detect(scientific_name,"Dosidicus") |
+           stringr::str_detect(scientific_name,"Illex") |
+           stringr::str_detect(scientific_name,"Teuthida"))) |
+           (sovereign_flag_iso3 %in% c("TWN","KOR") & FAO_region %in% c(41,87) & (stringr::str_detect(scientific_name,"Dosidicus") |
+           stringr::str_detect(scientific_name,"Illex") |
+           stringr::str_detect(scientific_name,"Teuthida")))) %>% 
+  group_by(FAO_region, sovereign_flag_iso3) %>%
+  summarize(revenue = sum(landed_value),
+            catch = sum(catch)) %>% 
+  ungroup() %>% 
+  left_join(effort_by_fao %>% 
+              filter((sovereign_flag_iso3 %in% c("CHN") & gear_type == "squid_jigger") |
+                      (sovereign_flag_iso3 %in% c("TWN","KOR") & gear_type == "squid_jigger" & FAO_region %in% c(41,87)) ) %>% 
+              group_by(year, sovereign_flag_iso3, FAO_region, gear_type) %>% 
+              summarise(fishing_KW_hours_hs = sum(fishing_KW_hours_hs, na.rm = T),
+                        fishing_KW_days_hs = sum(fishing_KW_days_hs, na.rm = T))) %>% 
+  select(sovereign_flag_iso3, gear_type, everything())
+
+matched_revenue_China_SJ %>% 
+  filter(year == 2016) %>% 
+  arrange(revenue)
+```
+
+```{r}
+matched_revenue_China_SJ %>%
+  filter(year == 2016) %>% 
+  summarise(sum(revenue)/10^6)
+```
+
+### All catch matched with effort
+
+```{r}
+matched_revenue_at_fao_level_all_years %>% 
+  filter(!is.na(year)) %>% 
+  group_by(year) %>% 
+  summarise(revenue_matched_with_fishing_KW_hours = sum(revenue[fishing_KW_hours_hs > 0 & !is.na(fishing_KW_hours_hs)])/10^6) %>% 
+  left_join(matched_revenue_China_SJ %>% 
+              filter(!is.na(year)) %>% 
+              group_by(year) %>% 
+              summarise(CHN_SJ_revenue_matched_with_fishing_KW_hours = sum(revenue[fishing_KW_hours_hs > 0 & !is.na(fishing_KW_hours_hs)])/10^6)) %>% 
+              mutate(revenue_matched_with_fishing_KW_hours = revenue_matched_with_fishing_KW_hours + CHN_SJ_revenue_matched_with_fishing_KW_hours) %>% 
+              select(-CHN_SJ_revenue_matched_with_fishing_KW_hours) %>% 
+              mutate(fraction_revenue_matched_with_fishing_KW_hours = revenue_matched_with_fishing_KW_hours/(sum(sau_data$landed_value)/10^6))
+```
+
+```{r}
+#write_csv(matched_revenue_at_fao_level_all_years, "saved_files/matched_revenue_at_fao_level_all_years.csv")
+#write_csv(matched_revenue_China_SJ, "saved_files/matched_revenue_China_SJ.csv")
+```
+
+## What are the most productive regions/countries that we are able to match?
+
+```{r}
+(revenue_vs_fishing_energy_plot <- bind_rows(
+  matched_revenue_at_fao_level_all_years %>%
+    filter(year == 2016, fishing_KW_hours_hs > 1 & !is.na(fishing_KW_hours_hs)) %>%
+    select(sovereign_flag_iso3, FAO_region, fishing_KW_hours_hs, revenue),
+  matched_revenue_China_SJ %>%
+    filter(year == 2016, fishing_KW_hours_hs > 1 & !is.na(fishing_KW_hours_hs)) %>%
+    select(sovereign_flag_iso3, FAO_region, fishing_KW_hours_hs, revenue)
+) %>%
+  ggplot(aes(x = fishing_KW_hours_hs, y = revenue, col = factor(FAO_region), key = sovereign_flag_iso3)) +
+  geom_point() +
+  theme_minimal() +
+  guides(
+    stat = FALSE,
+    col = guide_legend(
+      title = "Fao Region",
+      ncol = 3
+    )
+  ) +
+  scale_y_log10() +
+  scale_x_log10()
+)
+```
+
+## Estimate Revenue Ratios
+
+```{r}
+revenue_ratios_by_country_and_fao <- matched_revenue_at_fao_level_all_years %>% 
+  filter(!is.na(year), fishing_KW_hours_hs > 0 ) %>% 
+  group_by(year, sovereign_flag_iso3, FAO_region) %>% 
+  summarize(total_revenue = sum(revenue), 
+            revenue_per_fishing_KWh = revenue/fishing_KW_hours_hs,
+            revenue_per_fishing_KW_day = revenue/fishing_KW_days_hs,
+            catch_per_fishing_KWh = catch/fishing_KW_hours_hs,
+            catch_per_fishing_KW_day = catch/fishing_KW_days_hs) %>% 
+  ungroup()
+```
+
+```{r}
+revenue_ratios_China_SJ <- matched_revenue_China_SJ %>% 
+  filter(!is.na(year),  fishing_KW_hours_hs > 0 ) %>% 
+  group_by(year, sovereign_flag_iso3, gear_type , FAO_region) %>% 
+  summarize(total_revenue = sum(revenue), 
+            revenue_per_fishing_KWh = revenue/fishing_KW_hours_hs,
+            revenue_per_fishing_KW_day = revenue/fishing_KW_days_hs,
+            catch_per_fishing_KWh = catch/fishing_KW_hours_hs,
+            catch_per_fishing_KW_day = catch/fishing_KW_days_hs) %>% 
+  ungroup()
+```
+
+```{r}
+revenue_ratios_by_country_and_fao %>% 
+  filter(year == 2016) %>% 
+  summarise(sum(total_revenue)/10^6)
+```
+
+
+```{r}
+revenue_ratios_China_SJ %>% 
+  filter(year == 2016) %>% 
+  summarise(sum(total_revenue)/10^6)
+```
+
+Total matched revenue is 7655 millions.
+
+```{r}
+(revenue_per_kwh_barplot <- revenue_ratios_by_country_and_fao %>% 
+  filter(year == 2016) %>% 
+  unite(country_fao, sovereign_flag_iso3, FAO_region, remove = T) %>% 
+  top_n(30, revenue_per_fishing_KWh) %>% 
+  ggplot()+
+  geom_bar(aes(x = forcats::fct_reorder(country_fao,revenue_per_fishing_KWh) , y = revenue_per_fishing_KWh), stat = "identity") +
+  coord_flip()+
+  ylab("thousand $ per KWh")+
+  xlab("")+
+  theme_minimal()+
+  labs(title = "Revenue per Kwh by country and fao region"))
+```
+
+
+```{r eval = F}
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "revenue", project = "high-seas", billing = "world-fishing-827")
+
+if(dbExistsTable(BQ_connection, "revenue_ratios_by_iso3_and_fao")){
+  dbRemoveTable(BQ_connection, "revenue_ratios_by_iso3_and_fao") 
+  dbWriteTable(BQ_connection, "revenue_ratios_by_iso3_and_fao", revenue_ratios_by_country_and_fao)
+} else {dbWriteTable(BQ_connection, "revenue_ratios_by_iso3_and_fao", revenue_ratios_by_country_and_fao)}
+
+if(dbExistsTable(BQ_connection, "revenue_ratios_China_SJ")){
+  dbRemoveTable(BQ_connection, "revenue_ratios_China_SJ") 
+  dbWriteTable(BQ_connection, "revenue_ratios_China_SJ", revenue_ratios_China_SJ)
+} else {dbWriteTable(BQ_connection, "revenue_ratios_China_SJ", revenue_ratios_China_SJ)}
+```
+
+```{r}
+revenue_ratios_by_country_and_fao %>% 
+  write_csv("saved_files/revenue_ratios_by_flag_and_FAO.csv")
+
+revenue_ratios_China_SJ %>% 
+  write_csv("saved_files/revenue_ratios_China_SJ.csv")
+```
+
+```{r}
+revenue_ratios_by_country_and_fao <- 
+  read_csv("saved_files/revenue_ratios_by_flag_and_FAO.csv")
+
+revenue_ratios_China_SJ<- 
+  read_csv("saved_files/revenue_ratios_China_SJ.csv")
+
+bind_rows(
+  revenue_ratios_China_SJ %>%
+    filter(year == 2016) %>%
+    group_by(sovereign_flag_iso3) %>%
+    summarise(r = sum(total_revenue)),
+  revenue_ratios_by_country_and_fao %>%
+    filter(year == 2016) %>%
+    group_by(sovereign_flag_iso3) %>%
+    summarise(r = sum(total_revenue))
+) %>%
+  group_by(sovereign_flag_iso3) %>%
+  summarise(r = sum(r) / 10 ^ 6) %>%
+  arrange(desc(r))
+```
+
+## Is catch correlated with effort?
+
+```{r}
+catch_by_flag_by_FAO <- bind_rows(matched_revenue_at_fao_level_all_years %>% 
+  filter(year == 2016) %>% 
+  group_by(sovereign_flag_iso3, FAO_region) %>% 
+  summarize(catch = sum(catch)),
+matched_revenue_China_SJ %>% 
+  filter(year == 2016) %>% 
+  group_by(sovereign_flag_iso3, FAO_region) %>% 
+  summarize(catch = sum(catch)))
+
+effort_and_catch_by_country_and_FAO <- catch_by_flag_by_FAO %>% 
+  left_join(high_seas_effort_by_flag_and_FAO_region %>% 
+              filter(year == 2016) %>% 
+              select(sovereign_flag_iso3, FAO_region, fishing_KW_days_hs)) %>% 
+  arrange(desc(catch))
+```
+
+```{r}
+effort_and_catch_by_country_and_FAO <- effort_and_catch_by_country_and_FAO %>% 
+  mutate(log_effort = log(fishing_KW_days_hs),
+         log_catch = log(catch))
+
+effort_catch_lm <- lm(log_catch ~ log_effort, data = effort_and_catch_by_country_and_FAO)
+
+effort_catch_eq <- substitute(italic(ln(C)) == a  + b ~ italic(ln(E)), 
+               list(a = format(coef(effort_catch_lm)[1], digits = 3), 
+                    b = format(coef(effort_catch_lm)[2], digits = 3)))
+
+effort_catch_eq <- as.character(as.expression(effort_catch_eq))
+
+effort_catch_data <- modelr::add_predictions(effort_and_catch_by_country_and_FAO,
+                                                 effort_catch_lm)
+      
+(R2 <- as.character(as.expression(paste("R^2 :",round(broom::glance(effort_catch_lm)$adj.r.squared,2)))))
+
+(effort_catch_relationship <- effort_catch_data %>% 
+  ggplot(aes(exp(log_effort), exp(log_catch)))+
+  geom_point()+
+  geom_line(aes(exp(log_effort), exp(pred)), col = "orange")+
+  scale_y_log10(label = scales::comma)+
+  scale_x_log10(label = scales::comma)+
+  hrbrthemes::theme_ipsum()+
+  annotate("text", x = 7000, y = 4000000, label = effort_catch_eq, parse = TRUE, col = 'Navy')+
+  annotate("text", x = 1600, y = 1000000, label = R2, parse = TRUE, col = 'Navy') +
+  labs(y = "Catch (tons)", x = "Effort (KW days)"))
+```
+

@@ -1,0 +1,960 @@
+---
+title: "Estimating Labor Cost and Total Costs"
+output:
+  html_notebook:
+    fig_caption: yes
+    toc: yes
+    toc_depth: 6
+---
+
+
+```{r message=FALSE, error=FALSE, warning=F, echo=FALSE, prompt=FALSE}
+suppressPackageStartupMessages(
+  easypackages::libraries("knitr", "tidyverse", "bigrquery", "lubridate", "broom","rnaturalearth","forcats")
+)
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = F,error = FALSE, echo = FALSE, progress = F)
+
+knitr::knit_hooks$set(inline = function(x) {
+  prettyNum(round(x,2), big.mark = ",")
+})
+
+options(scipen = 999)
+
+source("../general_project_files/effort_mapping_functions.R")
+source("../general_project_files/gfw_themes.R")
+source("../general_project_files/functions.R")
+
+BQ_connection <-  dbConnect(dbi_driver(),dataset = "", project = "high-seas", billing = "world-fishing-827")
+```
+
+In this script we look at all available sources of labor cost for fishing vessels. This is done by vessel size class and flag country, when possible. Also, because of different data sources, the final dataset will be a combination of different metrics such as : labor cost per day, labor cost per employee/crew, labor cost per year etc. 
+
+# Data sources
+
+##  EU Economic Report
+
+This is one of the most comprehensive data source where we can obtain labor cost estimates by country and vessel size class. The report contains information for the entire EU fleet, and for the Distant Water and other regions fleets. All monetary values are in Euro 2014 so we need to convert to usd 2016
+
+### all EU fleet 
+
+```{r import_eu_ref_info, message=FALSE}
+EU_ref_info <- read_csv("../effort_and_coverage/source_info//EU_ref_info_2015.csv")
+
+eu_labor_cost_usd_2016 <- EU_ref_info %>% 
+  replace_na(list(unpaid_labor_value = 0)) %>% 
+  select(flag_country_name,  length_class, active_vessels, days_at_sea, crew_wages, unpaid_labor_value, FTE_harmonised, FTE_national, total_employed, energy_costs) %>% 
+  mutate(labor_cost_per_day = (crew_wages + unpaid_labor_value)/days_at_sea,
+         labor_cost_per_FTE = (crew_wages + unpaid_labor_value)/FTE_national,
+         labor_cost_per_employee = (crew_wages + unpaid_labor_value)/total_employed
+         ) %>% 
+  select(flag_country_name,  length_class , active_vessels, days_at_sea, labor_cost_per_day, labor_cost_per_FTE, labor_cost_per_employee) %>% 
+  mutate_if(is.numeric, round) %>% 
+  #na.omit() %>% 
+  mutate_at(vars(labor_cost_per_day, labor_cost_per_employee, labor_cost_per_FTE), funs((./.784)/(1 - 0.014))) %>% #convert to usd and bring to 2016
+  ungroup()
+```
+
+There is great variability on labor cost across size class and countries. On average, larger vessels spend more on labor cost per day than smaller vessels.
+
+```{r summarize_all_EU_vessels_labor_cost_by_size_class}
+(eu_labor_cost_by_size_class_usd_2016 <- eu_labor_cost_usd_2016 %>%
+   filter(!is.na(labor_cost_per_day)) %>% 
+  group_by(length_class) %>% 
+  summarize(w_mean_labor_cost_per_day = weighted.mean(labor_cost_per_day , w = active_vessels),
+            w_mean_labor_cost_per_FTE = weighted.mean(labor_cost_per_FTE , w = active_vessels),
+            w_mean_labor_cost_per_employee = weighted.mean(labor_cost_per_employee , w = active_vessels)) %>% 
+  mutate_if(is.numeric, funs(round)) %>% 
+  ungroup())
+```
+
+### EU Distant Water fleet 
+
+```{r summarize_DWF_EU_vessels_labor_cost_by_size_class}
+EU_DWF_ref_info <- read_csv("../effort_and_coverage/source_info//EU_DWF_ref_info_2015.csv")
+
+eu_DWF_labor_cost_usd_2016 <- EU_DWF_ref_info %>% 
+  replace_na(list(unpaid_labor_value = 0)) %>% 
+  filter(!is.na(crew_wages), !is.na(gfw_gear_equivalent), crew_wages > 0) %>% 
+  group_by(flag_country_name,  length_class, gfw_gear_equivalent) %>% 
+  summarize_at(vars(active_vessels, days_at_sea, unpaid_labor_value,crew_wages, total_employed), funs(sum)) %>% 
+  mutate(labor_cost_per_day = (crew_wages + unpaid_labor_value)/days_at_sea,
+         labor_cost_per_employee = (crew_wages + unpaid_labor_value)/total_employed
+         ) %>% 
+  mutate_if(is.numeric, round) %>% 
+  mutate_at(vars(labor_cost_per_day, labor_cost_per_employee), funs((./.784)/(1 - 0.014))) %>% 
+  arrange(flag_country_name, length_class) %>% # convert to USD (https://www.irs.gov/individuals/international-taxpayers/yearly-average-currency-exchange-rates) and adjust for inflation (http://www.usinflationcalculator.com/)
+  ungroup()
+
+#write_csv(eu_DWF_labor_cost_usd_2016, "saved_files/eu_DWF_labor_cost_usd_2016.csv")
+
+eu_DWF_labor_cost_usd_2016 %>% 
+  select(-total_employed,-unpaid_labor_value,-crew_wages,-labor_cost_per_employee) %>% 
+  arrange(desc(labor_cost_per_day))
+```
+
+### EU OFR fleets
+
+These are comprised of vessels fishing on the high seas as well as in the EU outermost territories.
+
+```{r summarize_OFR_EU_vessels_labor_cost_by_size_class}
+EU_OFR_ref_info <- read_csv("../effort_and_coverage/source_info//EU_OFR_ref_info_2015.csv")
+
+eu_OFR_labor_cost_usd_2016 <- EU_OFR_ref_info %>% 
+  replace_na(list(unpaid_labor_value = 0)) %>% 
+  select(-inactive_engine_power, -inactive_vessels, -inactive_tonnage) %>% 
+  filter(!is.na(crew_wages), crew_wages > 0)%>% 
+  group_by(flag_country_name,  length_class, gfw_gear_equivalent) %>% 
+  summarize_at(vars(active_vessels, days_at_sea, unpaid_labor_value,crew_wages, total_employed), funs(sum)) %>% 
+  mutate(labor_cost_per_day = (crew_wages + unpaid_labor_value)/days_at_sea,
+         labor_cost_per_employee = (crew_wages + unpaid_labor_value)/total_employed
+         ) %>% 
+  mutate_if(is.numeric, round) %>% 
+  mutate_at(vars(labor_cost_per_day, labor_cost_per_employee), funs((./.784)/(1 - 0.014))) %>% 
+  arrange(flag_country_name, length_class) %>% # convert to USD (https://www.irs.gov/individuals/international-taxpayers/yearly-average-currency-exchange-rates) and adjust for inflation (http://www.usinflationcalculator.com/)
+  ungroup()
+
+#write_csv(eu_OFR_labor_cost_usd_2016, "saved_files/eu_OFR_labor_cost_usd_2016.csv")
+
+eu_OFR_labor_cost_usd_2016 %>% 
+  select(-total_employed,-unpaid_labor_value,-crew_wages,-labor_cost_per_employee) %>% 
+  arrange(desc(labor_cost_per_day))
+```
+
+##  Japan
+
+Economic performance data from the [THE 90TH STATISTICAL YEARBOOK OF MINISTRY OF AGRICULTURE, FORESTRY AND FISHERIES : MAFF](http://www.maff.go.jp/e/data/stat/90th/#12) is available and contains average labor and fuel cost per fishing day in thousand yens in 2014 by fishery enterprise..
+
+The provide National averages by size class...
+
+```{r read_japan_info_by_ton_class, message=FALSE}
+japan_cost_by_ton_class <- read_csv(
+  "source_info/by_country/japan_econ_perfomance_by_ton_class_2014.csv")
+
+japan_cost_by_ton_class_usd_2016 <- japan_cost_by_ton_class %>% 
+  mutate(labor_and_fuel_as_fraction_of_total = (labor_cost + fuel_costs)/(fishery_sales_costs + other_sales_cost + fishery_admin_cost + other_admin_cost + non_operating_cost),
+         capital_as_fraction_of_total =  (capital_cost)/(fishery_sales_costs + other_sales_cost + fishery_admin_cost + other_admin_cost + non_operating_cost)) %>% 
+  select(ton_class, fishing_days, employees, labor_cost, fuel_costs, labor_and_fuel_as_fraction_of_total,capital_as_fraction_of_total) %>% 
+  mutate_at(vars(labor_cost, fuel_costs), funs((.*1000/110.101)/(1-0.014))) %>%  # convert to USD and adjuts for inflation
+  mutate(labor_cost_per_fishing_day = labor_cost/fishing_days,
+         labor_cost_per_employee = labor_cost/employees,
+         fuel_cost_per_fishing_day = fuel_costs/fishing_days,
+        labor_cost_per_employee_per_day = (labor_cost/employees)/fishing_days) %>% 
+  select(ton_class,fishing_days, labor_cost, fuel_costs, labor_cost_per_fishing_day, labor_cost_per_employee, labor_cost_per_employee_per_day,fuel_cost_per_fishing_day, labor_and_fuel_as_fraction_of_total,capital_as_fraction_of_total)
+
+#japan_cost_by_ton_class_usd_2016 %>% 
+ # write_csv("saved_files/japan_cost_by_ton_class_usd_2016.csv")
+
+japan_cost_by_ton_class_usd_2016 %>% 
+  select(-labor_cost_per_employee,-labor_cost_per_employee_per_day)
+```
+
+as well as averages by size class for the main large scale fisheries: Squid angling on distant and off-shore waters, Skipjack pole-and-line on distant and off-shore waters, Tuna long line on distant and off-shore waters, Off-shore trawl, and meiduam and large surrounding nets (purse seines). 
+
+
+```{r read_japan_info_by_gear}
+japan_cost_by_gear <- read_csv(
+  "source_info/by_country/japan_econ_performance_by_gear_2014.csv") 
+
+japan_cost_by_gear_usd_2016 <- japan_cost_by_gear %>% 
+  replace_na(list(other_sales_cost = 0, other_admin_cost = 0)) %>% 
+  mutate(labor_and_fuel_as_fraction_of_total = (labor_cost + fuel_costs)/(fishery_sales_costs + other_sales_cost + fishery_admin_cost + other_admin_cost + non_operating_cost),
+         capital_as_fraction_of_total =  (capital_cost)/(fishery_sales_costs + other_sales_cost + fishery_admin_cost + other_admin_cost + non_operating_cost )) %>% 
+  select(gear_type, ton_class = size_class, fishing_days, employees, labor_cost, fuel_costs, labor_and_fuel_as_fraction_of_total) %>% 
+  mutate_at(vars(labor_cost, fuel_costs), funs((.*1000/110.101)/(1-0.014))) %>%  # convert to USD and adjuts for inflation
+  mutate(labor_cost_per_fishing_day = labor_cost/fishing_days,
+         labor_cost_per_employee = labor_cost/employees,
+         fuel_cost_per_fishing_day = fuel_costs/fishing_days) %>% 
+  select(gear_type, ton_class,fishing_days, labor_cost, fuel_costs, labor_cost_per_fishing_day, labor_cost_per_employee, fuel_cost_per_fishing_day, labor_and_fuel_as_fraction_of_total)
+
+japan_cost_by_gear_usd_2016$gear_type[japan_cost_by_gear_usd_2016$gear_type == "long_lines"] <- "drifting_longlines"
+
+#japan_cost_by_gear_usd_2016 %>% 
+  #write_csv("saved_files/japan_cost_by_gear_usd_2016.csv")
+
+japan_cost_by_gear_usd_2016 %>% 
+  select(-fuel_costs,-labor_cost,-labor_cost_per_employee) %>% 
+  arrange(desc(labor_cost_per_fishing_day))
+```
+
+## Chile
+
+Average fuel a labor cost per day are reported by [subpesca](http://www.subpesca.cl/publicaciones/606/articles-84661_documento.pdf) for shrimp trawlers, other trawler, and purse seiners in Chilean pesos 2012.
+
+```{r read_Chile_info, message= FALSE}
+chile_costs <- read_csv("source_info/by_country/chile_industrial_fleet_cost_info.csv")
+
+(chile_cost_usd_2016 <- chile_costs %>% 
+  mutate_at(vars(fuel_cost_per_day, labor_cost_per_day), funs(.*0.0021/(1 - 0.045))) %>% 
+    arrange(desc(labor_cost_per_day)))
+
+#chile_cost_usd_2016 %>% 
+ # write_csv("saved_files/chile_cost_usd_2016.csv")
+```
+
+The large differences in the cost per day can be attributed in part to vessel size. The purse seiners of the north have lengths between 21-45 meters (mean = 34) and engine powers between 720 and 2480 HP (mean = 1197 HP). In comparison,  those of the south have lengths between 39,4 and 67,0 m (mean = 52,1 m) and engine power between 1200 and 7260 HP (mean =3261 HP). Similarly, shirmp trawlers are between 14,9 and 28,3m (mean = 21,1 m) and have engine powers between  220 y 940 HP (mean=431 HP) whereas "other_trawlers" are between  31,8 and 52,1 m (mean = 44,6 m) engine_powers between 1.000 y 2.400 HP (mean=1.832 HP)
+
+## South Korea
+
+The [Korea Maritime Institute](http://www.kmi.re.kr/web/contents/contentsView.do?rbsIdx=224) provides estimate of the wages of fishermen per year and per month and per day 
+
+```{r, message=FALSE}
+(korean_wages_by_fishery <- read_csv("source_info/by_country/korean_wages_by_fishery.csv") %>% 
+   arrange(desc(avg_yearly_wage_usd))) 
+```
+
+The uncertainty in the definition of the gear types reported makes it difficult to map confidently to the gear types in AIS. Therefore, we take the average daily wage per crew for the main gear types:
+
+```{r}
+korean_wages_by_fishery %>% 
+  select(gear_type, avg_crew, avg_annual_wage_per_crew = avg_yearly_wage_usd, avg_daily_wage_per_crew = avg_daily_wage) %>% 
+  mutate(labor_cost_per_day = avg_daily_wage_per_crew*avg_crew) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  filter(!gear_type %in% c("diving", "offshore_trap", "offshore_stow_net","anchovy_drag_net", "anchovy_drag_net")) %>% 
+  arrange(desc(avg_daily_wage_per_crew)) %>% 
+  mutate(major_gear = case_when(
+    gear_type %in% c('offshore_longline', 'large longline') ~  "longlines",
+    gear_type %in% c('offshore_jigging') ~  "squid_jigger",
+    gear_type %in% c('offshore_drift_net') ~  "driftnet",
+    TRUE ~ "trawlers"
+  )) %>% 
+  group_by(major_gear) %>% 
+  summarise(avg_daily_wage_per_crew = round(mean(avg_daily_wage_per_crew),2))
+```
+
+for Korean purse seiners we take the average across gears: 171 USD per day per crew. 
+
+## International labor organization
+
+the ILO makes available data on 1) average labor cost for agriculture, forestry and fishing (per hour) and 2) earnings of skilled agricultural, forestry and fishery workers (per month) for a handful of countries. Data is reported in local currency which we convert to US dollars using the exchange rate for that year and adjusting for inflation to bring to U.S dollars in 2015. 
+
+```{r read_ILO_earnings_info, message=FALSE}
+updated_earnings_ILO <- read_csv("source_info/ILO/hourly_earnings_ILO_clean.csv")
+```
+
+```{r clean_earnings}
+cumm_inflation <- data_frame(year = c(2009,2010,2011,2012,2013,2014,2015,2016),
+                             cum_inf = c(0.119, 0.101, 0.0067, 0.045, 0.03, 0.0014, 0.0013,0))
+
+
+daily_earnings_usd_2016 <- updated_earnings_ILO %>% 
+  gather(year, hourly_earnings, -country) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  arrange((country)) %>% 
+  group_by(country) %>% 
+  filter(!is.na(hourly_earnings)) %>% 
+  filter(year == max(year)) %>% 
+  left_join(cumm_inflation) %>% 
+  mutate(daily_earnings_usd_2016 = hourly_earnings*8/(1 - cum_inf)) %>% 
+  ungroup()
+
+daily_earnings_usd_2016$iso3 <- countrycode::countrycode(daily_earnings_usd_2016$country, origin = "country.name", destination = "iso3c")
+
+(daily_earnings_usd_2016 <- daily_earnings_usd_2016 %>% 
+  mutate(daily_earnings_usd_2016 = round(daily_earnings_usd_2016,2)) %>% 
+  select(country, iso3, daily_earnings_usd_2016))
+
+#daily_earnings_usd_2016 %>% 
+ # write_csv("saved_files/ILO_daily_earnings_usd_2016.csv")
+```
+
+```{r read_and_clean_ILO_labor_info, message=FALSE}
+updated_labor_cost <- read_csv("source_info/ILO/labor_cost_ILO_clean.csv")
+
+daily_labor_cost_usd_2016 <- updated_labor_cost %>% 
+  gather(year, hourly_labor_cost, -Country) %>% 
+  mutate(year = as.numeric(year)) %>%
+  rename(country = Country) %>% 
+  arrange((country)) %>% 
+  group_by(country) %>% 
+  filter(!is.na(hourly_labor_cost), hourly_labor_cost > 0 ) %>% 
+  filter(year == max(year)) %>% 
+  left_join(cumm_inflation) %>% 
+  mutate(daily_labor_cost_usd_2016 = hourly_labor_cost*8/(1 - cum_inf)) %>% 
+  ungroup()
+
+daily_labor_cost_usd_2016$iso3 <- countrycode::countrycode(daily_labor_cost_usd_2016$country, origin = "country.name", destination = "iso3c")
+
+(daily_labor_cost_usd_2016 <- daily_labor_cost_usd_2016 %>% 
+    mutate(daily_labor_cost_usd_2016 = round(daily_labor_cost_usd_2016,2)) %>% 
+    select(country, iso3,daily_labor_cost_usd_2016)) 
+
+#daily_labor_cost_usd_2016 %>% 
+ # write_csv("saved_files/ILO_daily_labor_usd_2016.csv")
+```
+
+# Putting it all together
+
+```{r}
+effort_by_high_seas_vessels <- read_csv("../effort_and_coverage/saved_files/effort_by_high_seas_vessels.csv") %>% 
+  rename(crew = rf_crew)
+
+effort_by_high_seas_vessels$length[effort_by_high_seas_vessels$mmsi ==  417000670] <- 12
+effort_by_high_seas_vessels$length[effort_by_high_seas_vessels$mmsi ==  417000729] <- 12
+```
+
+
+```{r add_EU, message=FALSE}
+effort_and_labor_cost_by_high_seas_vessels <- effort_by_high_seas_vessels %>% 
+  select(year, mmsi, flag_country_name, flag_iso3, sovereign_flag_country_name, sovereign_flag_iso3, gear_type, length, 
+         tonnage, crew, days, gap_days, fishing_days, fishing_KW_hours) %>% 
+  mutate(length_class = cut(length,  breaks = c(0,12,18,24,40,200), right = F)) %>% 
+  left_join(eu_DWF_labor_cost_usd_2016 %>% 
+              select(sovereign_flag_country_name = flag_country_name, gear_type = gfw_gear_equivalent, 
+                     length_class, labor_cost_per_day_dwf = labor_cost_per_day)) %>% 
+  left_join(eu_OFR_labor_cost_usd_2016 %>% 
+              select(sovereign_flag_country_name = flag_country_name, gear_type = gfw_gear_equivalent, length_class,
+                     labor_cost_per_day_OFR = labor_cost_per_day))%>% 
+  left_join(eu_labor_cost_usd_2016 %>% 
+              select(sovereign_flag_country_name = flag_country_name , length_class, 
+                     labor_cost_per_day_non_dwf = labor_cost_per_day)) %>% 
+  mutate(labor_cost_per_day = case_when(
+    !is.na(labor_cost_per_day_dwf) ~ labor_cost_per_day_dwf,
+    !is.na(labor_cost_per_day_OFR) ~ labor_cost_per_day_OFR,
+    TRUE ~ labor_cost_per_day_non_dwf
+  )) %>% 
+  select(-labor_cost_per_day_dwf, -labor_cost_per_day_non_dwf, -labor_cost_per_day_OFR)
+```
+
+```{r add_Japan}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  mutate(ton_class = as.character(cut(as.numeric(tonnage), 
+                                      breaks = c(0,10,20,50,100,200,500,10000), right = F, dig.lab = 10))) %>% 
+  left_join(japan_cost_by_gear_usd_2016 %>%              
+              mutate(flag_country_name = "Japan") %>% 
+              select(flag_country_name, gear_type, ton_class, labor_cost_per_fishing_day)) %>% 
+  left_join(japan_cost_by_ton_class_usd_2016 %>% 
+              mutate(flag_country_name = "Japan") %>% 
+              select(flag_country_name,  ton_class, labor_cost_per_fishing_day_ton_only = labor_cost_per_fishing_day)) %>% 
+  mutate(labor_cost_per_fishing_day = ifelse(!is.na(labor_cost_per_fishing_day), 
+                                             labor_cost_per_fishing_day, 
+                                             labor_cost_per_fishing_day_ton_only)) %>% 
+  select(-labor_cost_per_fishing_day_ton_only)
+```
+
+```{r add_Chile}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  mutate(labor_cost_per_day = case_when(
+    flag_country_name == "Chile" & gear_type == "purse_seines" & length > 39 ~ 12025.882,
+    flag_country_name == "Chile" & gear_type == "purse_seines" & length <= 39 ~ 4478.053,
+    flag_country_name == "Chile" & gear_type == "trawlers" & length <= 30 ~ 1608.231,
+    flag_country_name == "Chile" & gear_type == "trawlers" & length > 30 ~ 6475.384,
+    TRUE ~ labor_cost_per_day
+  )) %>% 
+  ungroup()
+```
+
+```{r add_ilo_source_2016}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  left_join(daily_earnings_usd_2016 %>% 
+              select(flag_iso3 = iso3, fishers_earnings_per_day = daily_earnings_usd_2016))
+
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  left_join(daily_labor_cost_usd_2016 %>% 
+              select(flag_iso3 = iso3, labor_cost_per_fisher_per_day = daily_labor_cost_usd_2016))
+```
+
+```{r}
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(is.na(labor_cost_per_day), !flag_iso3 %in% c("KOR", "CHN","TWN"), !is.na(fishers_earnings_per_day)) %>% 
+  distinct(flag_country_name, fishers_earnings_per_day) %>% 
+  arrange(flag_country_name) %>%
+  mutate(fishers_earnings_per_day = round(fishers_earnings_per_day)) 
+
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(is.na(labor_cost_per_day), !flag_iso3 %in% c("KOR", "CHN","TWN"), is.na(fishers_earnings_per_day), !is.na(labor_cost_per_fisher_per_day)) %>% 
+  distinct(flag_country_name, labor_cost_per_fisher_per_day) %>% 
+  arrange(flag_country_name) %>% 
+  mutate(labor_cost_per_fisher_per_day = round(labor_cost_per_fisher_per_day)) 
+```
+
+```{r estimate_total_costs_by_vessels}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>%
+  replace_na(list(flag_country_name = "unknown", gear_type = "unknown")) %>%
+  mutate(
+    total_labor_cost_high_bound = case_when(
+      flag_country_name == "South Korea" & gear_type == "trawlers" ~ 231 * crew * (days + gap_days),
+      flag_country_name == "South Korea" & gear_type == "squid_jigger" ~ 163 * crew * (days + gap_days),
+      flag_country_name == "South Korea" & gear_type == "drifting_longlines" ~ 161 * crew * (days + gap_days),
+      flag_country_name == "South Korea" & gear_type == "purse_seines" ~ 171 * crew * (days + gap_days),
+      !is.na(labor_cost_per_day) ~ labor_cost_per_day * (days + gap_days), # EU & Chile
+      !is.na(labor_cost_per_fishing_day) ~ labor_cost_per_fishing_day * (days + gap_days), ## Japan
+      TRUE ~ labor_cost_per_day
+    ),
+    total_labor_cost_low_bound = case_when(
+      !is.na(fishers_earnings_per_day) & is.na(total_labor_cost_high_bound) ~ fishers_earnings_per_day * crew * (days + gap_days), # ILO
+      !is.na(labor_cost_per_fisher_per_day) & is.na(total_labor_cost_high_bound) ~ labor_cost_per_fisher_per_day * crew * (days + gap_days), # ILO
+      TRUE ~ total_labor_cost_high_bound
+    )
+  )
+```
+
+```{r}
+(avg_labor_cost_per_day_by_gear_and_size_high_bound <- effort_and_labor_cost_by_high_seas_vessels %>% 
+    filter(year == 2016 & !is.na(total_labor_cost_high_bound), mmsi != 441221066) %>% 
+    mutate(total_labor_cost_per_day = total_labor_cost_high_bound/(days + gap_days)) %>% 
+    group_by(gear_type, length_class) %>% 
+    summarise(avg_labor_cost_per_day_high_bound = round(mean(total_labor_cost_per_day) , 2)) %>% 
+    arrange(desc(avg_labor_cost_per_day_high_bound)))
+```
+
+```{r}
+(avg_labor_cost_per_day_by_size_high_bound <- effort_and_labor_cost_by_high_seas_vessels %>% 
+    filter(year == 2016 & !is.na(total_labor_cost_high_bound),  mmsi != 441221066) %>% 
+    mutate(total_labor_cost_per_day = total_labor_cost_high_bound/(days + gap_days)) %>% 
+    group_by(length_class) %>% 
+    summarise(avg_labor_cost_per_day_by_size_high_bound = round(mean(total_labor_cost_per_day),2)) %>% 
+    arrange(desc(avg_labor_cost_per_day_by_size_high_bound)))
+```
+
+```{r Impute_avg_high_bound_labor_costs}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>%
+  left_join(avg_labor_cost_per_day_by_gear_and_size_high_bound, by = c("gear_type", "length_class")) %>%
+  left_join(avg_labor_cost_per_day_by_size_high_bound, by = c("length_class")) %>%
+  mutate(total_labor_cost_high_bound = ifelse(is.na(total_labor_cost_high_bound), 
+                                              avg_labor_cost_per_day_high_bound*(days + gap_days), total_labor_cost_high_bound),
+         total_labor_cost_high_bound = ifelse(is.na(total_labor_cost_high_bound), 
+                                              avg_labor_cost_per_day_by_size_high_bound*(days + gap_days), total_labor_cost_high_bound)) %>%
+  select(-avg_labor_cost_per_day_high_bound, -avg_labor_cost_per_day_by_size_high_bound)
+
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016) %>% 
+  mutate(total_labor_cost_per_day = total_labor_cost_high_bound/(gap_days + days)) %>% 
+  group_by(length_class) %>% 
+  summarise(avg_labor_cost_per_day_by_size_high_bound = mean(total_labor_cost_per_day))
+```
+
+# Filling gaps 
+
+So how many countries, vessels, days, do we have info for?
+
+```{r coverage_of_labor_info}
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  group_by(year) %>% 
+  filter(!is.na(total_labor_cost_low_bound)) %>% 
+  summarise(n_vessels = n(),
+            sum_days = sum(days),
+            sum_fishing_days = sum(fishing_days))
+```
+
+```{r top_missing_countries}
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  group_by(flag_country_name) %>% 
+  summarize(n = sum(!is.na(total_labor_cost_low_bound)),
+            sum_days = sum(days)) %>% 
+  filter(n == 0) %>% 
+  arrange(desc(sum_days)) %>% 
+  distinct(flag_country_name)
+```
+
+## China
+
+In this [article](http://energydesk.greenpeace.org/2016/11/24/fishing-inside-chinese-mega-industry-west-africa/) by Greenpeace, it is reported that the chinese crew member onboard DWF vessels in Western Africa earn between 9300-35000 (10132.82 - 38134.25 usd) Euro per year. They also report that African crew members onboard Chinese vessels earn about 129 Euro (147 USD) per month. Additionaly, they report that from a 20 person crew, 7 are Chinese and 13 are west african.
+
+[A statistical analysis of China's fisheries in the 12th five-year period](http://www.sciencedirect.com/science/article/pii/S2468550X16300363) reports the net income per capita of chinese fishermen to be 15595 Yuan in 2015 **(~2289 USD 2016)**. This would mean a mere `r 2289/250` per fisher per day. 
+
+Lastly, personnal communication with the head of [MARITIMA OCEANICA SAC](http://www.moceanica.com.pe/), suggest that crewmembers on Chinese squid jiggers earn between 350 and 500 usd per month. 
+
+```{r}
+effort_by_high_seas_vessels %>% 
+  filter(year == 2016, sovereign_flag_iso3 == "CHN") %>%
+  mutate(total_days = gap_days + days) %>% 
+  summarise(mean(total_days, na.rm = T))
+```
+
+The average Chinese vessels in the high seas spend 250 days at sea. Using this to get an estimate of labor cost per day per crew members we get between:  `r 10132.82/250` and `r 38134/250` dollars per day (GREENPEACE). If we do the same for the minimum wage we get `r 2289/250` dollars per day per crew member. Dividing 250 days in 12 months, we get that vessels spend around `r 250/12` days per month, so we can estimate wages per day for the African crew members like `r 147/20` dollars per day. In a similar way the costs reported by Maritima Oceanica, would translate to between `r 350/20` and `r 500/20` dollar per day per crew.
+
+```{r fill_in_china}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  mutate(total_labor_cost_low_bound = ifelse(flag_country_name == "China", (350/20)*crew*(days + gap_days),total_labor_cost_low_bound),
+         total_labor_cost_high_bound = ifelse(flag_country_name == "China", (500/20)*crew*(days + gap_days),total_labor_cost_high_bound)
+         ) 
+
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016 & !is.na(total_labor_cost_high_bound)) %>% 
+  mutate(is_china = flag_country_name == "China") %>% 
+  group_by(is_china) %>% 
+  summarise(mean(total_labor_cost_low_bound/(days + gap_days), na.rm = T),
+            mean(total_labor_cost_high_bound/(days + gap_days)))
+
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016 & !is.na(total_labor_cost_high_bound)) %>% 
+  filter(flag_country_name == "China") %>% 
+  group_by(length_class) %>% 
+  summarise(mean(total_labor_cost_low_bound/(days + gap_days), na.rm = T),
+            mean(total_labor_cost_high_bound/(days + gap_days)))
+```
+
+## Taiwan
+
+Some sources for Taiwan are:
+
+  14162 crew in employed in far sea fisheries [Taiwan Fisheries Yearbook - Fisheries of the Republic of China(Taiwan) - Fisheries Agency, Council of Agriculture](https://www.fa.gov.tw/en/PublicationsYearbook/). 
+  
+  849,000 TN fishery income per household in 2008 according to the 2010 yearbook. ~ (28,477 usd 2016). The per capita Fishery Family income was 256,000 TN (8399.64) file_name: 9900_05Quality Fishery). 
+
+  21776000 TN is the gross income of far sea fishery per enterprise house hold.  [National Taiwan Stats](https://eng.stat.gov.tw/public/Data/332910175471.pdf)
+
+  Taiwan's minimum wage is ~ 4 usd per hour or 639 usd per month [Taiwan to raise minimum wage next year | Most Viewed | FOCUS TAIWAN - CNA ENGLISH NEWS](http://focustaiwan.tw/news/afav/201609080021.aspx)
+  
+another source reveals that fishermen were offered 150 usd per month (5 usd per day) but were paid half of that [Exploitation in Taiwan's $2bn fishing industry - BBC News](http://www.bbc.com/news/world-asia-27498048)
+
+However, Taiwan;s fisheries have be reported to use forced labor [Taiwan Fisheries.pdf](https://www.uscc.gov/sites/default/files/Research/Taiwan%20Fisheries.pdf)
+[Taiwan fishing industry 'out of control': Greenpeace | The Japan Times](http://www.japantimes.co.jp/life/2016/04/14/environment/taiwan-fishing-industry-control-greenpeace/#.WQPnhYnysUE)
+
+Lastly, this report by [Greenpeace](http://m.greenpeace.org/international/Global/international/publications/oceans/2016/Taiwan-Tuna-Rpt-2016.pdf) states that a typical salary of distant water based crew is 300$ per month.
+
+
+```{r}
+effort_by_high_seas_vessels %>% 
+  filter(year == 2016, sovereign_flag_iso3 == "TWN") %>%
+  mutate(total_days = gap_days + days) %>% 
+  summarise(mean(total_days, na.rm = T))
+```
+
+```{r fill_in_Taiwan}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  mutate(total_labor_cost_low_bound = ifelse(flag_country_name == "Taiwan", crew*300/(256/12)*(days + gap_days), total_labor_cost_low_bound),
+         total_labor_cost_high_bound = ifelse(flag_country_name == "Taiwan", crew*639/(256/12)*(days + gap_days), total_labor_cost_high_bound)
+         ) 
+        
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016) %>% 
+  mutate(is_taiwan = flag_country_name == "Taiwan") %>% 
+  group_by(is_taiwan) %>% 
+  summarise(mean(total_labor_cost_low_bound/(days + gap_days), na.rm = T),
+            mean(total_labor_cost_high_bound/(days + gap_days), na.rm = T))
+```
+
+## US 
+
+30,740 is the mean annual wage of fishers according to: [Dept of labor](https://www.bls.gov/oes/current/oes453011.htm)
+
+The average Hawaiian longliner vessel spends $173,148 per year on labor cost [NOAA](https://www.pifsc.noaa.gov/library/pubs/tech/NOAA_Tech_Memo_PIFSC_56.pdf). Average number of trips per year was 111
+
+```{r}
+effort_by_high_seas_vessels %>% 
+  filter(year == 2016, sovereign_flag_iso3 == "USA", gear_type == "drifting_longlines" ) %>%
+  mutate(total_days = gap_days + days,
+         length_group = cut(length, breaks = c(0,17,22,300))) %>%
+  group_by(gear_type, length_group) %>% 
+  summarise(avg_days_at_sea = round(mean(total_days, na.rm = T))) %>% 
+  mutate(avg_annual_labor_cost = c(132000, 171000, 181000),
+         avg_labor_cost_per_day = round(avg_annual_labor_cost/avg_days_at_sea))
+```
+
+```{r fill_in_USA}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  mutate(total_labor_cost_low_bound = 
+           case_when(
+             flag_country_name == "United States" & length < 17 ~ 635*(days + gap_days),
+             flag_country_name == "United States" & length >= 17 & length < 22 ~ 1056*(days + gap_days),
+             flag_country_name == "United States" & length >= 22 ~ 1312*(days + gap_days),
+             TRUE ~ total_labor_cost_low_bound)) 
+
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016 & !is.na(total_labor_cost_high_bound)) %>% 
+  mutate(is_us = flag_country_name == "United States") %>% 
+  group_by(is_us) %>% 
+  summarise(mean(total_labor_cost_low_bound/(days + gap_days), na.rm = T)
+            ,mean(total_labor_cost_high_bound/(days + gap_days)))
+```
+
+## Vanuatu 
+
+Minimum wage per month was 325.20 usd in 2012, US$1.84 per hour (14 usd per day)   [Despite Minimum Wage Increase, Vanuatu Workers Underpaid - September 27, 2012](http://pidp.org/pireport/2012/September/09-27-04.htm)
+
+A [Cost-Earnings Study of the American Samoa Longline Fishery Based on Vessel Operations in 2009 in  WCPFC](https://www.wcpfc.int/node/4734) report that the average crew member (predominantly Philippino, Samoan, Tonga, Vanuatu and China) earn 7294 dollars per year (8313 usd 2016).
+
+```{r}
+effort_by_high_seas_vessels %>% 
+  filter(year == 2016, sovereign_flag_iso3 == "VUT") %>%
+  mutate(total_days = gap_days + days) %>% 
+  summarise(mean(total_days, na.rm = T))
+```
+
+
+```{r fill_in_Vanuatu}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  mutate(total_labor_cost_low_bound = ifelse(flag_country_name == "Vanuatu", 
+                                             14*crew*(days + gap_days), 
+                                             total_labor_cost_low_bound)
+    )
+
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016 & !is.na(total_labor_cost_high_bound)) %>% 
+  mutate(is_vut = flag_country_name == "Vanuatu") %>% 
+  group_by(is_vut) %>% 
+  summarise(mean(total_labor_cost_low_bound/(days + gap_days), na.rm = T),
+            mean(total_labor_cost_high_bound/(days + gap_days)))
+```
+```{r}
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  group_by(length_class) %>% 
+  summarise(mean(total_labor_cost_low_bound/(days + gap_days), na.rm = T),
+            mean(total_labor_cost_high_bound/(days + gap_days), na.rm = T),)
+```
+
+## Canada 
+
+According to this website: [Fisherman salary in Canada](https://neuvoo.ca/salary/fisherman/), an entry level fisherman earn $29,000 (22,762 USD) with the most experienced up to 58,000. The mean is 41,230 per year. 
+
+```{r}
+effort_by_high_seas_vessels %>% 
+  filter(year == 2016, sovereign_flag_iso3 == "CAN") %>%
+  mutate(total_days = gap_days + days) %>% 
+  summarise(mean(total_days, na.rm = T))
+```
+
+
+```{r fill_in_Canada}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  mutate(total_labor_cost_low_bound = ifelse(flag_country_name == "Canada", (22762/126)*crew*(days + gap_days), total_labor_cost_low_bound)
+         )
+
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016 & !is.na(total_labor_cost_high_bound)) %>% 
+  mutate(is_vut = flag_country_name == "Canada") %>% 
+  group_by(is_vut) %>% 
+  summarise(mean(total_labor_cost_low_bound/(days + gap_days), na.rm = T),
+            mean(total_labor_cost_high_bound/(days + gap_days)))
+```
+
+
+```{r}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  mutate(total_labor_cost_high_bound = case_when(
+    !is.na(total_labor_cost_low_bound) & !is.na(total_labor_cost_high_bound) & total_labor_cost_high_bound < total_labor_cost_low_bound ~ total_labor_cost_low_bound,
+    TRUE ~ total_labor_cost_high_bound
+  )) 
+
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016 & !is.na(total_labor_cost_high_bound) & gear_type != "unknown") %>% 
+  mutate(total_labor_cost_per_day_low_bound = total_labor_cost_low_bound/(days + gap_days),
+         total_labor_cost_per_day_high_bound = total_labor_cost_high_bound/(days + gap_days),) %>% 
+  group_by(gear_type, length_class) %>% 
+  summarise(avg_labor_cost_per_day_by_size_low_bound = mean(total_labor_cost_per_day_low_bound, na.rm = T),
+            avg_labor_cost_per_day_by_size_high_bound = mean(total_labor_cost_per_day_high_bound, na.rm = T)) %>% 
+  arrange(desc(avg_labor_cost_per_day_by_size_high_bound)) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+## Remaining gaps
+
+```{r still_missing_info}
+(remaining_low_labor_gaps <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016) %>% 
+  group_by(flag_country_name) %>% 
+  summarize(n = sum(!is.na(total_labor_cost_low_bound)),
+            total_days = sum(days),
+            total_fishing_KW = sum(fishing_KW_hours)) %>% 
+  ungroup() %>% 
+  mutate(p_effort = 100*total_fishing_KW/sum(total_fishing_KW)) %>% 
+  filter(n == 0) %>% 
+  arrange(desc(p_effort)) %>% 
+  distinct(flag_country_name, p_effort = round(p_effort, 2)) )
+
+remaining_low_labor_gaps %>% 
+  summarise(sum(p_effort))
+```
+
+
+```{r}
+(mean_cost_per_day_by_region_gear_and_length_class <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(!is.na(total_labor_cost_low_bound)) %>% 
+  filter(!is.na(gear_type), sovereign_flag_country_name != 'unknown', year == 2016) %>% 
+  mutate(region = countrycode::countrycode(sovereign_flag_country_name, "country.name","region"),
+         region = ifelse(sovereign_flag_country_name == "Bonaire", "Caribbean", region),
+         labor_cost_per_day_low = total_labor_cost_low_bound/(days + gap_days), na.rm = T) %>% 
+  group_by(region, gear_type, length_class) %>% 
+  summarize(mean_labor_cost_per_day_low = mean(labor_cost_per_day_low, na.rm = T))) 
+
+(mean_cost_per_day_by_region_and_length_class <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(!is.na(total_labor_cost_low_bound)) %>% 
+  filter( sovereign_flag_country_name != 'unknown', year == 2016) %>% 
+  mutate(region = countrycode::countrycode(sovereign_flag_country_name, "country.name","region"),
+         region = ifelse(sovereign_flag_country_name == "Bonaire", "Caribbean", region),
+         labor_cost_per_day_low = total_labor_cost_low_bound/(days + gap_days), na.rm = T) %>% 
+  group_by(region, length_class) %>% 
+  summarize(mean_labor_cost_per_day_low = mean(labor_cost_per_day_low, na.rm = T))) 
+
+(mean_cost_per_day_by_length_class <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(!is.na(total_labor_cost_low_bound)) %>% 
+  filter(year == 2016) %>% 
+  mutate(labor_cost_per_day_low = total_labor_cost_low_bound/(days + gap_days), na.rm = T,
+         labor_cost_per_day_high = total_labor_cost_high_bound/(days + gap_days), na.rm = T,) %>% 
+  group_by(length_class) %>% 
+  summarize(mean_labor_cost_per_day_low = mean(labor_cost_per_day_low, na.rm = T)) )
+```
+
+```{r fill_in_remaining_gaps_with_means}
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  mutate(region = countrycode::countrycode(sovereign_flag_country_name, "country.name","region"),
+         region = ifelse(sovereign_flag_country_name == "Bonaire", "Caribbean", region)) %>% 
+  left_join(mean_cost_per_day_by_region_gear_and_length_class) %>% 
+  mutate(total_labor_cost_low_bound = ifelse(is.na(total_labor_cost_low_bound), (days + gap_days)*mean_labor_cost_per_day_low,total_labor_cost_low_bound)) %>% 
+  select(-mean_labor_cost_per_day_low, region)
+
+effort_and_labor_cost_by_high_seas_vessels %>% filter(is.na(total_labor_cost_low_bound))
+
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  left_join(mean_cost_per_day_by_region_and_length_class) %>% 
+  mutate(total_labor_cost_low_bound = ifelse(is.na(total_labor_cost_low_bound), (days + gap_days)*mean_labor_cost_per_day_low,total_labor_cost_low_bound)) %>% 
+  select(-mean_labor_cost_per_day_low)
+
+effort_and_labor_cost_by_high_seas_vessels %>%
+  filter(is.na(total_labor_cost_low_bound), year == 2016) %>% 
+  group_by(flag_country_name, length_class) %>% 
+  summarise(n = n_distinct(mmsi)) %>% 
+  arrange(desc(n))
+
+effort_and_labor_cost_by_high_seas_vessels <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  left_join(mean_cost_per_day_by_length_class) %>% 
+  mutate(total_labor_cost_low_bound = ifelse(is.na(total_labor_cost_low_bound), (days + gap_days)*mean_labor_cost_per_day_low,total_labor_cost_low_bound)) %>% 
+  select(-mean_labor_cost_per_day_low)
+```
+
+# Summary of labor costs
+
+```{r}
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016, !is.na(gear_type), gear_type != "whaling", !is.na(total_labor_cost_high_bound)) %>% 
+  mutate(avg_labor_cost_per_day_low_bound = total_labor_cost_low_bound/(days + gap_days),
+         avg_labor_cost_per_day_high_bound = total_labor_cost_high_bound/(days + gap_days)) %>% 
+  group_by(gear_type) %>% 
+  summarise(total_labor_cost_low_bound = sum(total_labor_cost_low_bound)/10^6,
+            total_labor_cost_high_bound = sum(total_labor_cost_high_bound)/10^6,
+            avg_labor_cost_per_day_low_bound = mean(avg_labor_cost_per_day_low_bound),
+            avg_labor_cost_per_day_high_bound = mean(avg_labor_cost_per_day_high_bound)) %>% 
+  arrange(desc(avg_labor_cost_per_day_low_bound)) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+```{r}
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016, !is.na(gear_type), gear_type != "whaling", !is.na(total_labor_cost_high_bound)) %>% 
+  mutate(avg_labor_cost_per_day_low_bound = total_labor_cost_low_bound/(days + gap_days),
+         avg_labor_cost_per_day_high_bound = total_labor_cost_high_bound/(days + gap_days)) %>% 
+  group_by(length_class) %>% 
+  summarise(total_labor_cost_low_bound = sum(total_labor_cost_low_bound)/10^6,
+            total_labor_cost_high_bound = sum(total_labor_cost_high_bound)/10^6,
+            avg_labor_cost_per_day_low_bound = mean(avg_labor_cost_per_day_low_bound),
+            avg_labor_cost_per_day_high_bound = mean(avg_labor_cost_per_day_high_bound)) %>% 
+  arrange(desc(total_labor_cost_low_bound)) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+
+```{r}
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016, !is.na(gear_type), gear_type != "whaling", !is.na(total_labor_cost_high_bound)) %>% 
+  mutate(avg_labor_cost_per_day_low_bound = total_labor_cost_low_bound/(days + gap_days),
+         avg_labor_cost_per_day_high_bound = total_labor_cost_high_bound/(days + gap_days)) %>% 
+  group_by(gear_type) %>% 
+  summarise(total_labor_cost_low_bound = sum(total_labor_cost_low_bound)/10^6,
+            total_labor_cost_high_bound = sum(total_labor_cost_high_bound)/10^6,
+            avg_labor_cost_per_day_low_bound = mean(avg_labor_cost_per_day_low_bound),
+            avg_labor_cost_per_day_high_bound = mean(avg_labor_cost_per_day_high_bound)) %>% 
+  arrange(desc(total_labor_cost_low_bound)) %>% 
+  mutate_if(is.numeric, round, 2)
+
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016, !is.na(gear_type), gear_type != "whaling", !is.na(total_labor_cost_high_bound)) %>% 
+  mutate(avg_labor_cost_per_day_low_bound = total_labor_cost_low_bound/(days + gap_days),
+         avg_labor_cost_per_day_high_bound = total_labor_cost_high_bound/(days + gap_days)) %>% 
+  group_by(length_class) %>% 
+  summarise(total_labor_cost_low_bound = sum(total_labor_cost_low_bound)/10^6,
+            total_labor_cost_high_bound = sum(total_labor_cost_high_bound)/10^6,
+            avg_labor_cost_per_day_low_bound = mean(avg_labor_cost_per_day_low_bound),
+            avg_labor_cost_per_day_high_bound = mean(avg_labor_cost_per_day_high_bound)) %>% 
+  arrange(desc(total_labor_cost_low_bound)) %>% 
+  mutate_if(is.numeric, round, 2) 
+
+
+effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016, !is.na(gear_type), gear_type != "whaling", !is.na(total_labor_cost_high_bound)) %>% 
+  mutate(avg_labor_cost_per_day_low_bound = total_labor_cost_low_bound/(days + gap_days),
+         avg_labor_cost_per_day_high_bound = total_labor_cost_high_bound/(days + gap_days)) %>% 
+  group_by(region, length_class) %>% 
+  summarise(total_labor_cost_low_bound = sum(total_labor_cost_low_bound)/10^6,
+            total_labor_cost_high_bound = sum(total_labor_cost_high_bound)/10^6,
+            avg_labor_cost_per_day_low_bound = mean(avg_labor_cost_per_day_low_bound),
+            avg_labor_cost_per_day_high_bound = mean(avg_labor_cost_per_day_high_bound)) %>% 
+  arrange(desc(total_labor_cost_low_bound)) %>% 
+  mutate_if(is.numeric, round, 2) 
+```
+
+```{r}
+(labor_cost_per_day_boxplot <- effort_and_labor_cost_by_high_seas_vessels %>% 
+  filter(year == 2016,  !is.na(gear_type), !is.na(flag_country_name), gear_type != "whaling") %>% 
+  mutate(sub_gear_type = stringr::str_to_title(stringr::str_replace_all(gear_type, "_", " "))) %>% 
+  mutate(avg_labor_cost_per_day_low_bound = total_labor_cost_low_bound/(days + gap_days),
+         avg_labor_cost_per_day_high_bound = total_labor_cost_high_bound/(days + gap_days)) %>% 
+  ggplot(aes(x = fct_reorder(sub_gear_type, avg_labor_cost_per_day_high_bound, median, na.rm = T), y = avg_labor_cost_per_day_high_bound, fill = sub_gear_type), alpha = 0.2) +
+  geom_boxplot(show.legend = FALSE)+
+  theme_minimal()+
+  labs(x = "", 
+       title = 'Distributions of labor cost per day by gear type', 
+       y = "Labor cost per day (usd)", 
+       subtitle = "2016")+
+  theme(plot.title = element_text(hjust = -.45))+
+  ggsci::scale_fill_npg()+
+  coord_flip())
+```
+
+# Combine fuel and labor cost 
+
+```{r combine_labor_and_fuel_2016, message=FALSE}
+fuel_costs_by_high_seas_vessels <- read_csv("saved_files/all_vessels_fuel_cost.csv") %>% 
+  rename(crew = rf_crew) %>% 
+  filter(is_high_seas) %>% 
+  replace_na(list(flag_country_name = 'unknown', flag_iso3 = 'unknown', sovereign_flag_country_name  = "unknown", sovereign_flag_iso3 = "unknown" ))
+
+fuel_costs_by_high_seas_vessels$length[fuel_costs_by_high_seas_vessels$mmsi ==  417000670] <- 12
+fuel_costs_by_high_seas_vessels$length[fuel_costs_by_high_seas_vessels$mmsi ==  417000729] <- 12
+
+fuel_and_labor_by_high_seas_vessels <- fuel_costs_by_high_seas_vessels %>% 
+  left_join(effort_and_labor_cost_by_high_seas_vessels %>% 
+            select(year, mmsi, fishing_KW_hours, total_labor_cost_low_bound, total_labor_cost_high_bound), by = c("mmsi", "year")) %>% 
+  mutate(length_class = cut(length,  breaks = c(0,12,18,24,40,200), right = F))  
+```
+
+```{r}
+fuel_and_labor_by_high_seas_vessels <- fuel_and_labor_by_high_seas_vessels %>% 
+  mutate(total_labor_cost_high_bound = case_when(
+    !is.na(total_labor_cost_low_bound) & !is.na(total_labor_cost_high_bound) & total_labor_cost_high_bound < total_labor_cost_low_bound ~ total_labor_cost_low_bound,
+    TRUE ~ total_labor_cost_high_bound
+  )) 
+```
+
+
+```{r}
+fuel_and_labor_by_high_seas_vessels %>% 
+  filter(!is.na(total_labor_cost_high_bound)) %>% 
+  mutate(labor_cost_per_day_low = total_labor_cost_low_bound/(days + gap_days),
+         labor_cost_per_day_high = total_labor_cost_high_bound/(days + gap_days)) %>% 
+  group_by(year) %>% 
+  summarize(vessels = n(),
+            thousand_active_days = sum(days)/1000,
+            thousand_gap_days = sum(gap_days)/1000,
+            avg_days_per_vessel = sum(days)/n(),
+            labor_cost_per_day_low = mean(labor_cost_per_day_low),
+            labor_cost_per_day_high = mean(labor_cost_per_day_high),
+            mean_fuel_cost_per_day_low = mean(fuel_cost_per_day__low_bound),
+            mean_fuel_cost_per_day_high = mean(fuel_cost_per_day__high_bound),
+            total_labor_cost_millions_low_bound = sum(total_labor_cost_low_bound)/1000000,
+            total_labor_cost_millions_high_bound = sum(total_labor_cost_high_bound)/1000000,
+            total_fuel_cost_millions_low_bound = sum(total_fuel_cost_with_gaps__low_bound)/1000000,
+            total_fuel_cost_millions_high_bound = sum(total_fuel_cost_with_gaps__high_bound)/1000000) %>% 
+  mutate(total_fuel_and_labor_costs_low_bound = total_fuel_cost_millions_low_bound + total_labor_cost_millions_low_bound,
+         total_fuel_and_labor_costs_high_bound = total_fuel_cost_millions_high_bound + total_labor_cost_millions_high_bound)
+```
+
+# Scale to total costs
+
+```{r}
+eu_fractions_of_total_cost <- EU_ref_info %>% 
+  na.omit() %>% 
+  replace_na(list(unpaid_labor_value = 0)) %>% 
+  mutate(total_costs =  opportunity_cost_of_capital + depreciation_costs +
+           energy_costs + 
+           other_non_variable_cost + other_variable_cost + repair_and_maintenance_costs + 
+           rights_costs + unpaid_labor_value + crew_wages,
+         fraction_fuel_and_labor = (crew_wages + unpaid_labor_value + energy_costs)/total_costs) %>% 
+  select(flag_country_name, length_class,fraction_fuel_and_labor)
+
+
+eu_DWF_fractions_of_total_cost <- EU_DWF_ref_info %>% 
+  filter(!is.na(gfw_gear_equivalent)) %>% 
+  replace(is.na(.), 0) %>%
+  mutate(total_costs =  opportunity_cost_of_capital + depreciation_costs +
+           energy_costs + other_non_variable_cost + other_variable_cost + repair_and_maintenance_costs + rights_costs + unpaid_labor_value + crew_wages) %>% 
+  filter(total_costs > 0) %>% 
+  group_by(flag_country_name,  length_class, gfw_gear_equivalent) %>% 
+  summarise_at(vars(energy_costs, unpaid_labor_value, crew_wages, total_costs, depreciation_costs, opportunity_cost_of_capital), funs(sum)) %>% 
+  mutate(fraction_fuel_and_labor = (crew_wages + unpaid_labor_value + energy_costs)/total_costs) %>% 
+  select(flag_country_name, gear_type = gfw_gear_equivalent,length_class, fraction_fuel_and_labor)%>% 
+  ungroup()  %>% 
+  filter(flag_country_name != "France")
+
+eu_OFR_fractions_of_total_cost <- EU_OFR_ref_info %>% 
+  filter(!is.na(gfw_gear_equivalent)) %>% 
+  replace(is.na(.), 0) %>%
+  mutate(total_costs = opportunity_cost_of_capital + depreciation_costs + 
+           energy_costs + other_non_variable_cost + other_variable_cost + repair_and_maintenance_costs + rights_costs + unpaid_labor_value + crew_wages) %>% 
+  filter(total_costs > 0) %>% 
+  group_by(flag_country_name,  length_class, gfw_gear_equivalent) %>% 
+  summarise_at(vars(energy_costs, unpaid_labor_value, crew_wages, total_costs, opportunity_cost_of_capital, depreciation_costs), funs(sum)) %>% 
+  mutate(fraction_fuel_and_labor = (crew_wages + unpaid_labor_value + energy_costs)/total_costs) %>% 
+  select(flag_country_name, gear_type = gfw_gear_equivalent,length_class, fraction_fuel_and_labor) %>% 
+  ungroup()
+```
+
+
+```{r}
+fuel_and_labor_by_high_seas_vessels <- fuel_and_labor_by_high_seas_vessels %>%
+  left_join(eu_DWF_fractions_of_total_cost %>%
+              filter(fraction_fuel_and_labor > 0) %>% 
+              select(sovereign_flag_country_name = flag_country_name , length_class, gear_type, fraction_fuel_and_labor_dwf = fraction_fuel_and_labor)) %>% 
+  left_join(eu_OFR_fractions_of_total_cost %>%
+              filter(fraction_fuel_and_labor > 0) %>% 
+              select(sovereign_flag_country_name = flag_country_name , length_class, gear_type, fraction_fuel_and_labor_OFR = fraction_fuel_and_labor)) %>% 
+  left_join(eu_fractions_of_total_cost %>% 
+              filter(fraction_fuel_and_labor > 0)) %>% 
+  mutate(fraction_of_total_cost = case_when(
+    !is.na(fraction_fuel_and_labor_dwf) ~ fraction_fuel_and_labor_dwf,
+    !is.na(fraction_fuel_and_labor_OFR) ~ fraction_fuel_and_labor_dwf,
+    TRUE ~ fraction_fuel_and_labor_dwf
+  )) %>% 
+  select(-fraction_fuel_and_labor_dwf, -fraction_fuel_and_labor_OFR, -fraction_fuel_and_labor)
+```
+
+```{r}
+fuel_and_labor_by_high_seas_vessels <- fuel_and_labor_by_high_seas_vessels %>% 
+  mutate(ton_class = as.character(cut(as.numeric(tonnage), breaks = c(0,10,20,50,100,200,500,10000), right = F, dig.lab = 10))) %>% 
+  left_join(japan_cost_by_gear_usd_2016 %>%              
+              mutate(flag_country_name = "Japan") %>% 
+              select(flag_country_name, gear_type, ton_class, labor_and_fuel_as_fraction_of_total)) %>% 
+  left_join(japan_cost_by_ton_class_usd_2016 %>% 
+              mutate(flag_country_name = "Japan") %>% 
+              select(flag_country_name,  ton_class, labor_and_fuel_as_fraction_of_total_ton_only = labor_and_fuel_as_fraction_of_total)) %>% 
+  mutate(fraction_of_total_cost = ifelse(!is.na(fraction_of_total_cost),fraction_of_total_cost,
+                                         ifelse(!is.na(labor_and_fuel_as_fraction_of_total), labor_and_fuel_as_fraction_of_total, labor_and_fuel_as_fraction_of_total_ton_only))) %>%
+  select(-labor_and_fuel_as_fraction_of_total_ton_only, -labor_and_fuel_as_fraction_of_total)
+```
+
+```{r}
+(mean_fractions_by_length_class <- fuel_and_labor_by_high_seas_vessels %>% 
+  group_by(length_class) %>% 
+  summarize(mean_fraction_of_total_cost = mean(fraction_of_total_cost, na.rm = T)))
+```
+
+```{r}
+fuel_and_labor_by_high_seas_vessels <- fuel_and_labor_by_high_seas_vessels %>%
+  left_join(mean_fractions_by_length_class) %>%
+  mutate(fraction_of_total_cost = ifelse(!is.na(fraction_of_total_cost),
+                                         fraction_of_total_cost, mean_fraction_of_total_cost)) %>%
+  select(-mean_fraction_of_total_cost)
+
+fuel_and_labor_by_high_seas_vessels <- fuel_and_labor_by_high_seas_vessels %>%
+  mutate(
+    total_cost__high_bound = (total_fuel_cost_with_gaps__high_bound + total_labor_cost_high_bound) / fraction_of_total_cost,
+    total_cost__low_bound = (total_fuel_cost_with_gaps__low_bound + total_labor_cost_low_bound) / fraction_of_total_cost
+  )
+```
+
+```{r}
+fuel_and_labor_by_high_seas_vessels %>% 
+  filter(!is.na(total_labor_cost_high_bound)) %>% 
+  group_by(year) %>% 
+  summarize(fuel_cost_millions_low_bound = sum(total_fuel_cost_with_gaps__low_bound)/1000000,
+            fuel_cost_millions_high_bound = sum(total_fuel_cost_with_gaps__high_bound)/1000000,
+            labor_cost_millions_low_bound = sum(total_labor_cost_low_bound)/1000000,
+            labor_cost_millions_high_bound = sum(total_labor_cost_high_bound)/1000000,
+            total_cost_millions_low_bound = sum(total_cost__low_bound)/1000000,
+            total_cost_millions_high_bound = sum(total_cost__high_bound)/1000000)
+```
+
+```{r}
+write_csv(fuel_and_labor_by_high_seas_vessels, "saved_files/total_cost_by_high_seas_vessels.csv")
+```

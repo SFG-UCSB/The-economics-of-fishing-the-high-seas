@@ -1,0 +1,146 @@
+---
+title: "Area of the high seas that is fished"
+output: html_notebook
+---
+
+```{r}
+library(raster)
+library(sf)
+library(tidyverse)
+
+
+HS_shp <- read_sf("../../../Google Drive - UCSB/shapefiles/high-seas/high_seas.shp")
+ocean_shp <- read_sf("../../../Google Drive - UCSB/shapefiles/ocean/ne_10m_ocean.shp")
+
+binned_ais_vms_high_seas_effort <- read_csv("saved_files/binned_ais_vms_high_seas_effort.csv") %>% 
+  filter(year == 2016)
+
+binned_ais_vms_high_seas_effort_01 <- read_csv("saved_files/binned_ais_vms_high_seas_effort_tenth_degree_resolution.csv") %>% 
+  filter(year == 2016)
+
+hs_area <- 230
+```
+
+## Simple approach
+
+```{r}
+estimate_area_fished <- function(d, res){
+  
+  d %>% 
+    mutate(lon_bin_center = floor(lon_bin_center/res)*res + 0.5*res,
+           lat_bin_center = floor(lat_bin_center/res)*res + 0.5*res) %>% 
+    group_by(lat_bin_center, lon_bin_center) %>% 
+    summarise(fishing_hours = sum(fishing_hours, na.rm = T)) %>% 
+    ungroup() %>% 
+    mutate(area = cos(NISTunits::NISTdegTOradian(lat_bin_center))*(111/(1/res))^2) %>% 
+    filter(fishing_hours > 0) %>% 
+    summarise(fished_area = sum(area)/10^6) %>% 
+    pull(fished_area)
+}
+
+estimate_area_fished(binned_ais_vms_high_seas_effort_01,0.5)
+```
+
+The simplest approach is to estimate the area fished using the 0.5º resolution. This yields that `r estimate_area_fished(binned_ais_vms_high_seas_effort_01,0.5)`
+million sq km of the high seas are fished (`r estimate_area_fished(binned_ais_vms_high_seas_effort_01,0.5)/230` %). Increasing the resolution to 0.25º degrees, reduces this area to `r estimate_area_fished(binned_ais_vms_high_seas_effort_01,0.25)` sq km (`r estimate_area_fished(binned_ais_vms_high_seas_effort_01,0.25)/230` %) and further decreasing the resolution to 0.1º the fished area is reduced to `r estimate_area_fished(binned_ais_vms_high_seas_effort_01, 0.1)` million (`r estimate_area_fished(binned_ais_vms_high_seas_effort_01,0.1)/230` %).
+
+## Equal area approach
+
+```{r}
+binned_ais_vms_high_seas_effort_05 <- binned_ais_vms_high_seas_effort %>% 
+  filter(year == 2016) %>%
+  group_by(lat_bin_center, lon_bin_center) %>% 
+  summarise(fishing_hours = sum(fishing_hours, na.rm = T)) %>% 
+  filter(fishing_hours > 0) %>% 
+  ungroup()
+
+grid_latlon <- expand.grid(lat = seq(min(binned_ais_vms_high_seas_effort_05$lat_bin_center),
+                                    max(binned_ais_vms_high_seas_effort_05$lat_bin_center), 0.5), 
+                           lon = seq(min(binned_ais_vms_high_seas_effort_05$lon_bin_center),
+                                     max(binned_ais_vms_high_seas_effort_05$lon_bin_center), 0.5))
+
+gridded_fishing = left_join(grid_latlon, binned_ais_vms_high_seas_effort_05, 
+                            by = c('lat' = 'lat_bin_center', 'lon' = 'lon_bin_center'))
+
+gridded_fishing$fishing_hours = ifelse(is.na(gridded_fishing$fishing_hours), 0, gridded_fishing$fishing_hours)
+
+sp::coordinates(gridded_fishing) = ~lon+lat
+
+sp::proj4string(gridded_fishing) = sp::CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs") 
+
+#ensure fishing in on regular grid
+sp::gridded(gridded_fishing) = TRUE
+```
+
+```{r}
+fishing_raster_05 = raster::rasterFromXYZ(gridded_fishing, 
+                                          crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+
+bb = extent(-180, 180, -78.5, 77)
+
+fishing_raster_05 = setExtent(fishing_raster_05, bb, keepres = TRUE)
+#this is Gall-Peters Equal Area Projection
+fishing_raster_05 = projectRaster(fishing_raster_05, crs = "+proj=cea +lon_0=0 +x_0=0 +y_0=0 +lat_ts=45 +datum=WGS84 +units=m +no_defs", over = TRUE) 
+
+fishing_raster_05[fishing_raster_05[] > 0] <- 1 
+fishing_raster_05[fishing_raster_05[] <= 0] <- NA 
+
+plot(fishing_raster_05)
+```
+
+```{r}
+(hs_fished_area <- sum(fishing_raster_05[] >= 0, na.rm = T)*xres(fishing_raster_05)*yres(fishing_raster_05)/(10^6)/(10^6))
+
+hs_fished_area/hs_area
+```
+
+### With 0.25 resolution
+
+```{r}
+binned_ais_vms_high_seas_effort_025 <- binned_ais_vms_high_seas_effort_01 %>% 
+  mutate(lon_bin_center = floor(lon_bin_center/0.25)*0.25 + 0.5*0.25,
+         lat_bin_center = floor(lat_bin_center/0.25)*0.25 + 0.5*0.25) %>% 
+  group_by(lat_bin_center, lon_bin_center) %>% 
+  summarise(fishing_hours = sum(fishing_hours, na.rm = T)) %>% 
+  ungroup() %>% 
+  filter(fishing_hours > 0)
+
+grid_latlon <- expand.grid(lat = seq(min(binned_ais_vms_high_seas_effort_025$lat_bin_center),
+                                    max(binned_ais_vms_high_seas_effort_025$lat_bin_center), 0.25), 
+                           lon = seq(min(binned_ais_vms_high_seas_effort_025$lon_bin_center),
+                                     max(binned_ais_vms_high_seas_effort_025$lon_bin_center), 0.25))
+
+gridded_fishing = left_join(grid_latlon, binned_ais_vms_high_seas_effort_025, 
+                            by = c('lat' = 'lat_bin_center', 'lon' = 'lon_bin_center'))
+
+gridded_fishing$fishing_hours = ifelse(is.na(gridded_fishing$fishing_hours), 0, gridded_fishing$fishing_hours)
+
+sp::coordinates(gridded_fishing) = ~lon+lat
+
+sp::proj4string(gridded_fishing) = sp::CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs") 
+
+#ensure fishing in on regular grid
+sp::gridded(gridded_fishing) = TRUE
+```
+
+```{r}
+fishing_raster_025 = raster::rasterFromXYZ(gridded_fishing, 
+                                          crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+
+bb = extent(-180, 180, -78.25, 77)
+
+fishing_raster_025 = setExtent(fishing_raster_025, bb, keepres = TRUE)
+#this is Gall-Peters Equal Area Projection
+fishing_raster_025 = projectRaster(fishing_raster_025, crs = "+proj=cea +lon_0=0 +x_0=0 +y_0=0 +lat_ts=45 +datum=WGS84 +units=m +no_defs", over = TRUE) 
+
+fishing_raster_025[fishing_raster_025[] > 0] <- 1 
+fishing_raster_025[fishing_raster_025[] <= 0] <- NA 
+
+plot(fishing_raster_025)
+```
+
+```{r}
+(hs_fished_area <- sum(fishing_raster_025[] >= 0, na.rm = T)*xres(fishing_raster_025)*yres(fishing_raster_025)/(10^6)/(10^6))
+
+<- <- hs_fished_area/hs_area
+```

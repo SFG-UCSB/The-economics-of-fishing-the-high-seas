@@ -1,0 +1,681 @@
+---
+title: "Estimating Fuel Costs"
+output:
+  html_notebook:
+    fig_caption: yes
+    toc: yes
+    toc_depth: 6
+  html_document:
+    toc: yes
+    toc_depth: '6'
+---
+
+```{r message=FALSE, error=FALSE, warning=F, echo=FALSE, prompt=FALSE}
+suppressPackageStartupMessages(
+  easypackages::libraries("knitr", "tidyverse", "bigrquery", "lubridate", "broom","rnaturalearth","forcats")
+)
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = F,error = FALSE, echo = FALSE, progress = F)
+
+knitr::knit_hooks$set(inline = function(x) {
+  prettyNum(round(x,2), big.mark = ",")
+})
+
+options(scipen = 999)
+
+BQ_connection <-  dbConnect(dbi_driver(),dataset = "", project = "high-seas", billing = "world-fishing-827")
+source("../general_project_files/effort_mapping_functions.R")
+source("../general_project_files/gfw_themes.R")
+source("../general_project_files/functions.R")
+```
+
+This script implements the model of fuel costs, summarizes total fuel cost by vessels, and compares our results with reference points from the EU and Japan.
+
+```{sql  connection = BQ_connection, output.var = "all_vessels_fuel_cost", eval = F}
+SELECT
+  year,
+  mmsi,
+  shipname, 
+  flag_country_name,
+  flag_iso3,
+  sovereign_flag_country_name,
+  sovereign_flag_iso3,
+  sub_gear_type,
+  gear_type,
+  length,
+  tonnage,
+  engine_power,
+  rf_crew,
+  fraction_fishing_high_seas,
+  is_high_seas,
+  gap_hours,
+  gap_days,
+  EXACT_COUNT_DISTINCT(DATE(timestamp)) days,
+  EXACT_COUNT_DISTINCT(IF(nnet_score == 1, DATE(timestamp), NULL)) fishing_days,
+  SUM(main_fuel_consumption__low_bound) main_fuel_consumption__low_bound,
+  SUM(aux_fuel_consumption__low_bound) aux_fuel_consumption__low_bound,
+  SUM(main_fuel_consumption__low_bound + aux_fuel_consumption__low_bound) total_fuel_consumption__low_bound,
+  SUM(main_fuel_consumption__low_bound + aux_fuel_consumption__low_bound) + gap_hours*SUM(main_fuel_consumption__low_bound + aux_fuel_consumption__low_bound)/SUM(hours) total_fuel_consumption_with_gaps__low_bound,
+  SUM(main_fuel_consumption__low_bound + aux_fuel_consumption__low_bound)/SUM(hours) avg_fuel_consumption_per_hour__low_bound,
+  
+  SUM(main_fuel_consumption__high_bound) main_fuel_consumption__high_bound,
+  SUM(aux_fuel_consumption__high_bound) aux_fuel_consumption__high_bound,
+  SUM(main_fuel_consumption__high_bound + aux_fuel_consumption__high_bound) total_fuel_consumption__high_bound,
+  SUM(main_fuel_consumption__high_bound + aux_fuel_consumption__high_bound) + gap_hours*SUM(main_fuel_consumption__high_bound + aux_fuel_consumption__high_bound)/SUM(hours) total_fuel_consumption_with_gaps__high_bound,
+  SUM(main_fuel_consumption__high_bound + aux_fuel_consumption__high_bound)/SUM(hours) avg_fuel_consumption_per_hour__high_bound,
+  
+  SUM(main_fuel_cost__low_bound) main_fuel_cost__low_bound,
+  SUM(aux_fuel_cost__low_bound) aux_fuel_cost__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound) total_fuel_cost__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound)/EXACT_COUNT_DISTINCT(DATE(timestamp)) fuel_cost_per_day__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound)/SUM(hours) avg_fuel_cost_per_hour__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound) + gap_hours*SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound)/SUM(hours) total_fuel_cost_with_gaps__low_bound,
+  
+  SUM(main_fuel_cost__high_bound) main_fuel_cost__high_bound,
+  SUM(aux_fuel_cost__high_bound) aux_fuel_cost__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound) total_fuel_cost__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound)/EXACT_COUNT_DISTINCT(DATE(timestamp)) fuel_cost_per_day__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound)/SUM(hours) avg_fuel_cost_per_hour__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound) + gap_hours*SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound)/SUM(hours) total_fuel_cost_with_gaps__high_bound,
+
+FROM (
+  SELECT
+    *,
+    hours*main_load_factor*main_sfc_low*engine_power/1000000 main_fuel_consumption__low_bound,
+    hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_consumption__low_bound,
+    fuel_price*hours*main_load_factor*main_sfc_low*engine_power/1000000 main_fuel_cost__low_bound,
+    fuel_price*hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_cost__low_bound,
+    hours*main_load_factor*main_sfc*engine_power/1000000 main_fuel_consumption__high_bound,
+    hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_consumption__high_bound,
+    fuel_price*hours*main_load_factor*main_sfc*engine_power/1000000 main_fuel_cost__high_bound,
+    fuel_price*hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_cost__high_bound
+  FROM (
+    SELECT
+      a.year year,
+      a.mmsi mmsi,
+      b.shipname shipname,
+      b.flag_country_name flag_country_name,
+      b.flag_iso3 flag_iso3,
+      b.sovereign_flag_country_name sovereign_flag_country_name,
+      b.sovereign_flag_iso3 sovereign_flag_iso3,
+      a.timestamp timestamp,
+      a.lon lon,
+      a.lat lat,
+      a.hours hours,
+      a.nnet_score nnet_score,
+      a.implied_speed implied_speed,
+      a.distance_from_shore distance_from_shore,
+      a.eez_name eez_name,
+      a.eez_iso3 eez_iso3,
+      a.seg_id seg_id,
+      b.sub_gear_type sub_gear_type,
+      b.gear_type gear_type,
+      b.engine_power engine_power,
+      b.aux_engine_power aux_engine_power,
+      b.tonnage tonnage,
+      b.length length,
+      b.rf_crew rf_crew,
+      b.is_high_seas is_high_seas,
+      b.fraction_fishing_high_seas fraction_fishing_high_seas,
+      if(c.gap_hours is null, 0, c.gap_hours) gap_hours ,
+      if(c.gap_days is null, 0, c.gap_days) gap_days,
+      b.design_speed_ihs design_speed_ihs,
+      b.design_speed_old design_speed_old,
+      b.main_sfc main_sfc,
+      b.main_sfc_low main_sfc_low,
+      b.aux_sfc aux_sfc,
+      a.fuel_price fuel_price,
+      CASE
+        WHEN nnet_score == 1 AND gear_type == 'trawlers' THEN .75
+        WHEN nnet_score == 1 AND implied_speed > design_speed_ihs THEN 1.09*(0.9*(1 + 0.285)/1.285)
+        WHEN nnet_score == 1 THEN 1.09*(0.9*(POW(implied_speed/design_speed_ihs, 3) + 0.285)/1.285)
+        WHEN implied_speed > design_speed_ihs THEN 0.9*(1 + 0.285)/1.285
+        ELSE 0.9*(POW(implied_speed/design_speed_ihs, 3) + 0.285)/1.285
+      END AS main_load_factor,
+      IF(nnet_score == 1, .5, .3) aux_load_factor
+    FROM (
+      SELECT
+        YEAR(timestamp) year,
+        mmsi,
+        timestamp,
+        lon,
+        lat,
+        hours,
+        nnet_score,
+        distance_from_shore,
+        IF(implied_speed IS NULL,0, implied_speed) implied_speed,
+        eez_name,
+        eez_iso3,
+        seg_id,
+        875 AS fuel_price,
+        Integer(REGEXP_REPLACE( if(REGEXP_EXTRACT(regions,'\"(fao:.*?)\"') contains ".",  LEFT(REGEXP_EXTRACT(regions,'\"(fao:.*?)\"'),INSTR(REGEXP_EXTRACT(regions,'\"(fao:.*?)\"'),".")-1),REGEXP_EXTRACT(regions,'\"(fao:.*?)\"')), '[^0-9 ]','')) FAO_region,
+      FROM
+        [world-fishing-827:gfw_research.nn]
+      WHERE
+        _PARTITIONTIME BETWEEN TIMESTAMP('2016-01-01')
+        AND TIMESTAMP('2016-12-31')
+        AND lat < 80
+        AND lat > -80
+        AND lon < 180
+        AND lon >-180 
+        AND seg_id IN ( SELECT seg_id FROM [world-fishing-827:gfw_research.good_segments])
+        AND (distance_from_shore > 1000 OR (implied_speed > .1 AND implied_speed < 20))) a
+    INNER JOIN (
+      SELECT
+        year,
+        mmsi,
+        flag_country_name,
+        flag_iso3,
+        sovereign_flag_country_name,
+        sovereign_flag_iso3,
+        shipname,
+        sub_gear_type_all_years sub_gear_type,
+        gear_type_all_years gear_type,
+        length,
+        tonnage,
+        engine_power,
+        rf_crew,
+        aux_engine_power,
+        design_speed_ihs,
+        design_speed_old,
+        main_sfc,
+        main_sfc_low,
+        aux_sfc,
+        fraction_fishing_high_seas,
+        is_high_seas,
+        IF(gap_hours IS NULL, 0, gap_hours) gap_hours,
+        IF(gap_days IS NULL, 0, gap_days) gap_days,
+      FROM
+        [high-seas:vessel_characteristics.complete_ais_vessel_characteristics]
+      GROUP BY
+        year,
+        mmsi,
+        flag_country_name,
+        flag_iso3,
+        sovereign_flag_country_name,
+        sovereign_flag_iso3,
+        shipname,
+        sub_gear_type,
+        gear_type,
+        length,
+        tonnage,
+        engine_power,
+        rf_crew,
+        aux_engine_power,
+        design_speed_ihs,
+        design_speed_old,
+        main_sfc,
+        main_sfc_low,
+        aux_sfc,
+        fraction_fishing_high_seas,
+        is_high_seas,
+        gap_hours,
+        gap_days
+        )b
+    ON
+      a.mmsi = b.mmsi
+      AND a.year = b.year
+      LEFT JOIN (
+      SELECT
+        YEAR(timestamp) year,
+        YEAR(next_timestamp) year_end,
+        mmsi,
+        ROUND(SUM(gap_hours)) gap_hours,
+        SUM(INTEGER((gap_hours-24)/24 - .5)) gap_days,
+      FROM
+        [world-fishing-827:gfw_research_archived.24hr_gaps_less_noise]
+      WHERE
+        distance_from_shore_meters > 1852*50
+        AND next_distance_from_shore_meters > 1852*50
+        AND gap_hours > 24
+      GROUP BY
+        year,
+        year_end,
+        mmsi
+      HAVING
+        year = year_end) c
+    ON
+      a.mmsi = c.mmsi
+      AND a.year = c.year))
+GROUP BY
+  year,
+  mmsi,
+  shipname,
+  flag_country_name,
+  flag_iso3,
+  sovereign_flag_country_name,
+  sovereign_flag_iso3,
+  sub_gear_type,
+  gear_type,
+  length,
+  tonnage,
+  engine_power,
+  rf_crew,
+  fraction_fishing_high_seas,
+  is_high_seas,
+  gap_hours,
+  gap_days
+```
+
+
+```{r save_query_results, eval = F}
+write_csv(all_vessels_fuel_cost, "saved_files/all_vessels_fuel_cost.csv")
+```
+
+```{r read_and_filter_for_high_seas_vessels, message = FALSE}
+effort_by_high_seas_vessels <- read_csv(
+  "../effort_and_coverage/saved_files/effort_by_high_seas_vessels.csv"
+  )
+
+all_vessels_fuel_cost <- read_csv("saved_files/all_vessels_fuel_cost.csv",
+                                  col_types = cols(gap_hours = col_double()))
+
+high_seas_vessels_fuel_cost <- filter(all_vessels_fuel_cost, is_high_seas == TRUE)
+```
+
+### Summary of results
+
+```{r join_effort_and_fuel_cost_2016}
+high_seas_vessels_fuel_cost <- high_seas_vessels_fuel_cost %>% 
+  gather(key, value, c(seq(-1,-19))) %>% 
+  separate(key, into = c("variable", "bound"), sep =  "__") %>% 
+  spread(variable, value)
+
+high_seas_vessels_fuel_cost %>% 
+  group_by(year, bound) %>% 
+  summarize(total_fuel_consumption_million_liter = sum(total_fuel_consumption)/1000000*1176.4,
+            total_fuel_consumption_with_gaps_million_liter = sum(total_fuel_consumption_with_gaps)/1000000*1176.4,
+            total_fuel_cost_in_million = sum(total_fuel_cost)/1000000,
+            total_fuel_cost_in_million_with_gaps = sum(total_fuel_cost_with_gaps)/1000000,
+            avg_fuel_cost_per_day = mean(fuel_cost_per_day)
+            ) %>% 
+  mutate_if(is.numeric, round) %>% 
+  arrange(desc(year))
+```
+
+To account for gaps, we are currently applying the average cost per hour for each vessel across the missing hours for each vessel in the year. The fuel cost associated with gap hours represents 9% of our total estimated fuel costs.
+
+### By country
+
+
+```{r tile_plot_fuel_cost_per_day}
+(fuel_cost_per_day_tile_plot <- high_seas_vessels_fuel_cost %>% 
+  filter(year == 2016, bound == "high_bound", !is.na(gear_type), !is.na(sovereign_flag_country_name)) %>% 
+  group_by(sovereign_flag_country_name, gear_type) %>% 
+  summarize(total_fuel_cost = sum(total_fuel_cost_with_gaps),
+            fuel_cost_per_vessel = sum(total_fuel_cost)/n(),
+            #mean_fuel_cost_per_day = mean(fuel_cost_per_day)
+            mean_fuel_cost_per_day = total_fuel_cost/sum(gap_days+days) ) %>% 
+  mutate(gear_type = stringr::str_to_title(stringr::str_replace_all(gear_type, "_", " "))) %>% 
+  ggplot(aes(sovereign_flag_country_name,gear_type)) + 
+  geom_tile(aes(fill = mean_fuel_cost_per_day), colour = "white") + 
+  theme_bw()+
+  labs(y = "", x = "")+
+  viridis::scale_fill_viridis("avg cost per day",
+                              trans = "log",
+                              breaks = c(300, 1000, 3000, 9000))+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+  guides(fill = guide_colourbar(title = "fuel cost per day",
+                                title.position = "top", title.hjust = 0.5)) +
+  coord_fixed(ratio = 1)+
+  theme(panel.grid = element_blank(), 
+        panel.border = element_blank(),
+        legend.text = element_text(color = "black", size = rel(.5)),
+        legend.title = element_text(color = "black", size = rel(.5)),
+        legend.title.align = 1,
+        legend.background = element_rect(fill="white"),
+        legend.position = "top",
+        legend.key.width = unit(2, "cm"),
+        legend.margin = margin(t = 0, unit = 'cm'),
+        legend.key.height = unit(.2, "cm"),
+        axis.text.x = element_text(size = 7),
+        axis.text.y = element_text(size = 7)))
+```
+
+### By gear
+
+```{r fuel_cost_by_gear_2016}
+summary_fuel_cost_by_gear = high_seas_vessels_fuel_cost %>% 
+  filter(year == 2016, !is.na(gear_type), sub_gear_type != "whaling") %>% 
+  group_by(sub_gear_type, bound) %>% 
+  summarize(total_fuel_cost = sum(total_fuel_cost_with_gaps),
+            vessels = n_distinct(mmsi),
+            fuel_cost_per_vessel = sum(total_fuel_cost)/n(),
+            mean_fuel_cost_per_day = mean(fuel_cost_per_day)) %>% 
+  arrange(desc(mean_fuel_cost_per_day)) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+
+```{r}
+summary_fuel_cost_by_gear %>% 
+  select(sub_gear_type, bound, total_fuel_cost) %>% 
+  spread(bound, total_fuel_cost) %>% 
+  arrange(desc(high_bound)) %>% 
+left_join(summary_fuel_cost_by_gear %>% 
+            select(sub_gear_type, bound, mean_fuel_cost_per_day) %>% 
+  spread(bound, mean_fuel_cost_per_day) %>% 
+  arrange(desc(high_bound)) %>% 
+  select(sub_gear_type, fuel_cost_per_day_low_bound = low_bound, fuel_cost_per_day_high_bound = high_bound)) %>% 
+  select(gear_type = sub_gear_type, total_fuel_cost_low_bound = low_bound, total_fuel_cost_high_bound = high_bound, everything()) %>% 
+  mutate_at(vars(total_fuel_cost_low_bound, total_fuel_cost_high_bound), funs(round(./10^6, 2)))
+```
+
+```{r}
+(fuel_cost_per_day_by_gear_boxplot <- high_seas_vessels_fuel_cost %>% 
+  filter(year == 2016, bound == "high_bound", !is.na(gear_type), sub_gear_type != "whaling") %>% 
+  mutate(sub_gear_type = stringr::str_to_title(stringr::str_replace_all(sub_gear_type, "_", " "))) %>% 
+  ggplot(aes(x = fct_reorder(sub_gear_type, fuel_cost_per_day), y = fuel_cost_per_day, fill = sub_gear_type), alpha = 0.2) +
+  geom_boxplot(show.legend = FALSE)+
+  theme_minimal()+
+  labs(x = "", 
+       title = 'Distributions of fuel cost per day by gear type', 
+       y = "Fuel cost per day (usd)", 
+       subtitle = "2016")+
+  theme(plot.title = element_text(hjust = -.45))+
+  ggsci::scale_fill_npg()+
+  coord_flip())
+```
+
+### By size class
+
+```{r cost_by_size_Class_2016}
+summary_fuel_cost_by_size_class <- high_seas_vessels_fuel_cost %>%
+  filter(year == 2016) %>% 
+  mutate(length_class = cut(length, breaks = c(0,12,18,24,40,200), right = FALSE)) %>% 
+  group_by(length_class, bound) %>% 
+  summarize(total_fuel_consumption_tons = sum(total_fuel_consumption_with_gaps),
+            total_fuel_consumption_liter = total_fuel_consumption_tons*1176.47,
+            total_fuel_cost = sum(total_fuel_cost_with_gaps),
+            mean_fuel_cost_per_day = mean(fuel_cost_per_day)) %>% 
+  arrange(desc(mean_fuel_cost_per_day)) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+
+```{r}
+summary_fuel_cost_by_size_class %>% 
+  select(length_class, bound, total_fuel_cost) %>% 
+  spread(bound, total_fuel_cost) %>% 
+  arrange(desc(high_bound)) %>% 
+left_join(summary_fuel_cost_by_size_class %>% 
+            select(length_class, bound, mean_fuel_cost_per_day) %>% 
+            spread(bound, mean_fuel_cost_per_day) %>% 
+            arrange(desc(high_bound)) %>% 
+            select(length_class, fuel_cost_per_day_low_bound = low_bound, fuel_cost_per_day_high_bound = high_bound)) %>% 
+  select(length_class, total_fuel_cost_low_bound = low_bound, total_fuel_cost_high_bound = high_bound, everything()) %>% 
+  mutate_at(vars(total_fuel_cost_low_bound, total_fuel_cost_high_bound), funs(round(./10^6, 2)))
+```
+
+## Examine outliers
+
+```{r}
+high_seas_vessels_fuel_cost %>%
+  filter(year == 2016 & bound == "high_bound") %>% 
+  ggplot(aes(x = length, y = fuel_cost_per_day, key  = mmsi))+
+  geom_point()+
+  facet_wrap("gear_type")
+```
+
+## Comparing to other sources
+
+##### FAO 
+
+[FAO, 2015](http://www.fao.org/3/a-i5092e.pdf) estimates that the **global** fishing fleet comsumes 28 million tons of fuel. We estimate:
+
+```{r total_fuel_consumption_2016_all_vessels}
+all_vessels_fuel_cost <- all_vessels_fuel_cost %>% 
+  gather(key, value, c(seq(-1,-19))) %>% 
+  separate(key, into = c("variable", "bound"), sep =  "__") %>% 
+  spread(variable, value)
+
+all_vessels_fuel_cost %>% 
+  #filter(is_high_seas) %>% 
+  filter(year == 2016) %>%
+  group_by(bound) %>% 
+  summarize(total_fuel_consumption_million_tons = sum(total_fuel_consumption_with_gaps, na.rm = T)/1000000,
+            total_fuel_consumption_million_liters = total_fuel_consumption_million_tons*1176.47,
+            total_fuel_cost_million = sum(total_fuel_cost_with_gaps, na.rm = T)/1000000,
+            mean_fuel_cost_per_day = mean(fuel_cost_per_day, na.rm = T))
+```
+
+Additionally, they report that vessels over 24 consumed 12.9 million tons and vessels between 12-24 meters consumed 9.3 million. We estimate:
+
+```{r total_fuel_consumption_2016_all_vessels_by_size_class}
+all_vessels_fuel_cost %>%
+  filter(year == 2016 & !is.na(length)) %>% 
+  mutate(length_class = cut(length, breaks = c(0,12,24,200))) %>% 
+  filter(!is.na(length_class)) %>% 
+  group_by(length_class, bound) %>% 
+  summarize(total_fuel_consumption_million_tons = sum(total_fuel_consumption_with_gaps, na.rm = T)/1000000,
+            tons_fuel_per_vessel =  1000000*total_fuel_consumption_million_tons/n(),
+            total_fuel_cost_millions = sum(total_fuel_cost_with_gaps, na.rm = T)/1000000,
+            mean_fuel_cost_per_day = mean(fuel_cost_per_day, na.rm = T))
+```
+
+Our model is able to account between  `r 100*6.1/12.9` - `r 100*7.4/12.9` % of the total fuel consumed by the vessels over 24m of the world. 
+
+```{r}
+high_seas_vessels_fuel_cost %>% 
+  filter(year == 2016 & !is.na(length)) %>% 
+  mutate(length_class = cut(length, breaks = c(0,12,24,200))) %>% 
+  group_by(length_class, bound) %>% 
+  summarize(total_fuel_consumption_million_tons = sum(total_fuel_consumption_with_gaps, na.rm = T)/1000000,
+            tons_fuel_per_vessel =  1000000*total_fuel_consumption_million_tons/n(),
+            total_fuel_cost_millions = sum(total_fuel_cost_with_gaps, na.rm = T)/1000000,
+            mean_fuel_cost_per_day = mean(fuel_cost_per_day, na.rm = T))
+```
+
+The vessels that operate in the high seas account for between `r 100*2.2/12.9` - `r 100*2.6/12.9` % of the total fuel consumed by the vessels over 24m of the world. 
+
+#### EU AER 2015
+
+Another source to compare to is the EU Annual Economic Report 
+
+###### All vessels:
+
+They report for all their vessel the following:
+
+```{r comparison_with_EU_AER_2014}
+eu_ref_info <- read_csv("../effort_and_coverage/source_info//EU_ref_info_2014.csv")
+
+eu_fuel_ref_info <- eu_ref_info %>% 
+  filter(!is.na(days_at_sea)) %>% 
+  filter(!is.na(energy_consumption) ) %>% 
+  mutate(million_liters = energy_consumption/1000000,
+         million_liters_per_vessel = million_liters/active_vessels,
+         million_liters_per_day =  million_liters/days_at_sea,
+         energy_costs = energy_costs,
+         energy_costs_per_vessel = energy_costs/active_vessels,
+         energy_cost_per_day = energy_costs/days_at_sea) %>% 
+  select(flag_country_name, length_class,days_at_sea, million_liters, million_liters_per_vessel, million_liters_per_day,  energy_costs,energy_costs_per_vessel,energy_cost_per_day)
+
+eu_fuel_ref_info_aggregated <- eu_fuel_ref_info %>% 
+  group_by(length_class) %>% 
+  summarise(active_days_EU = sum(days_at_sea),
+            million_liters_EU = sum(million_liters),
+            energy_costs_EU = sum(energy_costs)) %>% 
+  mutate(avg_fuel_cost_per_day = energy_costs_EU/active_days_EU,
+         avg_liters_per_day = million_liters_EU/active_days_EU*10^6) %>% 
+  select(length_class,active_days_EU, avg_liters_per_day,  million_liters_EU,avg_fuel_cost_per_day, energy_costs_EU)
+```
+ 
+and we see:
+
+```{r}
+(EU_GFW_fuel_cost <- all_vessels_fuel_cost %>% 
+  filter(sovereign_flag_country_name %in% eu_fuel_ref_info$flag_country_name & year == 2016) %>% 
+  mutate(length_class = as.character(cut(length, breaks = c(0,12,18,24,40,200), right = F))) %>% 
+  group_by(length_class, bound) %>% 
+  summarize(gfw_days = sum(days),
+            GFW_million_liters = sum(total_fuel_consumption,na.rm = T)*1176.47/1000000,
+            GFW_million_liters_with_gaps = sum(total_fuel_consumption_with_gaps,na.rm = T)*1176.47/1000000,
+            GFW_total_fuel_cost = sum(total_fuel_cost),
+            GFW_total_fuel_cost_with_gaps = sum(total_fuel_cost_with_gaps)) %>% 
+  mutate(GFW_avg_fuel_cost_per_day = GFW_total_fuel_cost/gfw_days,
+         GFW_avg_liters_per_day = GFW_million_liters/gfw_days*10^6) %>% 
+   #filter(bound == "high_bound") %>% 
+  select(length_class, bound, gfw_days, GFW_avg_liters_per_day,GFW_million_liters, GFW_million_liters_with_gaps, GFW_avg_fuel_cost_per_day, GFW_total_fuel_cost, GFW_total_fuel_cost_with_gaps))
+```
+
+```{r}
+EU_GFW_fuel_cost %>% 
+  select(length_class, bound, GFW_million_liters_with_gaps) %>% 
+  spread(bound, GFW_million_liters_with_gaps) %>% 
+  left_join(eu_fuel_ref_info_aggregated) %>% 
+  ggplot()+
+  geom_errorbar(aes(x = length_class, ymin  = low_bound, ymax = high_bound))+
+  geom_point(aes(x = length_class, y = million_liters_EU), col = "red") +
+  theme_minimal()
+```
+
+###### Distant water fleet
+
+For the distant water they report:
+
+```{r compare_EU_DWF}
+eu_DWF_ref_info <- read_csv("../effort_and_coverage/source_info/EU_DWF_ref_info_2014.csv")
+
+effort_by_all_DWF_vessels <- read_csv("../effort_and_coverage/saved_files/effort_by_all_DWF_vessels.csv")
+
+eu_DWF_fuel_ref_info <- eu_DWF_ref_info %>% 
+  filter(!is.na(active_vessels), !is.na(days_at_sea),  !is.na(energy_consumption)) %>% 
+  group_by(flag_country_name,  length_class, gfw_gear_equivalent) %>% 
+  summarize_at(vars(active_vessels, days_at_sea, energy_costs, energy_consumption), funs(sum)) %>% 
+  mutate(million_liters = energy_consumption/1000000,
+         liters_per_day =  10^6*million_liters/days_at_sea,
+         energy_cost_per_day = energy_costs/days_at_sea
+         ) %>% 
+  ungroup() %>% 
+  select(-energy_consumption)
+
+(eu_DWF_fuel_ref_info_agg_by_length_class <- eu_DWF_fuel_ref_info %>% 
+  group_by(length_class) %>% 
+  summarise(active_vessels = sum(active_vessels),
+            days_at_sea_EU_DWF  = sum(days_at_sea),
+            million_liters_EU_DWF = sum(million_liters),
+            energy_costs_EU_DWF = sum(energy_costs)) %>% 
+  mutate(avg_liters_per_day = million_liters_EU_DWF*10^6/days_at_sea_EU_DWF,
+         avg_cost_per_day = energy_costs_EU_DWF/days_at_sea_EU_DWF) %>% 
+    select(length_class, active_vessels, days_at_sea_EU_DWF, avg_liters_per_day, million_liters_EU_DWF, avg_cost_per_day,energy_costs_EU_DWF))
+```
+and we see
+
+```{r}
+(EU_DWF_GFW_fuel_cost <- all_vessels_fuel_cost %>% 
+  filter(length >= 24) %>% 
+  filter(sovereign_flag_country_name %in% eu_DWF_fuel_ref_info$flag_country_name & year == 2016 & mmsi %in% filter(effort_by_all_DWF_vessels, year == 2016)$mmsi) %>% 
+  mutate(length_class = as.character(cut(length, breaks = c(0,12,18,24,40,200), right = F))) %>% 
+  group_by(length_class, bound) %>% 
+  summarize(GFW_vessels = n_distinct(mmsi),
+            GFW_days = sum(days),
+            GFW_fuel_cost = sum(total_fuel_cost),
+            GFW_fuel_cost_with_gaps = sum(total_fuel_cost_with_gaps),
+            GFW_million_liters = sum(total_fuel_consumption,na.rm = T)*1176.47/1000000,
+            GFW_million_liters_with_gaps = sum(total_fuel_consumption_with_gaps,na.rm = T)*1176.47/1000000) %>% 
+  mutate(GFW_avg_liters_per_day = GFW_million_liters_with_gaps*10^6/GFW_days,
+         avg_cost_per_day = GFW_fuel_cost/GFW_days) %>% 
+   select(length_class, bound, GFW_vessels, GFW_days, GFW_avg_liters_per_day, GFW_million_liters, GFW_million_liters_with_gaps, avg_cost_per_day, GFW_fuel_cost, GFW_fuel_cost_with_gaps))
+```
+
+```{r}
+(EU_DWF_fuel_consumption_comparison <- EU_DWF_GFW_fuel_cost %>% 
+  select(length_class, bound,  GFW_avg_liters_per_day,) %>% 
+  spread(bound, GFW_avg_liters_per_day ) %>% 
+  left_join(eu_DWF_fuel_ref_info_agg_by_length_class) %>% 
+  ggplot()+
+  geom_errorbar(aes(x = length_class, ymin  = low_bound, ymax = high_bound))+
+  geom_point(aes(x = length_class, y = avg_liters_per_day), col = "red") +
+  theme_minimal()+
+  labs(title = "Comparison of fuel consumption per day with the EU Distant Water Fleet",
+       subtitle = "",
+       caption = "red dots represent the reportde figures form the EU AER 2015",
+       x = "Size class",
+       y = "Fuel consumption per day (liters)")+
+  theme(plot.title = element_text(hjust = -1)))
+```
+
+```{r compare_EU_DWF_by_ms}
+GFW_EU_fuel_cost_comparison_by_MS <- eu_DWF_fuel_ref_info %>% 
+  rename(gear_type = gfw_gear_equivalent) %>% 
+  left_join(all_vessels_fuel_cost %>%
+              filter(sovereign_flag_country_name %in% eu_DWF_fuel_ref_info$flag_country_name,
+                     year == 2016,
+                     mmsi %in% filter(effort_by_all_DWF_vessels, year == 2016)$mmsi) %>% 
+              mutate(length_class = as.character(cut(length, breaks = c(0,12,18,24,40,200), right = F))) %>% 
+              group_by(sovereign_flag_country_name, length_class, gear_type, bound) %>% 
+              summarize(GFW_days = sum(days),
+                        GFW_vessels = n_distinct(mmsi),
+                        GFW_fuel_cost = sum(total_fuel_cost),
+                        GFW_million_liters = sum(total_fuel_consumption,na.rm = T)*1176.47/1000000,
+                        GFW_million_liters_with_gaps = sum(total_fuel_consumption_with_gaps,na.rm = T)*1176.47/1000000) %>% 
+              mutate(GFW_liters_per_day = GFW_million_liters*10^6/GFW_days,
+                     GFW_cost_per_day = GFW_fuel_cost/GFW_days) %>% 
+              ungroup()%>% 
+              rename(flag_country_name = sovereign_flag_country_name)) %>% 
+  mutate(fleet_coverage = GFW_vessels/active_vessels,
+         days_coverage = GFW_days/days_at_sea,
+         p_no_gaps =  round(GFW_million_liters/million_liters, digits = 2),
+         p_with_gaps = round(GFW_million_liters_with_gaps/million_liters, digits = 2)) %>% 
+  arrange(flag_country_name) %>% 
+  select(flag_country_name, length_class, gear_type, bound,  fleet_coverage, days_coverage, million_liters, GFW_million_liters, GFW_million_liters_with_gaps, p_no_gaps, p_with_gaps, energy_cost_per_day,GFW_liters_per_day, GFW_cost_per_day,GFW_million_liters)
+
+GFW_EU_fuel_cost_comparison_by_MS %>% 
+  filter(!is.na(gear_type)) %>% 
+  select(flag_country_name, length_class, gear_type, bound, days_coverage,  GFW_million_liters_with_gaps) %>% 
+  spread(bound, GFW_million_liters_with_gaps) %>% 
+  left_join(eu_DWF_fuel_ref_info %>% 
+              #filter(flag_country_name == "Spain") %>% 
+              select(flag_country_name, length_class, gear_type = gfw_gear_equivalent, million_liters)) %>% 
+  #mutate(days_coverage = ifelse(days_coverage >1 , 1, days_coverage)) %>% 
+  ggplot(aes(x = length_class))+
+  geom_errorbar(aes(ymin = low_bound, ymax = high_bound, color = gear_type, group = gear_type), position = 'dodge')+
+  geom_point(aes(x = length_class, y = million_liters, color = gear_type,  group = gear_type, size = days_coverage), position = 'dodge')+
+  theme_minimal()+
+  scale_size_continuous(range = c(0.5,3), breaks = c(0,.3,.5,.7,.9,1, 1.5))+
+  facet_grid(gear_type ~ flag_country_name)+
+  labs(title = "Comparison of fuel consumption by flag, gear type and size class",
+       subtitle = "EU Distant Water Fleets")
+```
+
+#### Japan 2014
+
+The comparison with the information available for Japan is tricky as it is unclear from their reporting if this are avergaes per per vessel/enterpise and if their unit is fishing day of days at sea. 
+###### by ton class
+
+```{r japan_cost_by_size_class}
+japan_cost_by_ton_class <- read_csv("saved_files/japan_cost_by_ton_class_usd_2014.csv")
+
+japan_cost_by_ton_class %>%
+  select(ton_class, fuel_cost_per_fishing_day, fuel_costs)
+```
+
+```{r compare_japan_by_ton_Class}
+all_vessels_fuel_cost %>% 
+  filter(flag_country_name == "Japan"  & year == 2016 & bound == "high_bound") %>% 
+  mutate(ton_class = cut(tonnage, breaks = c(0,10,20,50,100,200,500,10000), right = F, dig.lab = 10),
+         fuel_cost_per_fishing_day = ifelse(fishing_days > 0, total_fuel_cost/fishing_days, 0)) %>% 
+  group_by(ton_class) %>% 
+  summarize(fuel_cost_per_day = mean(fuel_cost_per_day),
+            fuel_cost_per_fishing_day = mean(fuel_cost_per_fishing_day))
+```
+
+###### by gear and ton class
+
+```{r read_japan_by_gear}
+japan_cost_by_gear <- read_csv("saved_files/japan_cost_by_gear_usd_2014.csv")
+
+japan_cost_by_gear %>%
+  select(gear_type,ton_class, fuel_cost_per_fishing_day, fuel_costs)
+```
+
+```{r compare_japan_by_gear}
+all_vessels_fuel_cost %>% 
+  filter(flag_country_name == "Japan"  & year == 2016 & fishing_days > 0 & mmsi %in% effort_by_all_DWF_vessels$mmsi & bound == "high_bound") %>% 
+  mutate(ton_class = cut(tonnage, breaks = c(0,10,20,50,100,200,500,10000), right = F, dig.lab = 10)) %>% 
+  mutate(fuel_cost_per_fishing_day = total_fuel_cost/fishing_days) %>% 
+  group_by(gear_type, ton_class) %>% 
+  summarize(fuel_cost_per_day = mean(fuel_cost_per_day),
+            fuel_cost_per_fishing_day = mean(fuel_cost_per_fishing_day))
+```
+

@@ -1,0 +1,891 @@
+---
+title: "AIS Coverage"
+output:
+  word_document:
+    toc: yes
+    toc_depth: '6'
+  html_notebook:
+    fig_caption: yes
+    toc: yes
+    toc_depth: 6
+---
+
+```{r setup, echo = F}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, comment = FALSE, prompt = FALSE, progress = FALSE)
+
+knitr::knit_hooks$set(inline = function(x) {
+  prettyNum(round(x,2), big.mark = ",")
+})
+```
+
+```{r}
+suppressPackageStartupMessages(
+  easypackages::libraries("tidyverse", "bigrquery", "lubridate", "DBI","forcats", 'knitr', 'ggsci', 'googledrive')
+  )
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "", project  = "high-seas", billing = "world-fishing-827")
+
+world_map <- rnaturalearth::ne_coastline(scale = 'small', returnclass = c("sf"))
+source("../general_project_files/effort_mapping_functions.R")
+source("../general_project_files/gfw_themes.R")
+source("../general_project_files/functions.R")
+```
+
+```{r source_files, message=FALSE}
+all_fishing_vessels <- read_csv("saved_files/effort_by_all_vessels.csv", progress = FALSE)
+
+all_fishing_effort_by_RFMO <- read_csv("saved_files/total_effort_by_mmsi_and_RFMO_tidy.csv",progress = FALSE) %>% 
+  filter(fishing_hours > 1, fishing_days > 1)
+
+binned_high_seas_effort <- read_csv("saved_files/binned_high_seas_effort.csv",progress = FALSE)
+
+effort_by_high_seas_vessels <- read_csv('saved_files/effort_by_high_seas_vessels.csv',progress = FALSE)
+
+effort_by_high_seas_vessels_by_FAO_region <- read_csv("saved_files/effort_by_high_seas_vessels_by_FAO_region.csv",progress = FALSE)
+
+effort_by_high_seas_vessels_by_RFMO <- read_csv("saved_files/effort_by_high_seas_vessels_by_RFMO_tidy.csv",progress = FALSE) %>% 
+  filter(fishing_hours > 1, fishing_days > 1)
+
+effort_by_DWF <- read_csv("saved_files/effort_by_all_DWF_vessels.csv",progress = FALSE) 
+
+effort_by_DWF_by_RFMO <- read_csv("saved_files/effort_by_all_DWF_vessels_by_RFMO_tidy.csv",progress = FALSE) %>% 
+  filter(fishing_hours > 1, fishing_days > 1)
+```
+
+An important consideration is estimating the fraction of the world's high seas fleet that we can observe from AIS data. This is a difficult task because clear points of reference of the number of fishing vessels for each country and by gear type that operate in distinct geographic regions of the high seas are , to our knowledge, not available. Nevertheless, to address this issue, we focused on the most important fishing nations and did exhaustive searches on RFMO registries, goverment websites, and scientific literature, for the latest estimates of fleet capacities. Often, information is aggregated by RFMO or geographic region and separating high seas vs within eez fishing vessels required us to make assumptions about the behaviour of the missing fleet. Here we report our findings and the use of them to estimate the fraction of the high seas fleet we cannot see with AIS. 
+
+# China
+
+The 2016 *China Fisheries Yearbook* reports that the nation's distant water fleet was comprised of 2460 and 2512 vessels in 2014 and 2015, respectively. This is a significant increase from the 1989 vessels reported to operate in 2011 and reflects China's plan for expansion of it's distant water fleets. China's Ministry of Agriculture 5 year plan to develop the nation's DWF (due in 2010) aimed to increase the DWF to 2200 boats including 840 boats on the high seas (Mallory, 2013). This target was not reached as the 2011 *China Fisheries Yearbook* report a DWF of 1899 vessels. Lastly, a report published in 2008, states that the DWF in 2007 was composed of 500 squid jiggers, about 400  tuna boats,  aproximately 800 trawling boats, and over 100 were purse-seiners and other fishing vessels (Mallory, 2012). 
+
+An additional source of information is the 2015 China Distant Water Fishery Industry Development Report, by the Fishery Administration of China's Ministry of Agriculture. This source also reports 2460 vessels in the Distant Water Fleet, with a total tonnage of 1,184,338 tons and installed capacity of 2,025,562 KW. In terms of the high seas fleet, the report estimates that there are 1262 fishing vessels. Moreover, this document provides information about the size each of the high seas fleets in each region and their output (catch and landed value). 
+
+One last source of information are the RFMOs. China's 2016 [report to the WCPFC Commision](https://www.wcpfc.int/system/files/AR-CCM-03%20CHINA%20PART%201_0.pdf) reports 429 longliners and 20 purse seines actively fishing in the region in 2015. The ICATT Biennial report 2016-2017, reports that the number of vessels from China operating in the Atlantic Ocean increased from 13 in 2014 to 24 in 2015 to 41 in 2016. All of these vessels are longliners, targeting bigeye tuna, bluefin tuna, and sharks. Lastly, the [2016 Report of the 21st Session of the Indian Ocean Tuna Commission, IOTC](http://www.iotc.org/documents/report-21st-session-indian-ocean-tuna-commission) reports that China's active capacity for tropical tunas is 54 vessels,  13 vessels for Albacore and Swordfish. [China's National report to the RFMO](http://www.iotc.org/documents/china-%E2%80%93-national-report-2016) as well as China's DWF report, state 53 active vessels in 2015.
+
+Given the available information, we can make the following statements about China's AIS coverage:
+
+  - We observe `r n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "CHN", year == 2016, !is.na(eez_name))$mmsi)` Chinese vessels fishing on foreing EEZ and international waters in 2016. This suggests we see `r round(100*n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "CHN", year == 2016, !is.na(eez_name))$mmsi)/2512)` % of the DWF reported in 2015. 
+  - Total tonnage of the observed fleet is `r sum(filter(effort_by_DWF,sovereign_flag_iso3 == "CHN", year == 2014, !is.na(eez_name))$tonnage)` in 2014, `r sum(filter(effort_by_DWF,sovereign_flag_iso3 == "CHN", year == 2015, !is.na(eez_name))$tonnage)` in 2015, and `r sum(filter(effort_by_DWF,sovereign_flag_iso3 == "CHN", year == 2016, !is.na(eez_name))$tonnage)` in 2016. This suggest that in 2014, we account for  `r round(100*sum(filter(effort_by_DWF,sovereign_flag_iso3 == "CHN", year == 2014, !is.na(eez_name))$tonnage)/1184338)` % of the total tonnage.
+  - Similarly, total observed installed capacity is `r sum(filter(effort_by_DWF,sovereign_flag_iso3 == "CHN", year == 2014, !is.na(eez_name))$engine_power)` in 2014, `r sum(filter(effort_by_DWF,sovereign_flag_iso3 == "CHN", year == 2015, !is.na(eez_name))$engine_power)` in 2015, and `r sum(filter(effort_by_DWF,sovereign_flag_iso3 == "CHN", year == 2016, !is.na(eez_name))$engine_power)` in 2016. This suggest that in 2014, we accounted for  `r round(100*sum(filter(effort_by_DWF,sovereign_flag_iso3 == "CHN", year == 2014, !is.na(eez_name))$engine_power)/2025562)` % of the installed capacity.
+  - We observe `r n_distinct(filter(effort_by_high_seas_vessels,sovereign_flag_iso3 == "CHN", year == 2016))` fishing vessels in the high seas fleet. This is very close to the 840 target stated by the Ministry of Agriculture but only `r round(100*n_distinct(filter(effort_by_high_seas_vessels,sovereign_flag_iso3 == "CHN", year == 2016))/1262)` % of the 1262 reported in the 2015 China Distant Water Fishery Industry Development Report.
+  - We see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "CHN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longliners (drifting longlines only) in the WCPFC region that fish on foreign EEZ or the high seas. This is `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "CHN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)/429)` what the WCPFC reports in 2015. 
+  - Similarly, we see  `r n_distinct(filter(effort_by_high_seas_vessels_by_RFMO, sovereign_flag_iso3 == "CHN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seiners fishing on the WCPFC high seas area in 2016 which corresponds to what the RFMO reports.
+  - The ICCAT report 41 active Chinese longliners operating in 2016 and we observe `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "CHN", year == 2016, RFMO == "ICCAT", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` ( drifting longlines only). 
+  - We observe `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "CHN", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines","set_longlines"))$mmsi)` longliners in the IOTC in 2016 which is `r round(100*27/53)` % of the 53 vessels reported. 
+  - Overall, we see `r n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "CHN", year == 2016, sub_gear_type == "squid_jigger")$mmsi)` squid jiggers. This suggests we are missing `r 500 - n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "CHN", year == 2016, sub_gear_type == "squid_jigger")$mmsi)` vessels from that reported by Mallory, and `r 593 - n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "CHN", year == 2016, sub_gear_type == "squid_jigger")$mmsi)` of that reported by the China WDF report. 
+  - We observe a total of `r n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "CHN", year == 2016, sub_gear_type == "trawlers")$mmsi)` trawlers fishing on foreign EEZ or the high seas, which is more than what the 800 boats reported in 2007. Additionally, we see `r n_distinct(filter(effort_by_high_seas_vessels, sovereign_flag_iso3 == "CHN", year == 2016, sub_gear_type == "trawlers")$mmsi)` trawlers fishing on the high seas, which is 2 more than that reported in the China DWF report.
+  - Combining purse seines with gillnets, drifnets, pole and line, and vessel of unknown gear, we see a total of `r n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "CHN", year == 2016, sub_gear_type %in% c("purse_seines", "set_gillnets", "driftnets", "pole_and_line", NA))$mmsi)` vessels fishing on foreing EEZ or the high seas. This is more than what the 100 boats reported in 2007 for the "purse seines and other fishing gears" category reported in 2007. 
+  
+In summary, in 2016, we likely see ~100% of purse seiners and 95% longliners in the WCPFC, ~100% of longliners in the ICCAT, and 100% of trawlers fishing on the high seas. We are missing `r 100 - round(100*27/53)`% of longliners in the IOTC rfmo and `r 100 - round(100*350/593)`% of all squid jiggers. We use this information to scale up fishing activity for these fleets and assume that the fraction of vessels we do not see behaves in the same way to the fraction we see in AIS. 
+
+## Scale Factors
+
+### Purse Seines
+
+```{r}
+CHN_PS_by_RFMO <- effort_by_high_seas_vessels_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "CHN", sub_gear_type %in% c("purse_seines"), RFMO %in% c("WCPFC"))%>% 
+  group_by(year, sovereign_flag_iso3, RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(sub_gear_type == "purse_seines", 20, 429),
+         scale_factor = ref_point/ais_vessels) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(year)
+
+CHN_PS_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Longliners
+
+```{r}
+CHN_LL_by_RFMO <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "CHN", sub_gear_type %in% c("drifting_longlines"), RFMO %in% c("WCPFC","ICCAT","IOTC")) %>% 
+  group_by(year, sovereign_flag_iso3, RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(RFMO == "ICCAT", 41, ifelse(RFMO == "IOTC", 53, 429)),
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(RFMO)
+
+CHN_LL_by_RFMO %>% 
+  arrange(year) %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor")) 
+```
+
+### Trawlers
+
+```{r}
+CHN_TR <- effort_by_high_seas_vessels %>% 
+  filter(sovereign_flag_iso3 == "CHN", sub_gear_type %in% c("trawlers")) %>% 
+  group_by(year, sovereign_flag_iso3, sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = 34,
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(year)
+
+CHN_TR %>% 
+  kable(col.names = c("year", "country","Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+
+### Squid Jiggers
+
+```{r}
+CHN_SJ <- effort_by_high_seas_vessels_by_FAO_region %>% 
+  filter(sovereign_flag_iso3 == "CHN", sub_gear_type %in% c("squid_jigger"), FAO_region %in% c(87,41,61, 51)) %>% 
+  group_by(year, sovereign_flag_iso3, FAO_region, sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = case_when(
+    FAO_region == 87 ~ 262,
+    FAO_region == 41 ~ 306,
+    FAO_region == 61 ~ 193,
+    TRUE ~ 2
+  )) %>% 
+  mutate(scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(year)
+
+CHN_SJ %>% 
+  arrange(year) %>% 
+  kable(col.names = c("year", "country","RFMO","Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+# Taiwan
+
+Taiwan's distant water fleet is reported to be more than 2000 vessels fishing in more than 26 countries. [Taiwan's fisheries Agency](http://www.fa.gov.tw/en/FisheriesoROC/content.aspx?id=2&chk=05d9ffd2-651d-4686-a2d1-a44413152366&param=pn%3d1). Another source estimates that, in 2014, the distant water fishing fleet numbered 1300 vessels and included 34 tuna purse seine vessels, 332 large scale tuna longline vessels, 746 small scale tuna longline boats, 99 squid jiggers and 91 torch light net vessels for Pacific saury.[World Fishing & Aquaculture](http://www.worldfishing.net/news101/regional-focus/taiwan-works-to-avoid-eu-red-card). The [OPRT](http://oprt.or.jp/eng/wp-content/uploads/2017/06/registered_vessels_2001%EF%BD%9E.pdf) reports that in 2016, there were 296 Taiwanese large registered vessels (> 100 GT) targeting tuna. 
+
+Additionally, the WCPFC reports that in 2015, there were three Taiwanese fleets operating in the region: 1) Large scale longliners (>100 GRT): 76 active vessels, 2) Small scale longliners: 1306 vessels operating both inside Taiwan's EEZ and beyond, and 3) Distant water purse seines: 34 active vessels. In turn, the [ICCAT](https://www.iccat.int/en/pubs_biennial.htm) reports that in 2015 the number of longliners was 117; 75 fished for big eye and 43 target albacore.  The [CCBST](https://www.ccsbt.org/en/content/active-vessels) reports 70 Taiwanese vessels active in 2015 targeting southern blue fin tuna and the [IOTC](http://www.iotc.org/documents/report-21st-session-indian-ocean-tuna-commission) reports that Taiwan's active capacity in 2016 is 233 vessels for tropical tunas and 111 for swordfish and albacore.
+
+Given the available information, we can make the following statements about Taiwan's AIS coverage:
+
+  - We observe `r n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "TWN", year == 2016)$mmsi)` Taiwanese vessels fishing on foreing EEZ and international waters in 2016. This suggests we see `r round(100*n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "TWN", year == 2016)$mmsi)/2000)` % of the DWF using 2000 boats as the reference point. Of these, `r n_distinct(filter(effort_by_high_seas_vessels,sovereign_flag_iso3 == "TWN", year == 2016))` (`r round(100*n_distinct(filter(effort_by_high_seas_vessels,sovereign_flag_iso3 == "TWN", year == 2016))/n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "TWN", year == 2016)$mmsi))` %) belong to the high seas fleet and is the second largest after China. 
+  - We see `r n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "TWN", year == 2016, sub_gear_type == "purse_seines")$mmsi)` Taiwanese flagged purse seiners which is slightly more than reported in 2014. 
+  - We observe `r n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "TWN", year == 2016, sub_gear_type == "drifting_longlines", tonnage >= 100)$mmsi)` longliners over 100 GT. This represents between `r round(100*n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "TWN", year == 2016, sub_gear_type == "drifting_longlines", tonnage >= 100)$mmsi)/332)` and `r round(100*n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "TWN", year == 2016, sub_gear_type == "drifting_longlines", tonnage >= 100)$mmsi)/296)` % of that reported.
+  - For the small scale longliners (< 100GT), we see `r n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "TWN", year == 2016, sub_gear_type == "drifting_longlines", tonnage < 100)$mmsi)`, representing `r round(100*n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "TWN", year == 2016, sub_gear_type == "drifting_longlines", tonnage < 100)$mmsi)/746)` % of the DWF.
+  - We see `r n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "TWN", year == 2016, sub_gear_type == "squid_jigger")$mmsi)` Taiwanese squid jiggers, representing `r round(100*n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "TWN", year == 2016, sub_gear_type == "squid_jigger")$mmsi)/99)`% of that reported in 2014. 
+  - On the WCPFC, we see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "TWN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"), tonnage >= 100)$mmsi)` large scale longliners fishing on foreign EEZ or the high seas. This is more than the 75 reported by the RFMO 2015. On the small scale class (<100 GT), we see only `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "TWN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"), tonnage < 100)$mmsi)` which represent `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "TWN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"), tonnage < 100)$mmsi)/746)` % of the DWF in the RFMO.**NOTE** The extra vessels we see in the >100 GT category are all less than 250GT. Given the available information from WCPFC, and that the inferred tonnages have a RMSE of 373, we think is reasonable to "downgrade" those vessels to the smaller sizer class. 
+  - The ICCAT reports 117 active Taiwanese longliners operating in 2016 and we observe `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "TWN", year == 2016, RFMO == "ICCAT", sub_gear_type %in%  c("drifting_longlines","set_longlines"))$mmsi)` (`r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "TWN", year == 2016, RFMO == "ICCAT", sub_gear_type %in%  c("drifting_longlines","set_longlines"))$mmsi)/117)` %)
+  - The CCSBT reports 70 longliners in 2015 and we observe `r n_distinct(filter(effort_by_high_seas_vessels_by_RFMO, sovereign_flag_iso3 == "TWN", year == 2016, RFMO == "CCSBT", sub_gear_type %in%  c("drifting_longlines"))$mmsi)`, which is more than twice as much.
+  -  We observe `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "TWN", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines", "set_longlines", "purse_seines"))$mmsi)` longliners and purse seiners on the IOTC which compared to what they report as Taiwan's active capacity (233 vessels for tropical tunas and 111 for swordfish and albacore) is only `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "TWN", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines", "set_longlines", "purse_seines"))$mmsi)/344)` %
+
+In summary, in 2016, we likely see ~100% of purse seiners and ~53% of the squid jiggers. In the WCPFC we see 100% of large longliners but only 29% of the small scale. In the ICCAT, we see 43% of longliners and in the CCSBT we see more than double of what's been reported. Finally, we see 54% of longliners in the IOTC. We assume that the fractions we don't see behave the same as the vessels we observe and use this information to scale up. 
+
+## Scale Factors
+
+### Purse Seines
+
+```{r}
+TWN_PS_by_RFMO <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "TWN", sub_gear_type %in% c("purse_seines"), RFMO %in% c("WCPFC"))%>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = 35,
+         scale_factor = ref_point/ais_vessels) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(year)
+
+TWN_PS_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Longliners
+
+```{r}
+TWN_LL_by_RFMO <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "TWN", sub_gear_type %in% c("drifting_longlines"), RFMO %in% c("ICCAT","IOTC", "CCSBT")) %>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(RFMO == "ICCAT", 117, 
+                            ifelse(RFMO == "CCSBT", 70, 233+111)),
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(RFMO)
+
+TWN_LL_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+```{r}
+TWN_LL_WCPFC_by_ton_class <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "TWN", sub_gear_type %in% c("drifting_longlines"), RFMO %in% c("WCPFC")) %>% 
+  mutate(tonnage_class = cut(tonnage, breaks = c(0,250,2000), right = TRUE, dig.lab = 10)) %>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type, tonnage_class) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(tonnage_class == "(0,250]", 746,76),
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(tonnage_class)
+
+TWN_LL_WCPFC_by_ton_class %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type","Tonnage Class", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Squid Jiggers
+
+```{r}
+TWN_SJ <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "TWN", sub_gear_type %in% c("squid_jigger")) %>% 
+  group_by(year, sovereign_flag_iso3, sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = 99,
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(year)
+
+TWN_SJ %>% 
+  kable(col.names = c("year", "country","Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+# Japan
+
+The Japanese goverment, in the 2013 Census of fisheries available at [Portal Site of Official Statistics of Japan, 2015](http://www.e-stat.go.jp/SG1/estat/ListE.do?bid=000001067819&cycode=0), and the [THE 90TH STATISTICAL YEARBOOK OF MINISTRY OF AGRICULTURE, FORESTRY AND FISHERIES : MAFF](http://www.maff.go.jp/e/data/stat/90th/index.html#12) presents a detailed profile of the country's fishing fleet. In this document, Japan's distant water fleet in 2013 was composed of: 7 trawlers, 29 purse seiners, 197 longliners and 26 pole and line. 
+
+More recently, the [OPRT](http://oprt.or.jp/eng/wp-content/uploads/2017/06/registered_vessels_2001%EF%BD%9E.pdf) reports that there were 208 Japanese registered vessels >300 tons targeting tuna in 2016. In terms of the RFMOS, [Japan national report to the IOTC](http://www.iotc.org/documents/japan-%E2%80%93-national-report-2016) states that in 2015, only 52 longliners and 3 purse seines operated in the region. In the WCPFC, [Tuna Fishery Yearbook (2015)](https://www.wcpfc.int/statistical-bulletins) state that 111 Distant water and offshore longliners, 75 pole and line, and 70 purse seiners actively fishing in the RFMO area. However, the number of purse seine vessels licensed by the Japan Fisheries Agency (JFA) to fish in tropical waters has been capped at 35 since 1997 (> 350 GT). The [National report by Japan to the WCPFC](https://www.wcpfc.int/system/files/AR-CCM-10%20JAPAN%20PART%201%20Rev%201.pdf) gives more detail and states that of the WDF and offshore longliners, 18 are between 50-100 tons, 24 are between 100-200 tons and 69 are greater than 200 tons. In the Atlantic, the  [ICCAT](https://www.iccat.int/en/pubs_biennial.htm) reports 72 longlines targeting blue fin are the only fleet present in the atlantic ocean and the [CCBST](https://www.ccsbt.org/en/content/active-vessels) website reports that 74 Japanese vessels were actively targeting bluefin in 2015. Laslty, [Japan's report to the IATTC](https://www.iattc.org/Meetings/Meetings2015/6SAC/PDFs/SAC-06-INF-L-JPN-National-Report.pdf) states that there 77 longliners in the Eastern Pacific OCean in 2014. 
+
+Given the available information, we can make the following statements about Japan's AIS coverage:
+
+  - We observe `r n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "JPN", year == 2016)$mmsi)` vessels in the distant water fleet and `r n_distinct(filter(effort_by_high_seas_vessels, sovereign_flag_iso3 == "JPN", year == 2016)$mmsi)` in the high seas fleet. These numbers are higher than what the census reported in 2013 as 260 boats.
+  - We see `r n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "JPN", year == 2016, sub_gear_type == "trawlers")$mmsi)` trawlers in the DWF which is `r round(100*n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "JPN", year == 2016, sub_gear_type == "trawlers")$mmsi)/7)` % of the 7 reported in the 2013 census. 
+  - We see `r n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "JPN", year == 2016, sub_gear_type %in% c("drifting_longlines"), tonnage >= 300)$mmsi)` longliners in 2016, which is slightly more that reported by the OPRT
+  - We observe `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longliners and `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seiners on the IOTC in 2016, representing `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)/52)` % and `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("purse_seines"))$mmsi)/3)` %, respectively.  
+  - On the WCPFC, we see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"), tonnage >= 50)$mmsi)` longliners >50GT on the DWF which is more than reported in the yearbook. By size class, we see: `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"), tonnage >= 50, tonnage < 100)$mmsi)` between 50-100, `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"), tonnage >= 100, tonnage < 200)$mmsi)`  between 100-200 and `r n_distinct(filter(effort_by_high_seas_vessels_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"), tonnage >= 200)$mmsi)`. This suggest that we see more than what the RFMO report for longlines in all categories. For pole and line vessels, we see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("pole_and_line"))$mmsi)` which is just what' been reported. For purse seiners, we see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("purse_seines"))$mmsi)` which is the cap given by Japan's fisheries agency. 
+  - We see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "ICCAT", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longliners in the ICCAT area, `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "CCSBT", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` on the CCSBT area, and `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "IATTC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` on the IATTC area. These numbers suggest we see `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "ICCAT", sub_gear_type %in%  c("drifting_longlines"))$mmsi)/72)` % of longliners targeting bluefin in the ICCAT, `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "CCSBT", sub_gear_type %in%  c("drifting_longlines"))$mmsi)/74)` % of those reported on the CCSBT, and `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "IATTC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)/77)` % of those reported on the IATTC
+  
+In summary, we likely see ~100% of purse seines on the WCPFC and OITC, ~100% of pole and lines in WCPFC, and ~100% of longliners in the WCPFC. We see 83% of the longliners on the IOTC,  96% on the ICCAT area, and ~81% of the IATTC. Lastly, we see `r round(100*n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "JPN", year == 2016, sub_gear_type == "trawlers")$mmsi)/7)` % of the DWF trawlers. 
+
+## Scale Factors
+
+### Purse Seines
+
+```{r}
+JPN_PS_by_RFMO <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "JPN", sub_gear_type %in% c("purse_seines"), RFMO %in% c("WCPFC", "IOTC"))%>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(RFMO == "WCPFC", 35, 3),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(RFMO)
+
+JPN_PS_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Longliners
+
+```{r}
+JPN_LL_by_RFMO <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "JPN", sub_gear_type %in% c("drifting_longlines"), RFMO %in% c("WCPFC","ICCAT","IOTC", "CCSBT", "IATTC")) %>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(RFMO == "ICCAT", 72, 
+                            ifelse(RFMO == "IOTC", 52, 
+                                   ifelse(RFMO == "WCPFC",111,
+                                          ifelse(RFMO == "IATTC",77,
+                                          74 )))),
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(RFMO)
+
+JPN_LL_by_RFMO %>% 
+    kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Trawlers
+
+```{r}
+JPN_TR <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "JPN", sub_gear_type %in% c("trawlers")) %>% 
+  group_by(year, sovereign_flag_iso3, sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = 7,
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(year)
+
+JPN_TR %>% 
+  kable(col.names = c("year", "country","Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Pole and line
+
+```{r}
+JPN_PL <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "JPN", sub_gear_type %in% c("pole_and_line")) %>% 
+  group_by(year, sovereign_flag_iso3, sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = 75,
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(year)
+
+JPN_PL %>% 
+  kable(col.names = c("year", "country","Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+# South Korea
+
+[Korea's fisheries sector assessment by WWF, 2016](http://awsassets.wwfkr.panda.org/downloads/kfr_2016_eng_compressed.pdf) reports that the country's distant water fleet is comprised by 342 registered vessels (315 of which are active in 2013), owned by 71 companies, and add up to 202,172 GT. The composition of the DWF is: 150 Tuna longliners,  32 Tuna Purse Seiners, 93 Trawlers (13 of which operate on the high seas), 32 squid jigging, 14 Saury stick held - net dip, 21 other fishing. More recently,  the [Korean Maritime Institute](http://www.kmi.re.kr/web/contents/contentsView.do?rbsIdx=224) reports 348 active distant water vessels in 2015. Additionally, [OPRT](http://oprt.or.jp/eng/wp-content/uploads/2017/06/registered_vessels_2001%EF%BD%9E.pdf) reports that there are 110 Korean registered vessels (> 100 GT) targeting tuna in 2016. 
+
+In terms of the RFMOS, [Korea's National Report to the IOTC  (2016) ](http://www.iotc.org/documents/rep-korea-%E2%80%93-national-report-2016) states that in 2015, only 14 longliners (3 were between 200-500 GT and 11 between 500-1000 GT) and 5 purse seines (1 between 1,000-2,000 GT and 4 between 2,000-3,500) operated in the IOTC region. In the Atlantic, the [ICCAT Biennial Report](https://www.iccat.int/en/pubs_biennial.htm) states that in 2015, 4 Korean longliners operated in the region and there was no activity by purse seiners.  The [CCBST](https://www.ccsbt.org/en/content/active-vessels) website reports 10 Korean vessels active in 2015 and fishing for southern blue fin tuna. Lastly, the [Korea's National Report to the WCPFC](https://www.wcpfc.int/system/files/AR-CCM-12%20Korea%20%28Rev01%29.pdf) reports that 96 longliners and 25 purse seiners actively fishing in the RFMO area in 2016.  
+
+Given the available information, we can make the following statements about Korea's AIS coverage:
+
+  - We observe `r n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "KOR", year == 2016)$mmsi)` vessels in the distant water fleet in 2016, which is greater than the active vessels in 2013 but `r round(100*n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "KOR", year == 2016)$mmsi)/348)` % of the reported vessels in 2015. 
+  - We see `r n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "KOR", year == 2016, sub_gear_type == "drifting_longlines")$mmsi)` longliners in 2016 (`r 100*n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "KOR", year == 2016, sub_gear_type == "drifting_longlines")$mmsi)/150` %)
+  - We observe `r n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "KOR", year == 2016, sub_gear_type == "purse_seines")$mmsi)` (>100%) purse seiners. However, if we exclude a cluster that fishes on Japan's EEZ we see `r n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "KOR", year == 2016, sub_gear_type == "purse_seines", !eez_name %in% c("Japan"))$mmsi)`, which is `r round(100*n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "KOR", year == 2016, sub_gear_type == "purse_seines", !eez_name %in% c("Japan"))$mmsi)/32)` % of the reported estimate. 
+  - We see `r n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "KOR", year == 2016, sub_gear_type == "squid_jigger")$mmsi)` (`r round(100*n_distinct(filter(effort_by_DWF,sovereign_flag_iso3 == "KOR", year == 2016, sub_gear_type == "squid_jigger")$mmsi)/32)`%) squid jiggers, 
+  - We see `r n_distinct(filter(effort_by_high_seas_vessels,sovereign_flag_iso3 == "KOR", year == 2016, sub_gear_type == "trawlers")$mmsi)` (`r round(100*n_distinct(filter(effort_by_high_seas_vessels,sovereign_flag_iso3 == "KOR", year == 2016, sub_gear_type == "trawlers")$mmsi)/13)`%) trawlers on the high seas
+  - In the IOTC region, we see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "KOR", year == 2015, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines", "set_longlines"))$mmsi)` longliners in 2015 (`r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "KOR", year == 2015, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines", "set_longlines"))$mmsi)/14)` %)
+and `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seiners (`r 100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "JPN", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("purse_seines"))$mmsi)/5`%) 
+  - In the ICCAT, we see `r n_distinct(filter(effort_by_high_seas_vessels_by_RFMO, sovereign_flag_iso3 == "KOR", year == 2015, RFMO == "ICCAT", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longliners (> 100%) and `r n_distinct(filter(effort_by_high_seas_vessels_by_RFMO, sovereign_flag_iso3 == "KOR", year == 2015, RFMO == "ICCAT", sub_gear_type %in%  c("purse_seines"))$mmsi)` and purse seines in 2015. This is more longliners thant reported but consistent regarding purse seines.
+  - In the CCSBT region, we see `r n_distinct(filter(effort_by_high_seas_vessels_by_RFMO, sovereign_flag_iso3 == "KOR", year == 2015, RFMO == "CCSBT", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longliners (> 100%). 
+  - In the WCPFC region, we see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "KOR", year == 2015, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longliners (> 100%) and `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "KOR", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("purse_seines"))$mmsi) - 45` purse seines (>100%)
+
+In summary, we see ~100% of high seas trawlers, ~100% of longliners and purse seiners on the WCPFC, ~100% longliners in the CCSBT region, ~93% of longliners on IOTC (1 vessel missing), ~60% of purse seiners on IOTC (2 vessels missing), and ~94% of overall DWF squid jiggers (2 vessels missing). 
+
+## Scale Factors
+
+### Purse Seines
+
+```{r}
+KOR_PS_by_RFMO <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "KOR", sub_gear_type %in% c("purse_seines"), RFMO %in% c("WCPFC", "IOTC"))%>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ais_vessels = ifelse(RFMO == "WCPFC" & year == 2016, ais_vessels-45,
+                              ifelse(RFMO == "WCPFC" & year == 2015, ais_vessels-8, 
+                                     ifelse(RFMO == "WCPFC" & year == 2014, ais_vessels-4,  ais_vessels)))) %>% 
+  mutate(ref_point = ifelse(RFMO == "IOTC", 5,25),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(RFMO)
+
+KOR_PS_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Longliners
+
+```{r}
+KOR_LL_by_RFMO <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "KOR", sub_gear_type %in% c("drifting_longlines"), RFMO %in% c("WCPFC","ICCAT","IOTC", "CCSBT")) %>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(RFMO == "ICCAT", 4, 
+                            ifelse(RFMO == "IOTC", 14, 
+                                   ifelse(RFMO == "WCPFC",96,10 ))),
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(RFMO)
+
+KOR_LL_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Trawlers
+
+```{r}
+KOR_TR <- effort_by_high_seas_vessels %>% 
+  filter(sovereign_flag_iso3 == "KOR", sub_gear_type %in% c("trawlers")) %>% 
+  group_by(year, sovereign_flag_iso3, sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = 13,
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(year)
+
+KOR_TR %>% 
+  kable(col.names = c("year", "country","Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Squid Jiggers
+
+```{r}
+KOR_SJ <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "KOR", sub_gear_type %in% c("squid_jigger")) %>% 
+  group_by(year, sovereign_flag_iso3, sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = 32,
+         scale_factor = ifelse(ref_point > ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(year)
+
+KOR_SJ %>% 
+  kable(col.names = c("year", "country","Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+# Spain 
+
+The [2017, EU Annual Economic Report (AER)](https://stecf.jrc.ec.europa.eu/documents/43805/1820920/STECF+17-12+-+AER_JRC107883.pdf) states that Spain has 221 distant water vessels (>40 meters) active in 2015. By gear type, the fleet is composed of 30 purse seiners (> 40 meters), 33 demersal trawlers (>40 meters), 39 demersal trawlers (24-40 meters; not active on the high seas), and 83 longliners (24-40 meters). Another source, [Cepesca](http://www.cepesca.es/download-doc/88168), report that Spain has 205 vessels fishing in foreign non-EU water and the high seas. Of these, 89 are trawlers, 29 purse seiners, 3 bottom longliners and 84 drifting longliners. 
+
+In terms of RFMOs, the [WCPFC Tuna Fishery Yearbook (2015)](https://www.wcpfc.int/statistical-bulletins) and  [Spain's Annual report to the WCPFC ](https://www.wcpfc.int/system/files/AR-CCM-05a%20EUROPEAN%20UINION%20%20SPAIN%20Part%201%20Rev%201%20%287%20July%202016%29_1.pdf) report only 5 Spanish longliners and 4 purse seiners actively fishing in the RFMO area. In the [IOTC](http://www.iotc.org/documents/updating-statistics-eu-spain-purse-seine-fleet-indian-ocean-1990-2016), 14 purse seiners operated in 2016, more specifically, all operations have taken place on FAO region 51 and 19 longliners operated in 2016, 18 in 2015, and 22 in 2014 [IOTC](http://iotc.org/oqs). The [IATTC](https://www.iattc.org/PDFFiles2/QuarterlyReports/IATTCq164ENG.pdf) reports that in 2016, only 2 Spanish purse seiners operated in the Eastern Tropical Pacific and [Spain's report on it's activity in the region](https://www.iattc.org/Meetings/Meetings2016/SAC7/PDFfiles/INF/SAC-07-INF-A(aII)-EU-Spain.pdf) suggets there were 25 longliners fishing for swordfish in 2015. 
+
+Another source of information is FFA's [Global Tuna Market & Industry Dynamics report](https://www.ffa.int/node/567). This document states that only 4 Spanish flagged vessels operate in the region plus 2 vessels with flags from El Salvador. Accroding to the report, in 2007 EU firms controlled 84 purse seiners (20% of global vessels) but only 57 of these were EU flagged. In the 2000's Spanish-owned and foreign-flagged purse seiners used at least 8 flags from the seychelles, 5 by Ecuador, 5 by Ghana, 2 El Salvador and some other by other latin american and west african countries.
+
+Given the available information, we can make the following statements about Spain's AIS coverage:
+  
+  - We observe `r n_distinct(filter(effort_by_DWF,flag_iso3 == "ESP", year == 2016)$mmsi)` in Spain DWF and `r n_distinct(filter(effort_by_high_seas_vessels,flag_iso3 == "ESP", year == 2016)$mmsi)` belong to the high seas fleet. Both fleets are larger than the 205 vessel reported by CEPESCA. 
+  - We see `r n_distinct(filter(effort_by_DWF,flag_iso3 == "ESP", year == 2016, sub_gear_type == "purse_seines")$mmsi)` purse seiners in the DWF and `r n_distinct(filter(effort_by_high_seas_vessels,flag_iso3 == "ESP", year == 2016, sub_gear_type == "purse_seines")$mmsi)` belong to the high seas fleet. Again, both fleets are larger than the 29 purse seiners reported by CEPESCA in 2015.
+  - We see  `r n_distinct(filter(effort_by_DWF, flag_iso3 == "ESP", year == 2016,  length >= 40, sub_gear_type == "purse_seines")$mmsi)` DWF purse seiners  > 40 meters. The EU reports 30 in 2015. If we include spanish owened vessels flagged in Bonaire, El Salavdor, Panama and Belize, our number increases to `r n_distinct(filter(effort_by_DWF, sovereign_flag_iso3 == "ESP", year == 2016, length >= 40, sub_gear_type == "purse_seines")$mmsi)`. 
+  - In the IOTC region, we see `r n_distinct(filter(effort_by_DWF_by_RFMO, flag_iso3 == "ESP", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seiners which represent `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, flag_iso3 == "ESP", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("purse_seines"))$mmsi)/14)`% of the 14 reported to be active in 2016.
+  - In the IATTC region, we see `r n_distinct(filter(effort_by_DWF_by_RFMO, flag_iso3 == "ESP", year == 2016, RFMO == "IATTC", sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seiners which is one more than reported by the RFMO and we see `r n_distinct(filter(effort_by_DWF_by_RFMO, flag_iso3 == "ESP", year == 2016, RFMO == "IATTC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longliners which is `r 100*22/25` % of the reported number from the RFMO. 
+  - In the WCPFC we see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "ESP", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seiners and `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "ESP", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines", "set_longlines"))$mmsi)` longliners which is `r 100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "ESP", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("purse_seines"))$mmsi)/4` and `r 100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "ESP", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines", "set_longlines"))$mmsi)/5` % of the reported numbers.
+  - We see `r n_distinct(filter(effort_by_DWF, flag_iso3 == "ESP", year == 2016, sub_gear_type == "trawlers")$mmsi)` trawlers in the DWF (`r round(100*n_distinct(filter(effort_by_DWF, flag_iso3 == "ESP", year == 2016, sub_gear_type == "trawlers")$mmsi)/89)`% of what cepesca reports).
+  - We see `r n_distinct(filter(effort_by_DWF, flag_iso3 == "ESP", year == 2014, gear_type == "trawlers", length >= 40)$mmsi)` trawlers > 40 meters in length which is more than what the EU says (33). In the 24-40 size class, we see `r n_distinct(filter(effort_by_DWF, flag_iso3 == "ESP", year == 2016, gear_type == "trawlers", length >= 24, length < 40)$mmsi)` trawlers, again slightly more than the 39 that the EU AER reports in 2014. 
+  - We see `r n_distinct(filter(effort_by_DWF, flag_iso3 == "ESP", year == 2016, gear_type == "drifting_longlines")$mmsi)` longliners which is more than the 87 that CEPESCA reports. We see `r n_distinct(filter(effort_by_DWF, flag_iso3 == "ESP", year == 2016, gear_type == "drifting_longlines", length >= 24, length < 40)$mmsi)` longliners between 24 and 40 meters which is slightly more than the 83 reported by the EU AER. 
+
+Coverage for purse seiners and longliners is difficult to estimate as a consequence of the "flags of convenience problem". On aggregate, we see >100% of purse seiners reported by CEPESCA in 2015 (29), and if we include Spain-owned purse seiners flagged in  Bonaire, El Salvador, Panama, and Belize, that operate in West Africa and the Central Pacific we see 31 purse seiners > 40 meters which is sligthly more than reported in the AER. However, we see only 4 out of the 14 purse seiners that operated in the IOTC region in 2016. On the WCPFC region we see 2 out of the 4 in 2016 but we see all of them in 2014-2015 which could indicate that some vessels may have moved fishing grounds in 2016. We see all purse seineres in the IATTC. For longliners, we see, on aggregate more than whay CEPESCA and AER report but we seem to be missing 2 out of the 5 five longliners that operate in the WCPFC. For trawlers, we see `r round(100*n_distinct(filter(effort_by_DWF, flag_iso3 == "ESP", year == 2016, sub_gear_type == "trawlers")$mmsi)/89)`% of the reported number by CEPESCA.
+
+## Scale Factors
+
+### Purse Seines
+
+```{r}
+ESP_PS_by_RFMO <- effort_by_DWF_by_RFMO %>% 
+  filter(flag_iso3 == "ESP", sub_gear_type %in% c("purse_seines"), RFMO %in% c("WCPFC", "IOTC", "IATTC"))%>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(RFMO == "IOTC", 14,
+                            ifelse(RFMO == "IATTC", 2,4)),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(RFMO)
+
+ESP_PS_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Longlines
+
+```{r}
+ESP_LL_by_RFMO <- all_fishing_effort_by_RFMO %>% 
+  filter(flag_iso3 == "ESP", sub_gear_type %in% c("drifting_longlines"), RFMO %in% c("WCPFC",  "IOTC", "IATTC")) %>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(RFMO == "WCPFC" ,5,
+                            ifelse(RFMO == "IOTC" & year == 2016 ,19,
+                                   ifelse(RFMO == "IOTC" & year == 2015 ,18,
+                                          ifelse(RFMO == "IOTC" & year == 2014 ,22,
+                                                 ifelse( RFMO == "IATTC",25,NA))))),
+         scale_factor = ifelse(ref_point >= ais_vessels & !is.na(ref_point), ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(desc(RFMO))
+
+ESP_LL_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+# United States
+
+The [2017 U.S Report to the WCPFC](https://www.wcpfc.int/node/29425) states there were 133 longliners, 23 longliner based in American Samoa and 37 purse seiners fishing on the RFMO region in 2016. Additionally, they report that only 6 vessels particpiated in the South Pacific Albacora fishery in 2016. The last [IATTC quarterly report of 2016](https://www.iattc.org/PDFFiles2/QuarterlyReports/IATTCq164ENG.pdf) states that the U.S had 25 purse seiners fishing on the RFMO region. Lastly, the [ICCAT Biennial Report](https://www.iccat.int/en/pubs_biennial.htm) states that 103 and 110 longliners operated in the RFMO region in 2015 and 2014, respectively. 
+
+Given the available information, we can make the following statements about USA's AIS coverage:
+
+  - We see `r n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO %in% ("WCPFC"), sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seiners fishing on Hawaii's EEZ, foreing EEZ and the high seas of the the WCPFC region. This suggests we have ~100% of the fleet. 
+  - We see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO == "IATTC", sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seines on foreign and international waters on the IATTC, representing `r 100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO == "IATTC", sub_gear_type %in%  c("purse_seines"))$mmsi)/25` % of the reported number. If we include all purse seiners that fish in the U.S waters we see  `r n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO == "IATTC", sub_gear_type %in%  c("purse_seines"))$mmsi)` vessels which is more than the reported number,
+  - We wee  `r n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO %in% ("WCPFC"), sub_gear_type %in%  c("trollers"))$mmsi)` trollers which is slightly more than reported.
+  - We see `r n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO %in% ("WCPFC"), sub_gear_type %in%  c("drifting_longlines"))$mmsi)` drifting longliners fishing on Hawaii's EEZ, foreing EEZ and the high seas of the the WCPFC region. This represents we see a total of  `r round(100*n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO %in% ("WCPFC"), sub_gear_type %in%  c("drifting_longlines"))$mmsi)/133)`% of the 133 longliners base in Hawaii and California, and `r round(100*n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO %in% ("WCPFC"), sub_gear_type %in%  c("drifting_longlines"))$mmsi)/151)`% if we include vessels cabes on American Samoa.
+  - We see `r n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO %in% ("ICCAT"), sub_gear_type %in%  c("drifting_longlines"))$mmsi)` drifting longlines in the ICCAT region in 2016 which is  `r round(100*n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO %in% ("ICCAT"), sub_gear_type %in%  c("drifting_longlines"))$mmsi)/103)` %. of that reported by the RFMO. Of these, we see only  `r n_distinct(filter(effort_by_high_seas_vessels_by_RFMO, sovereign_flag_iso3 == "USA", year == 2016, RFMO %in% ("ICCAT"), sub_gear_type %in%  c("drifting_longlines"))$mmsi)` fishing on the high seas. 
+  
+In summary, we see ~100% of the purse fleet on the WCPFC and ~80% of that on the IATTC. We also see ~100% of south albacore trollers. Regarding longliners, we see ~62% of the fleet on the WCPFC and 55% of that on the ICATT. However, the reference points in these regions include Hawaii's EEZ and U.S Atlantic EEZ so using these values to scale up, assuming that the fraction of vessels we don't see behave like the ones we see, can potentially overestimate high seas vessels. 
+
+## Scale Factors
+
+### Purse Seines
+
+```{r}
+USA_PS_by_RFMO <- bind_rows(all_fishing_effort_by_RFMO %>% 
+                              filter(flag_iso3 == "USA", sub_gear_type %in% c("purse_seines"), RFMO %in% c("WCPFC"))%>% 
+                              group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+                              summarise(ais_vessels = n_distinct(mmsi)) %>% 
+                              mutate(ref_point = ifelse(RFMO == "WCPFC", 37,25),
+                                     scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+                              mutate_if(is.numeric, round, 2) %>% 
+                              arrange(RFMO),
+                            all_fishing_effort_by_RFMO %>% 
+                              filter(flag_iso3 == "USA", sub_gear_type %in% c("purse_seines"), RFMO %in% c("IATTC"))%>% 
+                              group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+                              summarise(ais_vessels = n_distinct(mmsi)) %>% 
+                              mutate(ref_point = ifelse(RFMO == "WCPFC", 37,25),
+                                     scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+                              mutate_if(is.numeric, round, 2) %>% 
+                              arrange(RFMO))
+
+USA_PS_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Longlines
+
+```{r}
+USA_LL_by_RFMO <- all_fishing_effort_by_RFMO %>% 
+  filter(flag_iso3 == "USA", sub_gear_type %in% c("drifting_longlines"), RFMO %in% c("WCPFC","ICCAT")) %>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(RFMO == "WCPFC", 151, 103),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(RFMO)
+
+USA_LL_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Trollers
+
+```{r}
+USA_TL_by_RFMO <- all_fishing_effort_by_RFMO %>% 
+  filter(flag_iso3 == "USA", sub_gear_type %in% c("trollers"), RFMO %in% c("WCPFC")) %>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(RFMO == "WCPFC", 7, 103),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(RFMO)
+
+USA_TL_by_RFMO %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+
+# Vanuatu
+
+Vanuatu's fleet operates predominantly in the Western and Central Pacific and the nation's [annual report to WCPFC](https://www.wcpfc.int/node/27413) states that there were 3 purse seiners and 74 longline DWF and offshore vessels active in 2015. Additionally,  [OPRT](http://oprt.or.jp/eng/wp-content/uploads/2017/06/registered_vessels_2001%EF%BD%9E.pdf) reports that there are 34 Vanuatuan registered vessels (> 100 GT) targeting tuna in 2016
+
+Given the available information, we can make the following statements about Vanuatu's AIS coverage:
+
+  - We see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "VUT", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seiners and `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "VUT", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longlines in the WCPFC Region. This represents 100 and `r round(100*50/74)` % of the reported numbers. 
+  - We see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "VUT", year == 2016, tonnage >= 100, sub_gear_type %in%  c("drifting_longlines"))$mmsi)` lognliners > 100 GT which is slightly more than reported. 
+  
+In summary, we have 100% coverage of purse seiners and longliners > 100GT. For smallers longliners (<100GT), we see `r 100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "VUT", year == 2016, tonnage < 100, sub_gear_type %in%  c("drifting_longlines"))$mmsi)/40` % of the reported numbers. 
+
+## Scale Factors
+
+### Purse Seines
+
+```{r}
+VUT_PS_by_RFMO <- effort_by_DWF_by_RFMO %>% 
+  filter(flag_iso3 == "VUT", sub_gear_type %in% c("purse_seines"), RFMO %in% c("WCPFC"))%>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = 3,
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(year)
+
+
+VUT_PS_by_RFMO %>% 
+  kable(col.names = c("year", "country","RFMO","Gear type", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+### Longliners
+
+```{r}
+VUT_LL_WCPFC_by_ton_class <- effort_by_DWF_by_RFMO %>% 
+  filter(flag_iso3 == "VUT", sub_gear_type %in% c("drifting_longlines"), RFMO %in% c("WCPFC")) %>% 
+  mutate(tonnage_class = cut(tonnage, breaks = c(0,100,2000), right = TRUE, dig.lab = 10)) %>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type,tonnage_class) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(tonnage_class == "(100,2000]", 34, 40),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(tonnage_class)
+
+VUT_LL_WCPFC_by_ton_class %>% 
+  kable(col.names = c("year", "country", "RFMO", "Gear type","Tonnage Class", "AIS Vessels", "Reference point", "Scale factor"))
+```
+
+# Portugal
+
+The [2017, EU Annual Economic Report (AER)](https://stecf.jrc.ec.europa.eu/documents/43805/1820920/STECF+17-12+-+AER_JRC107883.pdf)  states that in 2015, 20 vessels (>24 meters) comprised the distant water fleet and they project this number to reach 42 in 2016. Additionally, they state that the number of longliners over 40 meters, that fish in foreign waters or the high seas, is 4. Betwen 24-40 meters there are 16, and between 12-24 there are 27. 
+
+In terms of RFMOs, the [IOTC](http://iotc.org/oqs) reports that 7 portuguese longlines operated in 2016 and 6 in 2015. The [EU WCPFC report  2017).pdf](https://www.wcpfc.int/system/files/AR-CCM-05%20EUROPEAN%20UNION%20PART%201%20Addendum%20Submitted%20%2813%20July%202017%29.pdf) states that Portugal fleet in the Pacific is limited to 1 longliner in the WCPFc and 2 in the IATTC. However, as many as 10 longliners are authorized to fish within the WCPFC
+
+
+Given the available information, we can make the following statements about Portugal's AIS coverage:
+
+  - We see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "PRT", year == 2016, RFMO == "WCPFC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longliner in the WCPFC and `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "PRT", year == 2016, RFMO == "IATTC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` in the IATTC which corresponds to the reported numbers. 
+  - We see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "PRT", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longliners fishing within the IOTC region which again conincides with what has been reported. 
+  - Overall, we see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "PRT", year == 2016,  sub_gear_type %in%  c("drifting_longlines"))$mmsi)` longliners fishing on foreign EEZ or international waters. `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "PRT", year == 2016, length >= 40, sub_gear_type %in%  c("drifting_longlines"))$mmsi)` are larger than 40 meters (100% of the AER number), 
+  `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "PRT", year == 2016, length >= 24, length < 40, sub_gear_type %in%  c("drifting_longlines"))$mmsi)` are between 24-40 meters and `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "PRT", year == 2016, length >= 12, length < 24, sub_gear_type %in%  c("drifting_longlines"))$mmsi)` between 12 and 24 meters.
+  
+In summary we see 100% of the longliners in the IOTC, WCPFC and IATTC rfmos. Overall, we see 100% of the Portuguese Distant Water fleet defined in the AER by vessels over 24 meters fishing on foreign EEZ and the high seas. 
+
+## Scale Factors
+
+```{r}
+effort_by_DWF_by_RFMO %>% 
+  filter(flag_iso3 == "PRT", sub_gear_type %in% c("drifting_longlines"), RFMO %in% c("WCPFC", "IATTC", "IOTC")) %>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(RFMO == "WCPFC",1,
+                            ifelse(RFMO == "IATTC",2,7)),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  arrange(RFMO) %>% 
+  kable(col.names = c("Year","Country", "RFMO","Gear type",  "AIS vessels","Reference point", "Scale factor"))
+```
+
+```{r}
+effort_by_DWF_by_RFMO %>% 
+  filter(flag_iso3 == "PRT", sub_gear_type %in% c("drifting_longlines")) %>%
+  mutate(length_class = cut(length, breaks = c(24,40,100), right = T)) %>% 
+  na.omit() %>% 
+  group_by(year, sovereign_flag_iso3,sub_gear_type,length_class) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>%
+  mutate(ref_point = ifelse(length_class == "(40,100]",4,16),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  arrange(length_class) %>% 
+  kable(col.names = c("Year","Country", "Gear type", "Length class", "AIS vessels","Reference point", "Scale factor"))
+```
+
+# France 
+
+The [2017, EU Annual Economic Report (AER)](https://stecf.jrc.ec.europa.eu/documents/43805/1820920/STECF+17-12+-+AER_JRC107883.pdf)  states that the French industrial fleet of Purse Seiners consisted of 21 vessels in 2015, including the 5 vessels registered on the island of Mayotte,  all over 40 meters in length.
+
+In terms of RFMOs, the [IOTC](http://iotc.org/oqs) reports that 12 French purse seiners (>40m) and 19 longliners (flagged in Reunion, >15 m) are authorized to fish in 2016 and in 2015. The list of active vessels from the ICCAT reports that there 46 purse seiners active in the region; 24 of them are >40 meters in length.
+
+Given the available information, we can make the following statements about France's AIS coverage:
+
+  - Overall, we see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seines fishing on foreign EEZ or high seas. Of these, 
+  `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, length > 40, sub_gear_type %in%  c("purse_seines"))$mmsi)` are greater that 40 meters which is slightly more than the reported numbers from the AER.
+  - We see `r n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seiners in the IOTC region which represents `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("purse_seines"))$mmsi)/12)`% of the reported number. 
+  - We see `r n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines"), length > 15)$mmsi)` longliners in the IOTC which represents `r round(100*n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines"), length > 15)$mmsi)/19)`% of the reported number. 
+  - We see `r n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, RFMO == "ICCAT", length > 40, sub_gear_type %in%  c("purse_seines"))$mmsi)` purse seiners (>40 m) in the ICCAT region which represents `r round(100*n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, RFMO == "ICCAT", length > 40, sub_gear_type %in%  c("purse_seines"))$mmsi)/24)` of the reported number.
+  
+
+In summary, we see ~100% of all purse seiners >40 meters reported by the AER in 2015. However, looking at numbers specific to each RFMO (IOTC and ICCAT), the numbers suggest see `r round(100*n_distinct(filter(effort_by_DWF_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("purse_seines"))$mmsi)/12)`% and `r round(100*n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, RFMO == "ICCAT", length > 40, sub_gear_type %in%  c("purse_seines"))$mmsi)/24)` of the purse seiners (> 40 m) within the ITOC and ICCAT, respectively. Regarding longliners, we see `r round(100*n_distinct(filter(all_fishing_effort_by_RFMO, sovereign_flag_iso3 == "FRA", year == 2016, RFMO == "IOTC", sub_gear_type %in%  c("drifting_longlines"), length > 15)$mmsi)/19)`% of the number of Reunion flagged longliners >15m authorized in the IOTC. Given that the RFMO estimates are for authorized vessels and that they suggest different numbers, we chose to use the AER numbers of active vessels. 
+
+## Scale Factors
+
+### Purse Seines
+
+```{r}
+FRA_PS_by_length_class <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "FRA", sub_gear_type %in% c("purse_seines")) %>%
+  mutate(length_class = cut(length, breaks = c(40,100), right = T)) %>% 
+  na.omit() %>% 
+  group_by(year, sovereign_flag_iso3,sub_gear_type,length_class) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>%
+  mutate(ref_point = ifelse(length_class == "(40,100]",22,16),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  arrange(length_class) %>% 
+  mutate_if(is.numeric, round, 2) 
+
+
+FRA_PS_by_length_class %>% 
+  kable(col.names = c("Year", "Country", "Gear type", "Length class", "AIS vessles", "Reference point", "Scale factor"))
+```
+
+# Seychelles
+
+The [Seychelles National Report to the IOTC](http://www.iotc.org/documents/seychelles-%E2%80%93-national-report-2015) states that in 2014, the number of purse seiners, longliners were 11, and 36 respectively.
+
+Given this information , we can make the following statements about Seychelles's AIS coverage:
+
+## Scale Factors 
+
+```{r}
+SYC_PS_and_LL_by_RFMO <- all_fishing_effort_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "SYC", RFMO == "IOTC", sub_gear_type %in% c("purse_seines", "drifting_longlines")) %>%
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(sub_gear_type == "drifting_longlines",36,11),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  arrange(sub_gear_type) %>% 
+  mutate_if(is.numeric, round, 2) 
+
+
+SYC_PS_and_LL_by_RFMO %>% 
+  kable(col.names = c("Year", "Country", "RFMO","Gear type", "AIS vessels", "Reference point", "Scale Factor"))
+```
+
+
+# Mexico
+
+The latest [IATTC quarterly report of 2016](https://www.iattc.org/PDFFiles2/QuarterlyReports/IATTCq164ENG.pdf) states there were 49 Mexican purse seines operating in the Eastern Tropical Pacific; 21 are >70 meters, 22 between 50 -70 meters, and 3 between 40-50 meters.
+
+## Scale Factors
+
+```{r}
+MEX_PS_by_RFMO_and_length_class <- all_fishing_effort_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "MEX", RFMO == "IATTC", sub_gear_type %in% c("purse_seines")) %>%
+  mutate(length_class = cut(length, breaks = c(0,40,50,70,100), right = T, dig.lab = 10)) %>% 
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type,length_class) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(length_class == "(70,100]", 21, 
+                            ifelse(length_class == "(50,70]", 22, 3)),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  arrange(sub_gear_type) %>% 
+  mutate_if(is.numeric, round, 2) 
+
+MEX_PS_by_RFMO_and_length_class %>% 
+  kable(col.names = c("Year", "Country","RFMO","Gear type","Length class", "AIS vessels", "Reference point","Scale factor"))
+```
+
+# Colombia
+
+The latest [IATTC quarterly report of 2016](https://www.iattc.org/PDFFiles2/QuarterlyReports/IATTCq164ENG.pdf) states there were 14 Colombian purse seines operating in the Eastern Tropical Pacific. The CLAV lists reports that 11 of those are > 40 meters and 3 are between 24 and 40 meters. 
+
+## Scale Factors 
+
+```{r}
+COL_PS_by_RFMO <- all_fishing_effort_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "COL", RFMO == "IATTC", sub_gear_type %in% c("purse_seines")) %>%
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = 14,
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  arrange(sub_gear_type) %>% 
+  mutate_if(is.numeric, round, 2)
+
+
+COL_PS_by_RFMO %>% 
+  kable(col.names = c("Year","Country", "RFMO", "Gear type", "AIS vessels", "Reference point", "Scale Factor"))
+```
+
+
+# Ecuador
+
+Ecuadors active industrial fleet is reported to be 40 vessels: http://www.acuaculturaypesca.gob.ec/flota-industrial1-barcos.html. Of these, IATTC reports there are 15 longliners. 
+
+```{r}
+ECU_by_RFMO <- effort_by_DWF_by_RFMO %>% 
+  filter(sovereign_flag_iso3 == "ECU", RFMO == "IATTC") %>%
+  group_by(year, sovereign_flag_iso3,RFMO,sub_gear_type) %>% 
+  summarise(ais_vessels = n_distinct(mmsi)) %>% 
+  mutate(ref_point = ifelse(sub_gear_type == "drifting_longlines", 15, 25),
+         scale_factor = ifelse(ref_point >= ais_vessels, ref_point/ais_vessels, 1)) %>% 
+  arrange(sub_gear_type) %>% 
+  mutate_if(is.numeric, round, 2)
+
+ECU_by_RFMO %>%
+  filter(year == 2016) %>% 
+  kable(col.names = c("Year","Country", "RFMO", "Gear type", "AIS vessels", "Reference point", "Scale Factor"))
+``` 
+
+# Putting it all together
+
+```{r}
+scale_factors_by_country_gear_and_RFMO <- bind_rows(CHN_LL_by_RFMO,CHN_PS_by_RFMO,TWN_LL_by_RFMO,TWN_PS_by_RFMO, JPN_LL_by_RFMO, JPN_PS_by_RFMO, KOR_LL_by_RFMO,KOR_PS_by_RFMO, ESP_LL_by_RFMO, ESP_PS_by_RFMO, USA_LL_by_RFMO, USA_PS_by_RFMO, USA_TL_by_RFMO,VUT_PS_by_RFMO,SYC_PS_and_LL_by_RFMO, COL_PS_by_RFMO, ECU_by_RFMO)
+
+write_csv(scale_factors_by_country_gear_and_RFMO,"saved_files/scale_factors_by_country_gear_and_RFMO.csv")
+
+write_csv(CHN_SJ,"saved_files/scale_factors_Chinese_SJ.csv")
+
+scale_factors_by_country_and_gear <- bind_rows(TWN_SJ, JPN_PL, JPN_TR, KOR_SJ, KOR_TR)
+
+write_csv(scale_factors_by_country_and_gear,"saved_files/scale_factors_by_country_and_gear.csv")
+
+scale_factors_by_country_gear_RFMO_and_tonnage <- bind_rows(TWN_LL_WCPFC_by_ton_class, VUT_LL_WCPFC_by_ton_class)
+
+write_csv(scale_factors_by_country_gear_RFMO_and_tonnage,"saved_files/scale_factors_by_country_gear_RFMO_and_tonnage.csv")
+
+MEX_scale_factors_by_length_class <- MEX_PS_by_RFMO_and_length_class
+write_csv(MEX_scale_factors_by_length_class,"saved_files/MEX_scale_factors_by_length_class.csv")
+
+FRA_scale_factors_by_length_class <- FRA_PS_by_length_class
+write_csv(FRA_scale_factors_by_length_class,"saved_files//FRA_scale_factors_by_length_class.csv")
+```
+
+```{r putting_in_all_together, eval = F}
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "fleet_size_scale_factors", project = "high-seas", billing = "world-fishing-827")
+
+if(dbExistsTable(BQ_connection, "scale_factors_by_country_gear_and_RFMO")) {
+  dbRemoveTable(BQ_connection, "scale_factors_by_country_gear_and_RFMO") 
+  dbWriteTable(BQ_connection, "scale_factors_by_country_gear_and_RFMO", scale_factors_by_country_gear_and_RFMO)
+} else {dbWriteTable(BQ_connection, "scale_factors_by_country_gear_and_RFMO", scale_factors_by_country_gear_and_RFMO)}
+```
+
+```{r,  eval = F}
+if(dbExistsTable(BQ_connection, "scale_factors_Chinese_SJ")) {
+  dbRemoveTable(BQ_connection, "scale_factors_Chinese_SJ") 
+  dbWriteTable(BQ_connection, "scale_factors_Chinese_SJ", CHN_SJ)
+} else {dbWriteTable(BQ_connection, "scale_factors_Chinese_SJ", CHN_SJ)}
+```
+
+```{r,  eval = F}
+if(dbExistsTable(BQ_connection, "scale_factors_by_country_and_gear")) {
+  dbRemoveTable(BQ_connection, "scale_factors_by_country_and_gear") 
+  dbWriteTable(BQ_connection, "scale_factors_by_country_and_gear", scale_factors_by_country_and_gear)
+} else {dbWriteTable(BQ_connection, "scale_factors_by_country_and_gear", scale_factors_by_country_and_gear)}
+```
+  
+  
+```{r,  eval = F}
+if(dbExistsTable(BQ_connection, "scale_factors_by_country_gear_RFMO_and_tonnage")) {
+  dbRemoveTable(BQ_connection, "scale_factors_by_country_gear_RFMO_and_tonnage") 
+  dbWriteTable(BQ_connection, "scale_factors_by_country_gear_RFMO_and_tonnage", scale_factors_by_country_gear_RFMO_and_tonnage)
+} else {dbWriteTable(BQ_connection, "scale_factors_by_country_gear_RFMO_and_tonnage", scale_factors_by_country_gear_RFMO_and_tonnage)}
+```
+ 
+```{r,  eval = F}
+if(dbExistsTable(BQ_connection, "FRA_scale_factors_by_length_class")) {
+  dbRemoveTable(BQ_connection, "FRA_scale_factors_by_length_class") 
+  dbWriteTable(BQ_connection, "FRA_scale_factors_by_length_class", FRA_scale_factors_by_length_class)
+} else {dbWriteTable(BQ_connection, "FRA_scale_factors_by_length_class", FRA_scale_factors_by_length_class)}
+
+if(dbExistsTable(BQ_connection, "MEX_scale_factors_by_length_class")) {
+  dbRemoveTable(BQ_connection, "MEX_scale_factors_by_length_class") 
+  dbWriteTable(BQ_connection, "MEX_scale_factors_by_length_class", MEX_scale_factors_by_length_class)
+} else {dbWriteTable(BQ_connection, "MEX_scale_factors_by_length_class", MEX_scale_factors_by_length_class)}
+```
+ 
+```{r,}
+summary_of_scale_factors_2016 <- bind_rows(
+scale_factors_by_country_gear_RFMO_and_tonnage %>% 
+  filter(year == 2016) %>% 
+  mutate(size = paste(tonnage_class,"tons")) %>% 
+  select(year, sovereign_flag_iso3, RFMO, sub_gear_type, size, ais_vessels, ref_point,
+         scale_factor,-tonnage_class),
+scale_factors_by_country_gear_and_RFMO %>% 
+  filter(year == 2016) %>% 
+  mutate(size = "ALL") %>% 
+  select(year, sovereign_flag_iso3, RFMO, sub_gear_type, size, ais_vessels, ref_point,
+         scale_factor),
+scale_factors_by_country_and_gear %>% 
+    filter(year == 2016) %>% 
+  mutate(RFMO = "ALL DWF", size = "ALL") %>% 
+  select(year, sovereign_flag_iso3, RFMO, sub_gear_type, size, ais_vessels, ref_point,
+         scale_factor),
+FRA_scale_factors_by_length_class %>% 
+  filter(year == 2016) %>%
+  mutate(size = paste(length_class, "meters")) %>% 
+  mutate(RFMO = "ALL DWF") %>% 
+  select(year ,sovereign_flag_iso3, RFMO, sub_gear_type, size, ais_vessels, ref_point,
+         scale_factor),
+MEX_scale_factors_by_length_class %>% 
+  ungroup() %>% 
+  filter(year == 2016) %>%
+  mutate(size = paste(length_class, "meters")) %>% 
+  mutate(RFMO = "ALL DWF") %>% 
+  select(year, sovereign_flag_iso3, RFMO, sub_gear_type, size, ais_vessels, ref_point,
+         scale_factor),
+CHN_SJ %>%
+  ungroup() %>% 
+  filter(year == 2016) %>% 
+  mutate(RFMO = case_when(
+    FAO_region == 41 ~ "ICCAT",
+    FAO_region == 51 ~ "IOTC",
+    FAO_region == 61 ~ "WCPFC",
+    FAO_region == 87 ~ "SPRFMO",
+  )) %>% 
+  select(-FAO_region) %>% 
+  mutate(size = "ALL") %>% 
+  select(year, sovereign_flag_iso3, RFMO, sub_gear_type, size, ais_vessels, ref_point,
+         scale_factor)
+) %>% 
+  ungroup() %>% 
+  select(-year) %>% 
+  rename(flag_iso3 = sovereign_flag_iso3, gear_type = sub_gear_type) 
+
+summary_of_scale_factors_2016 %>% 
+  kable(caption = "Summary of scale factors in 2016",
+        col.names = c("ISO3","RFMO","Gear type","Vessel size","AIS vessels","Ref. point","Scale factor"))
+
+summary_of_scale_factors_2016 %>% 
+  write_csv("saved_files/scale_factors_summary_2016.csv")
+```

@@ -1,0 +1,221 @@
+---
+title: "Subsidies"
+output: html_notebook
+---
+
+
+```{r message=FALSE, error=FALSE, warning=F, echo=FALSE, prompt=FALSE}
+suppressPackageStartupMessages(
+  easypackages::libraries("knitr", "tidyverse", "bigrquery", "lubridate", "broom","rnaturalearth","forcats","googledrive")
+)
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = F,error = FALSE, echo = FALSE, progress = F)
+
+knitr::knit_hooks$set(inline = function(x) {
+  prettyNum(round(x,2), big.mark=",")
+})
+
+
+source("../general_project_files/effort_mapping_functions.R")
+source("../general_project_files/gfw_themes.R")
+source("../general_project_files/functions.R")
+
+options(scipen=999)
+
+BQ_connection <-  dbConnect(dbi_driver(),dataset = "", project = "high-seas", billing = "world-fishing-827")
+```
+
+This script analyses the subsidies data shared by Rashid. All monetary values are in million U.S dollars unless otherwise specified. 
+
+```{r}
+subsidies <- read_csv("source_info/high_seas_subsidies_cleaned_092817.csv", 
+                      col_types = cols(`total_subsidies (USDx1000)` = col_double(),
+                                       `2014 HS-LV (USD x1000)`= col_double(),
+                                       `H.S. subsidies estimate` = col_double())) 
+#subsidies <- read_csv("source_info/high_seas_subsidies_cleaned.csv") 
+
+gfw_high_seas_countries <- read_csv("saved_files/total_cost_by_high_seas_vessels.csv") %>% 
+  distinct(flag_iso3, flag_country_name)
+
+colnames(subsidies) <- c("flag_country_name", "region", "total_subsidies", "high_seas_landed_value", "high_seas_subsidies")
+
+subsidies <- subsidies %>% 
+  filter(high_seas_landed_value > 0 & high_seas_subsidies > 0 ) %>% 
+  mutate_if(is.numeric, funs(.*1000)) %>% 
+  mutate(flag_iso3 = countrycode::countrycode(flag_country_name, "country.name", "iso3c"),
+         fraction_of_total_subsidies = high_seas_subsidies/total_subsidies,
+         fraction_of_hs_lv = high_seas_subsidies/high_seas_landed_value)
+
+subsidies$flag_iso3[subsidies$flag_country_name == "Faeroe Isl. (Denmark)"] <- countrycode::countrycode("Faeroe", "country.name", "iso3c")
+subsidies$flag_iso3[subsidies$flag_country_name == "New Caledonia (France)"] <- countrycode::countrycode("New Caledonia", "country.name", "iso3c")
+subsidies$flag_iso3[subsidies$flag_country_name == "Micronesia"] <- countrycode::countrycode("Federated States of Micronesia", "country.name", "iso3c")
+subsidies$flag_iso3[subsidies$flag_country_name == "Saint Pierre & Miquelon (France)"] <- countrycode::countrycode("Saint Pierre & Miquelon", "country.name", "iso3c")
+subsidies$flag_iso3[subsidies$flag_country_name == "North Marianas (USA)"] <- countrycode::countrycode("North Marianas", "country.name", "iso3c")
+subsidies$flag_iso3[subsidies$flag_country_name == "Guam (USA)"] <- countrycode::countrycode("Guam", "country.name", "iso3c")
+subsidies$flag_iso3[subsidies$flag_country_name == "Tokelau (New Zealand)"] <- countrycode::countrycode("Tokelau", "country.name", "iso3c")
+
+subsidies <- subsidies %>% 
+  select(-flag_country_name) %>% 
+  left_join(gfw_high_seas_countries) %>% 
+  select(flag_country_name, flag_iso3, everything()) %>% 
+  mutate_if(is.numeric, round, digits = 3) %>% 
+  mutate(flag_country_name = ifelse(flag_iso3 == "IDN", "Indonesia", flag_country_name))
+```
+
+Total high seas subsidies amount to `r sum(subsidies$high_seas_subsidies)/10^6` millions. Of those, `r sum(filter(subsidies, is.na(flag_country_name))$high_seas_subsidies)/10^6` million are from countries we do not see in the high seas:
+
+```{r}
+subsidies %>% 
+  filter(is.na(flag_country_name)) %>% 
+  mutate(flag_country_name = countrycode::countrycode(flag_iso3, 'iso3c',"country.name")) %>% 
+  arrange(desc(high_seas_subsidies))
+```
+
+This means we can match a total of `r sum(filter(subsidies, !is.na(flag_country_name))$high_seas_subsidies)/10^6` millions (`r 100*(sum(filter(subsidies, !is.na(flag_country_name))$high_seas_subsidies)/10^6)/(sum(subsidies$high_seas_subsidies)/10^6)` %)
+
+### Subsidies we can macth
+
+```{r}
+(subsidies_barplot <- subsidies %>% 
+  filter(!is.na(flag_country_name)) %>% 
+  top_n(20, high_seas_subsidies) %>% 
+  ggplot(aes(x = fct_reorder(flag_country_name,high_seas_subsidies), y = high_seas_subsidies/10^6, fill = desc(high_seas_subsidies))) +
+  geom_col() +
+  guides(fill = FALSE) +
+  coord_flip() +
+  theme_minimal() +
+  labs(x = "", y = "High Seas subsidies (million usd)") +
+  theme(axis.title.x = element_text(margin = margin(10,0,0,0))) +
+  ggsci::scale_fill_material("orange", reverse = T) +
+  geom_text(data = subsidies %>% 
+              filter(!is.na(flag_country_name)) %>% 
+              mutate(high_seas_subsidies = high_seas_subsidies/10^6,
+                     p = round(100*high_seas_subsidies/sum(high_seas_subsidies), digits = 0 )) %>% 
+              top_n(5, high_seas_subsidies),
+            aes(x =  forcats::fct_reorder(flag_country_name, high_seas_subsidies),
+                y = high_seas_subsidies, 
+                label = paste(p,"%",sep = "")),
+            position = position_dodge(1), 
+            hjust = -.1,
+            size = 2))
+```
+
+
+```{r}
+(subsidies_bubbleplot <- subsidies %>% 
+   filter(!flag_iso3 %in% c("FSM", "MDV")) %>% 
+  filter(!is.na(flag_country_name)) %>% 
+  top_n(20, high_seas_subsidies) %>% 
+  ggplot(aes(x = fct_reorder(flag_country_name,fraction_of_hs_lv),
+             y = fraction_of_hs_lv,
+             size = high_seas_subsidies, 
+             color = high_seas_subsidies)) +
+  geom_point() +
+  guides(color = FALSE, size = FALSE) +
+  coord_flip() +
+  theme_minimal() +
+  labs(x = "", y = "Fraction of high seas landed value") +
+  geom_hline(yintercept = 1, linetype = 2) +
+  theme(axis.title.x = element_text(margin = margin(10,0,0,0))) +
+  scale_color_viridis_c()+
+  labs(title = "Subsidies as a fraction of landed value",
+       subtitle = "")+
+   theme(plot.title = element_text(hjust = -.45)))
+```
+
+## Apportioning subsidies
+
+We will begin by apportioning subsidies based on the engine power of each vessel in the fleet
+
+```{r}
+subsidies %>% 
+  filter(!is.na(flag_country_name)) %>% summarise(sum(high_seas_subsidies))
+```
+
+```{r}
+total_cost_by_high_seas_vessels <- read_csv("saved_files/total_cost_by_high_seas_vessels.csv")
+```
+
+
+```{r}
+total_cost_by_high_seas_vessels <- total_cost_by_high_seas_vessels %>% 
+  group_by(year, sovereign_flag_iso3) %>% 
+  mutate(fraction_of_fleet_KW = engine_power/sum(engine_power)) %>% 
+  ungroup() %>% 
+  left_join(subsidies %>% 
+              filter(!is.na(flag_country_name)) %>% 
+              select(sovereign_flag_iso3 = flag_iso3, country_high_seas_subsidies = high_seas_subsidies)) %>% 
+  mutate(vessel_subsidies = fraction_of_fleet_KW*country_high_seas_subsidies) %>% 
+  select(-fraction_of_fleet_KW) %>% 
+  replace_na(list(vessel_subsidies = 0)) %>% 
+  ungroup()
+
+total_cost_by_high_seas_vessels %>% 
+  group_by(year) %>% 
+  summarise(total_cost__low_bound = sum(total_cost__low_bound, na.rm = T)/10^6,
+            total_cost__high_bound = sum(total_cost__high_bound,na.rm = T)/10^6,
+            subsidies = sum(vessel_subsidies)/10^6)
+```
+
+```{r}
+total_cost_by_high_seas_vessels %>% 
+  group_by(year, sovereign_flag_iso3) %>%
+  summarise(total_cost__low_bound = sum(total_cost__low_bound, na.rm = T)/10^6,
+            total_cost__high_bound = sum(total_cost__high_bound,na.rm = T)/10^6,
+            subsidies = sum(vessel_subsidies)/10^6) %>% 
+  filter(year == 2016) %>% 
+  arrange(desc(total_cost__high_bound))
+```
+
+```{r}
+total_cost_by_high_seas_vessels %>% 
+  group_by(year) %>% 
+  summarise(sum(vessel_subsidies)/10^6)
+```
+
+
+```{r, eval = F}
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "cost_model", project = "high-seas")
+
+if(dbExistsTable(BQ_connection, "total_cost_by_high_seas_vessels")) {
+  dbRemoveTable(BQ_connection, "total_cost_by_high_seas_vessels") 
+  dbWriteTable(BQ_connection, "total_cost_by_high_seas_vessels", total_cost_by_high_seas_vessels)
+} else {dbWriteTable(BQ_connection, "total_cost_by_high_seas_vessels", total_cost_by_high_seas_vessels)}
+```
+
+```{r}
+total_cost_by_indo_high_seas_vessels <- read_csv("saved_files/total_cost_by_indo_high_seas_vessels.csv")
+
+total_cost_by_indo_high_seas_vessels <- total_cost_by_indo_high_seas_vessels %>% 
+  mutate(flag_iso3 = "IDN",
+         flag_country_name = "Indonesia",
+         sovereign_flag_iso3 = flag_iso3,
+         sovereign_flag_country_name = flag_country_name) %>% 
+  group_by(year, sovereign_flag_iso3) %>% 
+  mutate(fraction_of_fleet_KW = engine_power/sum(engine_power)) %>% 
+  ungroup() %>% 
+  left_join(subsidies %>% 
+              filter(!is.na(flag_country_name)) %>% 
+              select(sovereign_flag_iso3 = flag_iso3, country_high_seas_subsidies = high_seas_subsidies)) %>% 
+  mutate(vessel_subsidies = fraction_of_fleet_KW*country_high_seas_subsidies) %>% 
+  select(-fraction_of_fleet_KW) %>% 
+  replace_na(list(vessel_subsidies = 0)) %>% 
+  ungroup()
+
+total_cost_by_indo_high_seas_vessels %>% 
+  group_by(year) %>% 
+  summarise(total_cost__low_bound = sum(total_cost__low_bound)/10^6,
+            total_cost__high_bound = sum(total_cost__high_bound)/10^6,
+            subsidies = sum(vessel_subsidies)/10^6)
+```
+
+
+```{r, eval = F}
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "cost_model", project = "high-seas")
+
+if(dbExistsTable(BQ_connection, "total_cost_by_indo_high_seas_vessels")) {
+  dbRemoveTable(BQ_connection, "total_cost_by_indo_high_seas_vessels") 
+  dbWriteTable(BQ_connection, "total_cost_by_indo_high_seas_vessels", total_cost_by_indo_high_seas_vessels)
+} else {dbWriteTable(BQ_connection, "total_cost_by_indo_high_seas_vessels", total_cost_by_indo_high_seas_vessels)}
+```
+

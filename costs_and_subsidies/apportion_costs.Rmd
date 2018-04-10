@@ -1,0 +1,636 @@
+---
+title: "Apportion and Summarize Costs"
+output:
+  html_notebook:
+    fig_caption: yes
+    toc: yes
+    toc_depth: 6
+---
+
+```{r message=FALSE, error=FALSE, warning=F, echo=FALSE, prompt=FALSE}
+suppressPackageStartupMessages(
+  easypackages::libraries("knitr", "tidyverse", "bigrquery", "lubridate", "broom","rnaturalearth","forcats")
+)
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, comment = F,error = FALSE, echo = FALSE, progress = F)
+
+knitr::knit_hooks$set(inline = function(x) {
+  prettyNum(round(x,2), big.mark = ",")
+})
+
+options(scipen = 999)
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "", project = "high-seas", billing = "world-fishing-827")
+```
+
+# Apportion total AIS fishing vessel costs 
+
+This script will take the total cost by each vessel and apportioned based on energy spent fishing. This will allow us to estimate costs of fishing on the high seas. 
+
+```{r, eval = F}
+sql = "SELECT
+  *,
+  apportioned_total_cost__low_bound*scale_factor apportioned_and_scaled_total_cost__low_bound,
+  apportioned_total_cost__high_bound*scale_factor apportioned_and_scaled_total_cost__high_bound
+FROM (
+  SELECT
+    a.year year,
+    a.mmsi mmsi,
+    a.timestamp timestamp,
+    a.lon lon,
+    a.lat lat,
+    a.distance_from_shore distance_from_shore,
+    a.hours hours,
+    a.nnet_score nnet_score,
+    a.implied_speed implied_speed,
+    a.flag_country_name flag_country_name,
+    a.flag_iso3 flag_iso3,
+    a.sovereign_flag_country_name sovereign_flag_country_name,
+    a.sovereign_flag_iso3 sovereign_flag_iso3,
+    a.regions regions,
+    a.eez_name eez_name,
+    a.FAO_region FAO_region,
+    a.RFMO RFMO,
+    a.seg_id seg_id,
+    a.sub_gear_type sub_gear_type,
+    a.gear_type gear_type,
+    a.length length,
+    a.tonnage tonnage,
+    a.engine_power engine_power,
+    a.crew crew,
+    a.total_fishing_KW_hours total_fishing_KW_hours,
+    a.frac_fishing_energy frac_fishing_energy,
+    a.total_cost__low_bound total_cost__low_bound,
+    a.total_cost__high_bound total_cost__high_bound,
+    a.apportioned_total_cost__low_bound apportioned_total_cost__low_bound,
+    a.apportioned_total_cost__high_bound apportioned_total_cost__high_bound,
+    a.apportioned_subsidies apportioned_subsidies,
+    CASE
+      WHEN b.scale_factor IS NOT NULL THEN b.scale_factor
+      WHEN c.scale_factor IS NOT NULL THEN c.scale_factor
+      WHEN d.scale_factor IS NOT NULL THEN d.scale_factor
+      WHEN e.scale_factor IS NOT NULL THEN e.scale_factor
+      WHEN f.scale_factor IS NOT NULL THEN f.scale_factor
+      WHEN g.scale_factor IS NOT NULL THEN g.scale_factor
+      ELSE 1
+    END AS scale_factor,
+  FROM (
+    SELECT
+      a.year year,
+      a.mmsi mmsi,
+      a.timestamp timestamp,
+      a.lon lon,
+      a.lat lat,
+      a.distance_from_shore distance_from_shore,
+      a.hours hours,
+      a.nnet_score nnet_score,
+      a.implied_speed implied_speed,
+      b.flag_country_name flag_country_name,
+      b.flag_iso3 flag_iso3,
+      b.sovereign_flag_country_name sovereign_flag_country_name,
+      b.sovereign_flag_iso3 sovereign_flag_iso3,
+      a.regions regions,
+      a.eez_name eez_name,
+      IF(a.eez_name IS NULL
+        AND (a.distance_from_shore >= 10*1852
+          OR a.FAO_region IN (88,
+            48,
+            58))
+        AND a.FAO_region IS NULL, 48, a.FAO_region) FAO_region,
+      CASE
+        WHEN REGEXP_MATCH(a.regions,'rfmo:WCPFC') THEN 'WCPFC'
+        WHEN REGEXP_MATCH(a.regions,'rfmo:IATTC') THEN 'IATTC'
+        WHEN REGEXP_MATCH(a.regions,'rfmo:ICCAT') THEN 'ICCAT'
+        WHEN REGEXP_MATCH(a.regions,'rfmo:IOTC') THEN 'IOTC'
+        WHEN REGEXP_MATCH(a.regions,'rfmo:CCSBT') THEN 'CCSBT'
+      END AS RFMO,
+      a.seg_id seg_id,
+      b.sub_gear_type sub_gear_type,
+      b.gear_type gear_type,
+      b.length length,
+      CASE
+        WHEN b.sovereign_flag_iso3 == 'FRA' AND b.length > 40 THEN '(40,100]'
+        WHEN b.sovereign_flag_iso3 == 'MEX' AND b.length <= 40 THEN '(0,40]'
+        WHEN b.sovereign_flag_iso3 == 'MEX' AND b.length > 50 AND b.length <= 70 THEN '(50,70]'
+        WHEN b.sovereign_flag_iso3 == 'MEX' AND b.length > 70 THEN '(70,100]'
+      END AS length_class,
+      b.tonnage tonnage,
+      CASE
+        WHEN b.sovereign_flag_iso3 == 'TWN' AND b.tonnage <= 250 THEN '(0,250]'
+        WHEN b.sovereign_flag_iso3 == 'TWN' AND b.tonnage > 250 THEN '(250,2000]'
+        WHEN b.sovereign_flag_iso3 == 'VUT' AND b.tonnage <= 100 THEN '(0,100]'
+        WHEN b.sovereign_flag_iso3 == 'VUT' AND b.tonnage > 100 THEN '(100,2000]'
+      END AS tonnage_class,
+      b.engine_power engine_power,
+      b.crew crew,
+      b.fishing_KW_hours total_fishing_KW_hours,
+      IF(a.nnet_score == 1, hours*b.engine_power, 0)/b.fishing_KW_hours frac_fishing_energy,
+      b.total_cost__low_bound total_cost__low_bound,
+      b.total_cost__high_bound total_cost__high_bound,
+      b.total_cost__low_bound*IF(a.nnet_score == 1, hours*b.engine_power, 0)/b.fishing_KW_hours apportioned_total_cost__low_bound,
+      b.total_cost__high_bound*IF(a.nnet_score == 1, hours*b.engine_power, 0)/b.fishing_KW_hours apportioned_total_cost__high_bound,
+      b.vessel_subsidies*IF(a.eez_name IS NULL and a.nnet_score == 1, hours*b.engine_power, 0)/(b.fishing_KW_hours*b.fraction_fishing_high_seas) apportioned_subsidies,
+    FROM (
+      SELECT
+        YEAR(timestamp) year,
+        regions,
+        mmsi,
+        lat,
+        lon,
+        timestamp,
+        hours,
+        nnet_score,
+        implied_speed,
+        flag_country_name,
+        flag_iso3,
+        eez_name,
+        seg_id,
+        distance_from_shore,
+        INTEGER(REGEXP_REPLACE( IF(REGEXP_EXTRACT(regions,'\"(fao:.*?)\"') CONTAINS '.', LEFT(REGEXP_EXTRACT(regions,'\"(fao:.*?)\"'),INSTR(REGEXP_EXTRACT(regions,'\"(fao:.*?)\"'),'.')-1),REGEXP_EXTRACT(regions,'\"(fao:.*?)\"')), '[^0-9 ]','')) FAO_region,
+      FROM
+        [world-fishing-827:gfw_research.nn]
+      WHERE
+        _PARTITIONTIME BETWEEN TIMESTAMP('2014-01-01')
+        AND TIMESTAMP('2016-12-31')
+        AND lat < 80
+        AND lat > -80
+        AND lon < 180
+        AND lon >-180
+        AND seg_id IN (
+        SELECT
+          seg_id
+        FROM
+          [world-fishing-827:gfw_research.good_segments])
+        AND (distance_from_shore > 1000
+          OR (implied_speed > .1
+            AND implied_speed < 20))) a
+    INNER JOIN (
+      SELECT
+        year,
+        mmsi,
+        flag_country_name,
+        flag_iso3,
+        sovereign_flag_country_name,
+        sovereign_flag_iso3,
+        engine_power,
+        sub_gear_type,
+        gear_type,
+        tonnage,
+        length,
+        crew,
+        fraction_fishing_high_seas,
+        fishing_KW_hours,
+        total_cost__low_bound,
+        total_cost__high_bound,
+        vessel_subsidies
+      FROM
+        [high-seas:cost_model.total_cost_by_high_seas_vessels]
+      GROUP BY
+        year,
+        mmsi,
+        flag_country_name,
+        flag_iso3,
+        sovereign_flag_country_name,
+        sovereign_flag_iso3,
+        engine_power,
+        sub_gear_type,
+        gear_type,
+        tonnage,
+        length,
+        crew,
+        fraction_fishing_high_seas,
+        fishing_KW_hours,
+        total_cost__low_bound,
+        total_cost__high_bound,
+        vessel_subsidies)b
+    ON
+      a.mmsi = b.mmsi
+      AND a.year = b.year) a
+  LEFT JOIN (
+    SELECT
+      year,
+      sovereign_flag_iso3,
+      RFMO,
+      sub_gear_type,
+      scale_factor,
+      tonnage_class
+    FROM
+      [high-seas:fleet_size_scale_factors.scale_factors_by_country_gear_RFMO_and_tonnage] ) b
+  ON
+    a.year = b.year
+    AND a.sovereign_flag_iso3 = b.sovereign_flag_iso3
+    AND a.RFMO = b.RFMO
+    AND a.sub_gear_type = b.sub_gear_type
+    AND a.tonnage_class = b.tonnage_class
+  LEFT JOIN (
+    SELECT
+      year,
+      sovereign_flag_iso3,
+      RFMO,
+      sub_gear_type,
+      scale_factor,
+    FROM
+      [high-seas:fleet_size_scale_factors.scale_factors_by_country_gear_and_RFMO]) c
+  ON
+    a.year = c.year
+    AND a.sovereign_flag_iso3 = c.sovereign_flag_iso3
+    AND a.RFMO = c.RFMO
+    AND a.sub_gear_type = c.sub_gear_type
+  LEFT JOIN (
+    SELECT
+      year,
+      sovereign_flag_iso3,
+      sub_gear_type,
+      scale_factor,
+    FROM
+      [high-seas:fleet_size_scale_factors.scale_factors_by_country_and_gear]) d
+  ON
+    a.year = d.year
+    AND a.sovereign_flag_iso3 = d.sovereign_flag_iso3
+    AND a.sub_gear_type = d.sub_gear_type
+  LEFT JOIN (
+    SELECT
+      year,
+      sovereign_flag_iso3,
+      RFMO,
+      sub_gear_type,
+      length_class,
+      scale_factor,
+    FROM
+      [high-seas:fleet_size_scale_factors.MEX_scale_factors_by_length_class] ) e
+  ON
+    a.year = e.year
+    AND a.sovereign_flag_iso3 = e.sovereign_flag_iso3
+    AND a.RFMO = e.RFMO
+    AND a.length_class = e.length_class
+    AND a.sub_gear_type = e.sub_gear_type
+  LEFT JOIN (
+    SELECT
+      year,
+      sovereign_flag_iso3,
+      sub_gear_type,
+      length_class,
+      scale_factor,
+    FROM
+      [high-seas:fleet_size_scale_factors.FRA_scale_factors_by_length_class] ) f
+  ON
+    a.year = f.year
+    AND a.sovereign_flag_iso3 = f.sovereign_flag_iso3
+    AND a.length_class = f.length_class
+    AND a.sub_gear_type = f.sub_gear_type
+    LEFT JOIN (
+    SELECT
+      year,
+      sovereign_flag_iso3,
+      sub_gear_type,
+      FAO_region,
+      scale_factor,
+    FROM
+      [high-seas:fleet_size_scale_factors.scale_factors_Chinese_SJ] ) g
+    ON
+      a.year = g.year
+      AND a.sovereign_flag_iso3 = g.sovereign_flag_iso3
+      AND a.FAO_region = g.FAO_region
+      AND a.sub_gear_type = g.sub_gear_type)
+  "
+
+BQ_connection <-  dbConnect(dbi_driver(),dataset = "cost_model", project = "high-seas", billing = "world-fishing-827")
+
+if(dbExistsTable(BQ_connection, "apportioned_costs")){
+  dbRemoveTable(BQ_connection, "apportioned_costs") 
+  job <- insert_query_job(sql,"high-seas",destination_table = "cost_model.apportioned_costs")
+  job
+} else {job <- insert_query_job(sql,"high-seas",destination_table = "cost_model.apportioned_costs")
+  job}
+
+get_job("high-seas",job$jobReference$jobId)$status
+```
+
+```{sql connection = BQ_connection, output.var = high_seas_costs_by_vessel_and_FAO_region, eval = F}
+Select
+year, 
+mmsi,
+flag_country_name, 
+sovereign_flag_country_name,
+sub_gear_type,
+gear_type,
+length,
+tonnage,
+engine_power,
+crew,
+FAO_region,
+sum(apportioned_total_cost__low_bound) high_seas_total_cost__low_bound	,
+sum(apportioned_total_cost__high_bound) high_seas_total_cost__high_bound,
+
+sum(apportioned_total_cost__low_bound) - sum(apportioned_subsidies) high_seas_total_cost_minus_subsidies__low_bound	,
+sum(apportioned_total_cost__high_bound) - sum(apportioned_subsidies) high_seas_total_cost_minus_subsidies__high_bound,
+
+sum(apportioned_and_scaled_total_cost__low_bound)  high_seas_scaled_total_cost__low_bound	,
+sum(apportioned_and_scaled_total_cost__high_bound) high_seas_scaled_total_cost__high_bound,
+
+sum(apportioned_and_scaled_total_cost__low_bound) - sum(apportioned_subsidies) high_seas_scaled_total_cost_minus_subsidies__low_bound	,
+sum(apportioned_and_scaled_total_cost__high_bound) - sum(apportioned_subsidies)  high_seas_scaled_total_cost_minus_subsidies__high_bound,
+
+sum(apportioned_subsidies) subsidies
+from
+[high-seas:cost_model.apportioned_costs]
+where 
+eez_name IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48,58)) ANd year == 2016
+group by 
+year, 
+mmsi,
+flag_country_name,
+sovereign_flag_country_name,
+sub_gear_type,
+gear_type,
+length,
+tonnage,
+engine_power,
+crew,
+FAO_region,
+scale_factor
+```
+
+```{r, eval = F}
+write_csv(high_seas_costs_by_vessel_and_FAO_region,
+          "saved_files/high_seas_costs_by_vessel_and_FAO_region.csv")
+```
+
+
+```{r}
+high_seas_costs_by_vessel_and_FAO_region <- read_csv("saved_files/high_seas_costs_by_vessel_and_FAO_region.csv")
+```
+
+```{r}
+high_seas_costs_by_vessel_and_FAO_region %>% 
+  filter(year == 2016) %>% 
+  summarise_at(vars(high_seas_total_cost__low_bound, 
+                    high_seas_total_cost__high_bound, 
+                    high_seas_total_cost_minus_subsidies__low_bound, 
+                    high_seas_total_cost_minus_subsidies__high_bound,
+                    high_seas_scaled_total_cost__low_bound,
+                    high_seas_scaled_total_cost__high_bound,
+                    high_seas_scaled_total_cost_minus_subsidies__low_bound,
+                    high_seas_scaled_total_cost_minus_subsidies__high_bound),
+               funs(sum(., na.rm = T)/1000000)) %>% 
+  gather(key, value) %>% 
+  separate(key, into = c("variable", "bound"), sep =  "__") %>% 
+  spread(variable, value) %>% 
+  mutate_if(is.numeric, round, 2) 
+```
+
+```{r}
+high_seas_costs_by_vessel_and_FAO_region %>% 
+  filter(year == 2016) %>% 
+  group_by(sovereign_flag_country_name) %>% 
+  summarise_at(vars(high_seas_total_cost__low_bound, 
+                    high_seas_total_cost__high_bound, 
+                    subsidies,
+                    high_seas_total_cost_minus_subsidies__low_bound, 
+                    high_seas_total_cost_minus_subsidies__high_bound,
+                    high_seas_scaled_total_cost__low_bound,
+                    high_seas_scaled_total_cost__high_bound,
+                    high_seas_scaled_total_cost_minus_subsidies__low_bound,
+                    high_seas_scaled_total_cost_minus_subsidies__high_bound),
+               funs(sum(., na.rm = T)/1000000)) %>% 
+  arrange(desc(high_seas_total_cost__low_bound)) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+
+```{r summarize_cost_by_fao_region}
+high_seas_costs_by_vessel_and_FAO_region %>%
+  filter(year == 2016) %>% 
+  group_by(FAO_region) %>%
+  summarise(high_seas_total_cost__low_bound = sum(high_seas_total_cost__low_bound)/10^6,
+            high_seas_total_cost__high_bound = sum(high_seas_total_cost__high_bound)/10^6,
+            high_seas_scaled_total_cost__low_bound = sum(high_seas_scaled_total_cost__low_bound)/10^6,
+            high_seas_scaled_total_cost__high_bound = sum(high_seas_scaled_total_cost__high_bound)/10^6) %>%
+  arrange(desc(high_seas_scaled_total_cost__high_bound)) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+```{r summarize_cost_by_country_and_fao_region}
+high_seas_costs_by_vessel_and_FAO_region %>%
+  filter(year == 2016) %>% 
+  group_by(sovereign_flag_country_name, FAO_region) %>%
+  summarise(high_seas_total_cost__low_bound = sum(high_seas_total_cost__low_bound)/10^6,
+            high_seas_total_cost__high_bound = sum(high_seas_total_cost__high_bound)/10^6,
+            high_seas_scaled_total_cost__low_bound = sum(high_seas_scaled_total_cost__low_bound)/10^6,
+            high_seas_scaled_total_cost__high_bound = sum(high_seas_scaled_total_cost__high_bound)/10^6) %>%
+  arrange(desc(high_seas_scaled_total_cost__high_bound)) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+```{r summarize_cost_by_gear_type}
+high_seas_costs_by_vessel_and_FAO_region %>%
+  filter(year == 2016, !is.na(gear_type)) %>% 
+  group_by(sub_gear_type) %>% 
+  summarise_at(vars(high_seas_total_cost__low_bound, 
+                    high_seas_total_cost__high_bound, 
+                    high_seas_total_cost_minus_subsidies__low_bound, 
+                    high_seas_total_cost_minus_subsidies__high_bound,
+                    high_seas_scaled_total_cost__low_bound,
+                    high_seas_scaled_total_cost__high_bound,
+                    high_seas_scaled_total_cost_minus_subsidies__low_bound,
+                    high_seas_scaled_total_cost_minus_subsidies__high_bound),
+               funs(sum(., na.rm = T)/1000000)) %>% 
+  arrange(desc(high_seas_total_cost__low_bound)) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+# Apportion Indonesia vessel costs 
+
+This script does the same as above but for Indonesia VMS data
+
+```{r, eval = F}
+sql = "select 
+*,
+apportioned_total_cost__low_bound - apportioned_subsidies apportioned_total_cost_minus_subsidies__low_bound,
+apportioned_total_cost__high_bound -  apportioned_subsidies apportioned_total_cost_minus_subsidies__high_bound,
+from 
+(SELECT
+  a.year year,
+  a.mmsi mmsi,
+  a.timestamp timestamp,
+  a.lon lon,
+  a.lat lat,
+  a.distance_from_shore distance_from_shore,
+  a.hours hours,
+  a.nnet_score nnet_score,
+  a.speed speed,
+  b.flag_country_name flag_country_name,
+  b.flag_iso3 flag_iso3,
+  b.sovereign_flag_country_name sovereign_flag_country_name,
+  b.sovereign_flag_iso3 sovereign_flag_iso3,
+  a.eez_id eez_id,
+  IF(a.eez_id IS NULL
+    AND (a.distance_from_shore >= 10*1852
+      OR a.FAO_region IN (88,
+        48,
+        58))
+    AND a.FAO_region IS NULL, 48, a.FAO_region) FAO_region,
+  a.seg_id seg_id,
+  b.sub_gear_type sub_gear_type,
+  b.gear_type gear_type,
+  b.tonnage tonnage,
+  b.engine_power engine_power,
+  b.length length,
+  b.crew crew,
+  b.fishing_KW_hours total_fishing_KW_hours,
+  IF(a.nnet_score == 1, hours*b.engine_power, 0)/b.fishing_KW_hours frac_fishing_energy,
+  b.total_cost__low_bound total_cost__low_bound,
+  b.total_cost__high_bound total_cost__high_bound,
+  b.total_cost__low_bound*IF(a.nnet_score == 1, hours*b.engine_power, 0)/b.fishing_KW_hours apportioned_total_cost__low_bound,
+  b.total_cost__high_bound*IF(a.nnet_score == 1, hours*b.engine_power, 0)/b.fishing_KW_hours apportioned_total_cost__high_bound,
+  b.vessel_subsidies*IF(eez_id is null and a.nnet_score == 1 and (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48,58)), hours, 0)/c.high_seas_hours apportioned_subsidies,
+FROM (
+  SELECT
+    YEAR(timestamp) year,
+    mmsi,
+    lat,
+    lon,
+    timestamp,
+    hours,
+    nnet_score,
+    speed,
+    eez_id,
+    seg_id,
+    distance_from_shore,
+    FAO_region
+  FROM
+    [high-seas:Indonesia.indo_vms_nn]
+  WHERE
+    lat < 80
+    AND lat > -80
+    AND lon < 180
+    AND lon >-180) a
+INNER JOIN (
+  SELECT
+    year,
+    mmsi,
+    flag_country_name,
+    flag_iso3,
+    sovereign_flag_country_name,
+    sovereign_flag_iso3,
+    engine_power,
+    sub_gear_type,
+    gear_type,
+    tonnage,
+    length,
+    crew,
+    fishing_hours*engine_power fishing_KW_hours,
+    total_cost__low_bound,
+    total_cost__high_bound,
+    vessel_subsidies
+  FROM
+    [high-seas:cost_model.total_cost_by_indo_high_seas_vessels]
+  GROUP BY
+    year,
+    mmsi,
+    flag_country_name,
+    flag_iso3,
+    sovereign_flag_country_name,
+    sovereign_flag_iso3,
+    engine_power,
+    sub_gear_type,
+    gear_type,
+    tonnage,
+    length,
+    crew,
+    fishing_KW_hours,
+    total_cost__low_bound,
+    total_cost__high_bound,
+    vessel_subsidies)b
+ON
+  a.mmsi = b.mmsi
+  AND a.year = b.year
+LEFT JOIN (
+  SELECT
+  YEAR(timestamp) year,
+  mmsi,
+  sum(hours) high_seas_hours,
+FROM
+  [high-seas:Indonesia.indo_vms_nn]
+WHERE
+  nnet_score = 1
+  AND lat < 80
+  AND lat > -80
+  AND lon < 180
+  AND lon > -180
+  AND eez_id is NULL 
+  AND (distance_from_shore >= 1852*10 OR FAO_region IN (88, 48,58))
+  group by year, mmsi) c
+ON
+  a.mmsi = c.mmsi
+  AND a.year = c.year)"
+
+BQ_connection <-  dbConnect(dbi_driver(),dataset = "cost_model", project = "high-seas", billing = "world-fishing-827")
+
+if(dbExistsTable(BQ_connection, "apportioned_indonesia_costs")){
+  dbRemoveTable(BQ_connection, "apportioned_indonesia_costs") 
+  job <- insert_query_job(sql,"high-seas",destination_table = "cost_model.apportioned_indonesia_costs")
+  job
+} else {job <- insert_query_job(sql,"high-seas",destination_table = "cost_model.apportioned_indonesia_costs")
+  job}
+
+get_job("high-seas",job$jobReference$jobId)$status
+```
+
+```{sql connection = BQ_connection, output.var = Indonesia_high_seas_costs_by_vessel_and_FAO_region, eval = F}
+Select
+year, 
+mmsi,
+flag_country_name, 
+sovereign_flag_country_name,
+sub_gear_type,
+gear_type,
+length,
+tonnage,
+engine_power,
+crew,
+FAO_region,
+sum(apportioned_subsidies) subsidies,
+sum(apportioned_total_cost__low_bound) high_seas_total_cost__low_bound	,
+sum(apportioned_total_cost__high_bound) high_seas_total_cost__high_bound,
+sum(apportioned_total_cost_minus_subsidies__low_bound) high_seas_total_cost_minus_subsidies__low_bound,
+sum(apportioned_total_cost_minus_subsidies__high_bound) high_seas_total_cost_minus_subsidies__high_bound,
+from
+[high-seas:cost_model.apportioned_indonesia_costs]
+where 
+eez_id IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48,58)) and year == 2016 
+group by 
+year, 
+mmsi,
+flag_country_name,
+sovereign_flag_country_name,
+sub_gear_type,
+gear_type,
+length,
+tonnage,
+engine_power,
+crew,
+FAO_region,
+```
+
+```{r, eval = F}
+write_csv(Indonesia_high_seas_costs_by_vessel_and_FAO_region, "saved_files/Indonesia_high_seas_costs_by_vessel_and_FAO_region.csv")
+```
+
+```{r}
+Indonesia_high_seas_costs_by_vessel_and_FAO_region <- read_csv("saved_files/Indonesia_high_seas_costs_by_vessel_and_FAO_region.csv")
+```
+
+
+```{r summarize_high_seas_costs}
+Indonesia_high_seas_costs_by_vessel_and_FAO_region %>% 
+  group_by(year) %>% 
+  summarise_at(vars(high_seas_total_cost__low_bound, 
+                    high_seas_total_cost__high_bound, 
+                    subsidies,
+                    high_seas_total_cost_minus_subsidies__low_bound, 
+                    high_seas_total_cost_minus_subsidies__high_bound),
+               funs(sum(., na.rm = T)/1000000))
+```
+
+

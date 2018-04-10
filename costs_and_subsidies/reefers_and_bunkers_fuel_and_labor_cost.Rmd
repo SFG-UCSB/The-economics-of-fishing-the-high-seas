@@ -1,0 +1,515 @@
+---
+title: "Fuel cost of Reefers and bunkers in the high seas"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(sp)
+library(rgdal)
+library(rgeos)
+library(tidyverse)
+library(bigrquery)
+library(lubridate)
+library(sf)
+set.seed(123)
+
+extrafont::loadfonts()
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "", project  = "high-seas", billing = "world-fishing-827")
+```
+
+# Fuel Costs
+
+```{sql connection = BQ_connection, output.var = "all_bunkers_and_reefers_fuel_cost_2014_2016"}
+SELECT
+  year,
+  mmsi,
+  ship_name,
+  flag_state,
+  type,
+  length,
+  tonnage,
+  engine_power,
+  crew,
+  all_encounters,
+  encounters_with_high_seas_vessels,
+  gap_hours,
+  gap_days,
+  EXACT_COUNT_DISTINCT(DATE(timestamp)) days_at_sea,
+  SUM(hours) total_hours,
+  SUM(main_fuel_consumption__low_bound) main_fuel_consumption__low_bound,
+  SUM(aux_fuel_consumption__low_bound) aux_fuel_consumption__low_bound,
+  SUM(main_fuel_consumption__low_bound + aux_fuel_consumption__low_bound) total_fuel_consumption__low_bound,
+  SUM(main_fuel_consumption__low_bound + aux_fuel_consumption__low_bound) + gap_hours*SUM(main_fuel_consumption__low_bound + aux_fuel_consumption__low_bound)/SUM(hours) total_fuel_consumption_with_gaps__low_bound,
+  SUM(main_fuel_consumption__low_bound + aux_fuel_consumption__low_bound)/SUM(hours) avg_fuel_consumption_per_hour__low_bound,
+  SUM(main_fuel_consumption__high_bound) main_fuel_consumption__high_bound,
+  SUM(aux_fuel_consumption__high_bound) aux_fuel_consumption__high_bound,
+  SUM(main_fuel_consumption__high_bound + aux_fuel_consumption__high_bound) total_fuel_consumption__high_bound,
+  SUM(main_fuel_consumption__high_bound + aux_fuel_consumption__high_bound) + gap_hours*SUM(main_fuel_consumption__high_bound + aux_fuel_consumption__high_bound)/SUM(hours) total_fuel_consumption_with_gaps__high_bound,
+  SUM(main_fuel_consumption__high_bound + aux_fuel_consumption__high_bound)/SUM(hours) avg_fuel_consumption_per_hour__high_bound,
+  SUM(main_fuel_cost__low_bound) main_fuel_cost__low_bound,
+  SUM(aux_fuel_cost__low_bound) aux_fuel_cost__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound) total_fuel_cost__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound)/EXACT_COUNT_DISTINCT(DATE(timestamp)) fuel_cost_per_day__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound)/SUM(hours) avg_fuel_cost_per_hour__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound) + gap_hours*SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound)/SUM(hours) total_fuel_cost_with_gaps__low_bound,
+  SUM(main_fuel_cost__high_bound) main_fuel_cost__high_bound,
+  SUM(aux_fuel_cost__high_bound) aux_fuel_cost__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound) total_fuel_cost__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound)/EXACT_COUNT_DISTINCT(DATE(timestamp)) fuel_cost_per_day__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound)/SUM(hours) avg_fuel_cost_per_hour__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound) + gap_hours*SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound)/SUM(hours) total_fuel_cost_with_gaps__high_bound,
+FROM (
+  SELECT
+    *,
+    hours*main_load_factor*main_sfc_low*engine_power/1000000 main_fuel_consumption__low_bound,
+    hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_consumption__low_bound,
+    fuel_price*hours*main_load_factor*main_sfc_low*engine_power/1000000 main_fuel_cost__low_bound,
+    fuel_price*hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_cost__low_bound,
+    hours*main_load_factor*main_sfc*engine_power/1000000 main_fuel_consumption__high_bound,
+    hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_consumption__high_bound,
+    fuel_price*hours*main_load_factor*main_sfc*engine_power/1000000 main_fuel_cost__high_bound,
+    fuel_price*hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_cost__high_bound
+  FROM (
+    SELECT
+      a.year year,
+      a.mmsi mmsi,
+      b.ship_name ship_name,
+      b.flag_state flag_state,
+      b.type type,
+      b.length length,
+      b.tonnage tonnage,
+      b.engine_power engine_power,
+      b.aux_engine_power aux_engine_power,
+      b.crew crew,
+      b.design_speed_ihs design_speed_ihs,
+      b.main_sfc main_sfc,
+      b.main_sfc_low main_sfc_low,
+      b.aux_sfc aux_sfc,
+      b.gap_hours gap_hours,
+      b.gap_days gap_days,
+      b.all_encounters all_encounters,
+      b.encounters_with_high_seas_vessels encounters_with_high_seas_vessels,
+      a.timestamp timestamp,
+      a.lon lon,
+      a.lat lat,
+      a.seg_id seg_id,
+      a.hours hours,
+      a.implied_speed implied_speed,
+      a.distance_from_shore distance_from_shore,
+      a.eez_iso3 eez_iso3,
+      a.fuel_price fuel_price,
+      CASE
+        WHEN ais_speed > design_speed_ihs THEN 0.9*(1 + 0.285)/1.285
+        ELSE 0.9*(POW(ais_speed/design_speed_ihs, 3) + 0.285)/1.285
+      END AS main_load_factor,
+      IF(measure_new_score >= .5, .3, .3) aux_load_factor
+    FROM (
+      SELECT
+        YEAR(timestamp) year,
+        mmsi,
+        timestamp,
+        lon,
+        lat,
+        hours,
+        distance_from_shore,
+        IF(implied_speed IS NULL,0, implied_speed) implied_speed,
+        ais_speed,
+        eez_iso3,
+        seg_id,
+        measure_new_score,
+        875 AS fuel_price,
+      FROM
+        [world-fishing-827:gfw_research.pipeline_p_p550_daily]
+      WHERE
+        _PARTITIONTIME BETWEEN TIMESTAMP('2016-01-01')
+        AND TIMESTAMP('2016-12-31')
+        AND lat < 80
+        AND lat > -80
+        AND lon < 180
+        AND lon > -180
+        AND seg_id IN (
+        SELECT
+          seg_id
+        FROM
+          [world-fishing-827:gfw_research.pipeline_p_p550_daily_segs]
+        WHERE
+          good_seg)
+        AND (distance_from_shore > 1000
+          OR (implied_speed > .1
+            AND implied_speed < 20)))a
+    INNER JOIN (
+      SELECT
+        year,
+        type,
+        mmsi,
+        imo,
+        call_sign,
+        ship_name,
+        flag_state,
+        length,
+        tonnage,
+        engine_power,
+        aux_engine_power,
+        design_speed_ihs,
+        main_sfc,
+        main_sfc_low,
+        aux_sfc,
+        crew,
+        gap_hours,
+        gap_days,
+        all_encounters,
+        encounters_with_high_seas_vessels
+      FROM
+        [high-seas:vessel_characteristics.complete_high_seas_reefers_and_bunkers_characteristics])b
+    ON
+      a.mmsi = b.mmsi
+      AND a.year = b.year))
+GROUP BY
+  year,
+  mmsi,
+  ship_name,
+  flag_state,
+  type,
+  length,
+  tonnage,
+  engine_power,
+  crew,
+  all_encounters,
+  encounters_with_high_seas_vessels,
+  gap_hours,
+  gap_days,
+```
+
+```{sql  connection = BQ_connection, output.var = "indo_high_seas_vessels_fuel_cost"}
+SELECT
+ year,
+  mmsi,
+  ship_name,
+  flag_state,
+  type,
+  length,
+  tonnage,
+  engine_power,
+  crew,
+  all_encounters,
+  encounters_with_high_seas_vessels,
+  0 gap_hours,
+  0 gap_days,
+  EXACT_COUNT_DISTINCT(DATE(timestamp)) days_at_sea, 
+  sum(hours) total_hours,
+  SUM(main_fuel_consumption__low_bound) main_fuel_consumption__low_bound,
+  SUM(aux_fuel_consumption__low_bound) aux_fuel_consumption__low_bound,
+  SUM(main_fuel_consumption__low_bound + aux_fuel_consumption__low_bound) total_fuel_consumption__low_bound,
+  SUM(main_fuel_consumption__low_bound + aux_fuel_consumption__low_bound)/SUM(hours) avg_fuel_consumption_per_hour__low_bound,
+  SUM(main_fuel_consumption__high_bound) main_fuel_consumption__high_bound,
+  SUM(aux_fuel_consumption__high_bound) aux_fuel_consumption__high_bound,
+  SUM(main_fuel_consumption__high_bound + aux_fuel_consumption__high_bound) total_fuel_consumption__high_bound,
+  SUM(main_fuel_consumption__high_bound + aux_fuel_consumption__high_bound)/SUM(hours) avg_fuel_consumption_per_hour__high_bound,
+  SUM(main_fuel_cost__low_bound) main_fuel_cost__low_bound,
+  SUM(aux_fuel_cost__low_bound) aux_fuel_cost__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound) total_fuel_cost__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound)/EXACT_COUNT_DISTINCT(DATE(timestamp)) fuel_cost_per_day__low_bound,
+  SUM(main_fuel_cost__low_bound + aux_fuel_cost__low_bound)/SUM(hours) avg_fuel_cost_per_hour__low_bound,
+  SUM(main_fuel_cost__high_bound) main_fuel_cost__high_bound,
+  SUM(aux_fuel_cost__high_bound) aux_fuel_cost__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound) total_fuel_cost__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound)/EXACT_COUNT_DISTINCT(DATE(timestamp)) fuel_cost_per_day__high_bound,
+  SUM(main_fuel_cost__high_bound + aux_fuel_cost__high_bound)/SUM(hours) avg_fuel_cost_per_hour__high_bound,
+FROM (
+  SELECT
+    *,
+    hours*main_load_factor*main_sfc_low*engine_power/1000000 main_fuel_consumption__low_bound,
+    hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_consumption__low_bound,
+    fuel_price*hours*main_load_factor*main_sfc_low*engine_power/1000000 main_fuel_cost__low_bound,
+    fuel_price*hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_cost__low_bound,
+    hours*main_load_factor*main_sfc*engine_power/1000000 main_fuel_consumption__high_bound,
+    hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_consumption__high_bound,
+    fuel_price*hours*main_load_factor*main_sfc*engine_power/1000000 main_fuel_cost__high_bound,
+    fuel_price*hours*aux_load_factor*aux_sfc*aux_engine_power/1000000 aux_fuel_cost__high_bound
+  FROM (
+    SELECT
+      a.year year,
+      a.mmsi mmsi,
+      b.ship_name ship_name,
+      b.flag_state flag_state,
+      b.type type,
+      b.length length,
+      b.tonnage tonnage,
+      b.engine_power engine_power,
+      b.aux_engine_power aux_engine_power,
+      b.crew crew,
+      b.design_speed_ihs design_speed_ihs,
+      b.main_sfc main_sfc,
+      b.main_sfc_low main_sfc_low,
+      b.aux_sfc aux_sfc,
+      b.all_encounters all_encounters,
+      b.encounters_with_high_seas_vessels encounters_with_high_seas_vessels,
+      a.timestamp timestamp,
+      a.lon lon,
+      a.lat lat,
+      a.seg_id seg_id,
+      a.hours hours,
+      a.nnet_score nnet_score,
+      a.distance_from_shore distance_from_shore,
+      a.eez_id eez_id,
+      a.fuel_price fuel_price,
+      CASE
+        WHEN speed > design_speed_ihs THEN 0.9*(1 + 0.285)/1.285
+        ELSE 0.9*(POW(speed/design_speed_ihs, 3) + 0.285)/1.285
+      END AS main_load_factor,
+      IF(a.nnet_score == 1, .3, .3) aux_load_factor
+    FROM (
+      SELECT
+        YEAR(timestamp) year,
+        mmsi,
+        timestamp,
+        lon,
+        lat,
+        hours,
+        nnet_score,
+        distance_from_shore,
+        IF(speed IS NULL,0, speed) speed,
+        eez_id,
+        seg_id,
+        875 AS fuel_price,
+      FROM
+        [high-seas:Indonesia.indo_vms_nn]
+      WHERE
+        lat < 80
+        AND lat > -80
+        AND lon < 180
+        AND lon >-180
+        AND (distance_from_shore > 1000
+          OR (speed > .1
+            AND speed < 20))) a
+    INNER JOIN (
+      SELECT
+        year,
+        mmsi,
+        flag_state,
+        ship_name,
+        type,
+        length,
+        tonnage,
+        engine_power,
+        crew,
+        aux_engine_power,
+        design_speed_ihs,
+        design_speed_old,
+        main_sfc,
+        main_sfc_low,
+        aux_sfc,
+        all_encounters,
+        encounters_with_high_seas_vessels
+      FROM
+         [high-seas:vessel_characteristics.complete_high_seas_reefers_and_bunkers_characteristics] 
+      GROUP BY
+        year,
+        mmsi,
+        flag_state,
+        ship_name,
+        type,
+        sub_type,
+        length,
+        tonnage,
+        engine_power,
+        crew,
+        aux_engine_power,
+        design_speed_ihs,
+        design_speed_old,
+        main_sfc,
+        main_sfc_low,
+        aux_sfc,
+        all_encounters,
+        encounters_with_high_seas_vessels)b
+    ON
+      a.mmsi = b.mmsi
+      AND a.year = b.year))
+      where year == 2016
+GROUP BY
+  year,
+  mmsi,
+  ship_name,
+  flag_state,
+  type,
+  length,
+  tonnage,
+  engine_power,
+  crew,
+  all_encounters,
+  encounters_with_high_seas_vessels,
+  crew
+```
+
+
+```{r, eval = F}
+indo_high_seas_vessels_fuel_cost <- indo_high_seas_vessels_fuel_cost %>% 
+  mutate(total_fuel_consumption_with_gaps__low_bound = total_fuel_consumption__low_bound,
+         total_fuel_consumption_with_gaps__high_bound = total_fuel_consumption__high_bound,
+         total_fuel_cost_with_gaps__low_bound = total_fuel_cost__low_bound,
+         total_fuel_cost_with_gaps__high_bound = total_fuel_cost__high_bound) 
+
+indo_high_seas_vessels_fuel_cost <- indo_high_seas_vessels_fuel_cost[names(all_bunkers_and_reefers_fuel_cost_2014_2016)]
+
+
+all_bunkers_and_reefers_fuel_cost <- bind_rows(indo_high_seas_vessels_fuel_cost,all_bunkers_and_reefers_fuel_cost_2014_2016)
+```
+
+
+```{r, eval = F}
+write_csv(all_bunkers_and_reefers_fuel_cost, "saved_files/all_bunkers_and_reefers_fuel_cost.csv")
+```
+
+```{r}
+all_bunkers_and_reefers_fuel_cost <- read_csv("saved_files/all_bunkers_and_reefers_fuel_cost.csv")
+```
+
+```{r}
+all_bunkers_and_reefers_fuel_cost %>% 
+  group_by(year) %>% 
+  summarise(n_vessels = n_distinct(mmsi),
+            days = sum(days_at_sea),
+            hours = sum(total_hours),
+            mean(length),
+            mean(engine_power))
+```
+
+### Summary of results
+
+```{r join_effort_and_fuel_cost_2016}
+all_bunkers_and_reefers_fuel_cost <- all_bunkers_and_reefers_fuel_cost %>% 
+  gather(key, value, c(seq(-1,-15))) %>% 
+  separate(key, into = c("variable", "bound"), sep =  "__") %>% 
+  spread(variable, value)
+
+all_bunkers_and_reefers_fuel_cost %>% 
+  group_by(year, bound) %>% 
+  summarize(
+            total_fuel_consumption_million_liter = sum(total_fuel_consumption)/1000000*1176.4,
+            total_fuel_cost_in_million = sum(total_fuel_cost)/1000000,
+            total_fuel_cost_in_million_with_gaps = sum(total_fuel_cost_with_gaps)/1000000,
+            avg_fuel_cost_per_day = mean(fuel_cost_per_day)
+            ) %>% 
+  arrange(desc(year))
+```
+
+#### By country
+
+```{r}
+all_bunkers_and_reefers_fuel_cost %>% 
+  filter(year == 2016, bound == "high_bound") %>% 
+  ggplot()+
+  geom_boxplot(aes(x = fct_reorder(flag_state, fuel_cost_per_day), y = fuel_cost_per_day))+
+  hrbrthemes::theme_ipsum()+
+  coord_flip()+
+  labs(x = "")
+```
+
+```{r}
+all_bunkers_and_reefers_fuel_cost %>% 
+  filter(year == 2016, bound == "high_bound") %>% 
+  ggplot()+
+  geom_col(aes(x = fct_reorder(flag_state, total_fuel_cost_with_gaps, sum), y = total_fuel_cost_with_gaps/10^6, fill = type))+
+  hrbrthemes::theme_ipsum()+
+  coord_flip()+
+  labs(x = "", y = "total fuel cost (million $)")+
+  ggsci::scale_fill_startrek()
+```
+
+#### By gear
+
+```{r}
+all_bunkers_and_reefers_fuel_cost %>% 
+  filter(year == 2016, bound == "high_bound") %>% 
+  ggplot()+
+  geom_boxplot(aes(x = fct_reorder(type, fuel_cost_per_day), y = fuel_cost_per_day))+
+  hrbrthemes::theme_ipsum()+
+  coord_flip()+
+  labs(x = "")
+```
+
+# Labor cost
+
+```{r}
+all_bunkers_and_reefers_fuel_cost <- read_csv("saved_files/all_bunkers_and_reefers_fuel_cost.csv")
+
+avg_labor_cost_per_day_by_size_class <- read_csv("../costs_and_subsidies/saved_files/avg_labor_cost_per_day_by_size_class_Impute_high.csv")
+
+avg_labor_cost_per_day_by_size_class_low_bound <- read_csv("saved_files/length_class_mean_daily_low_labor_cost.csv")
+
+avg_labor_cost_per_day_by_size_class_high_and_low_bounds <- avg_labor_cost_per_day_by_size_class_low_bound %>% 
+  left_join(avg_labor_cost_per_day_by_size_class) %>% 
+  rename(mean_labor_cost_per_day_high = avg_labor_cost_per_day_by_size_high_bound)
+
+fractions_to_total_cost <- read_csv("../costs_and_subsidies/saved_files/fractions_of_total_cost.csv")
+```
+
+```{r}
+all_bunkers_and_reefers_fuel_cost <- all_bunkers_and_reefers_fuel_cost %>% 
+  mutate(length_class = cut(length, breaks = c(12,18,24,40,200), right = F)) %>% 
+  left_join(avg_labor_cost_per_day_by_size_class_high_and_low_bounds) %>% 
+  mutate(total_labor_cost_low = days_at_sea*mean_labor_cost_per_day_low,
+         total_labor_cost_high = days_at_sea*mean_labor_cost_per_day_high) 
+```
+
+
+```{r}
+all_bunkers_and_reefers_fuel_cost%>% 
+  group_by(year)%>% 
+  summarise(total_fuel_cost_low = sum(total_fuel_cost_with_gaps__low_bound)/10^6,
+            total_fuel_cost_high = sum(total_fuel_cost_with_gaps__high_bound)/10^6,
+            total_labor_cost_low = sum(total_labor_cost_low)/10^6,
+            total_labor_cost_high = sum(total_labor_cost_high)/10^6)
+```
+
+```{r}
+all_costs_by_bunkers_and_reefers <- all_bunkers_and_reefers_fuel_cost %>% 
+  left_join(fractions_to_total_cost) %>% 
+  mutate(total_costs_low = (1/mean_fraction_of_total_cost)*(total_labor_cost_low + total_fuel_cost_with_gaps__low_bound),
+         total_costs_high = (1/mean_fraction_of_total_cost)*(total_labor_cost_high + total_fuel_cost_with_gaps__high_bound),
+         total_costs_high_seas_low = total_costs_low*encounters_with_high_seas_vessels/all_encounters,
+         total_costs_high_seas_high = total_costs_high*encounters_with_high_seas_vessels/all_encounters)
+
+
+all_costs_by_bunkers_and_reefers %>% 
+  group_by(year)%>% 
+  summarise(total_fuel_cost_low = sum(total_fuel_cost_with_gaps__low_bound)/10^6,
+            total_fuel_cost_high = sum(total_fuel_cost_with_gaps__high_bound)/10^6,
+            total_labor_cost_low = sum(total_labor_cost_low)/10^6,
+            total_labor_cost_high = sum(total_labor_cost_high)/10^6,
+            total_costs_low = sum(total_costs_low/10^6),
+            total_costs_high = sum(total_costs_high/10^6),
+            total_costs_high_seas_low = sum(total_costs_high_seas_low/10^6),
+            total_costs_high_seas_high = sum(total_costs_high_seas_high/10^6))
+```
+
+```{r}
+write_csv(all_costs_by_bunkers_and_reefers, "saved_files/total_cost_by_bunkers_and_reefers.csv")
+```
+
+
+```{r}
+all_costs_by_bunkers_and_reefers %>% 
+  group_by(year)%>% 
+  summarise(total_fuel_cost_low = sum(total_fuel_cost_with_gaps__low_bound)/10^6,
+            total_fuel_cost_high = sum(total_fuel_cost_with_gaps__high_bound)/10^6,
+            total_labor_cost_low = sum(total_labor_cost_low)/10^6,
+            total_labor_cost_high = sum(total_labor_cost_high)/10^6,
+            total_costs_low = sum(total_costs_low/10^6),
+            total_costs_high = sum(total_costs_high/10^6),
+            total_costs_high_seas_low = sum(total_costs_high_seas_low/10^6),
+            total_costs_high_seas_high = sum(total_costs_high_seas_high/10^6)) %>% 
+  mutate(total_costs_high_seas_low = total_costs_high_seas_low*0.942,
+         total_costs_high_seas_high = total_costs_high_seas_high*0.942) %>% 
+  select(year, total_costs_high_seas_low, total_costs_high_seas_high) %>% 
+  saveRDS("saved_files/bunker_and_reefers_high_seas_cost")
+```
+
+
+
+
