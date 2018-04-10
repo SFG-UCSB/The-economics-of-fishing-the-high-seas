@@ -1,0 +1,553 @@
+---
+title: "Indonesia's Vessel Characteristics and VMS effort"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(sp)
+library(rgdal)
+library(rgeos)
+library(tidyverse)
+library(bigrquery)
+library(lubridate)
+library(sf)
+library(party)
+library(partykit)
+library(rpart)
+library(doMC)
+library(AER)
+library(caret)
+
+extrafont::loadfonts()
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "", project  = "high-seas", billing = "world-fishing-827")
+
+world_map <- rnaturalearth::ne_coastline(scale = 'small', returnclass = c("sf"))
+
+source("../general_project_files/gfw_themes.R")
+
+world_eez <- st_read("../general_project_files/world_eez/", "eez_lr")
+
+indo_eez <- read_sf("../general_project_files/indo_eez_shp/indonesia_shp_with_land.shp")
+```
+
+### High Seas fleet
+
+```{sql, connection = BQ_connection, output.var = "indo_vms_coords", eval = FALSE}
+SELECT
+  FLOOR(lat*4)/4 + .125 lat_bin_center,
+  FLOOR(lon*4)/4 + .125 lon_bin_center,
+FROM
+  [high-seas:Indonesia.vms_nn]
+GROUP BY
+  lat_bin_center,
+  lon_bin_center
+```
+
+```{r eval = FALSE}
+coords_sf <- st_as_sf(indo_vms_coords %>% 
+                        mutate(mean_lon = lon_bin_center,
+                               mean_lat = lat_bin_center),
+                      coords = c("mean_lon", "mean_lat"), 
+                      crs = st_crs(world_eez))
+
+coords_sf <- st_join(coords_sf, world_eez)
+
+
+indo_vms_high_seas_coords <- coords_sf %>% 
+  filter(is.na(GeoName)) %>% 
+  st_difference(indo_eez)%>% 
+  st_set_geometry(NULL) %>% 
+  select(lat_bin_center, lon_bin_center) %>% 
+  mutate(is_high_seas = TRUE) %>% 
+  distinct(lat_bin_center, lon_bin_center, is_high_seas)
+
+row.names(indo_vms_high_seas_coords) <- NULL
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "Indonesia", project = "high-seas", billing = "world-fishing-827")
+
+if(dbExistsTable(BQ_connection, "indo_vms_high_seas_coords")) {
+  dbRemoveTable(BQ_connection, "indo_vms_high_seas_coords") 
+  dbWriteTable(BQ_connection, "indo_vms_high_seas_coords", indo_vms_high_seas_coords)
+} else {dbWriteTable(BQ_connection, "indo_vms_high_seas_coords", indo_vms_high_seas_coords)}
+```
+
+```{sql, connection = BQ_connection, output.var = "summary_of_effort_by_vessel"}
+SELECT
+  YEAR(timestamp) year,
+  mmsi,
+  transmitter_no,
+  raw_registered_gear_type raw_registered_gear_type,
+  COUNT(*) positions,
+  EXACT_COUNT_DISTINCT(DATE(timestamp)) days,
+  EXACT_COUNT_DISTINCT(IF(eez_id  IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48, 58)), DATE(timestamp), NULL)) days_on_high_seas,
+  EXACT_COUNT_DISTINCT(IF(nnet_score == 1, DATE(timestamp), NULL)) fishing_days,
+  EXACT_COUNT_DISTINCT(IF(eez_id IS NULL AND (distance_from_shore >= 10*1852  OR FAO_region IN (88,48, 58)) AND nnet_score == 1, DATE(timestamp), NULL)) fishing_days_on_high_seas,
+  SUM(hours) total_hours,
+  SUM(IF(nnet_score == 1, hours,0)) total_fishing_hours,
+  SUM(IF(eez_id IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48,58)), hours, 0)) hours_on_high_seas,
+  SUM(IF(eez_id IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48,58)) AND nnet_score == 1, hours, 0 )) fishing_hours_on_high_seas,
+
+FROM
+  [high-seas:Indonesia.indo_vms_nn]
+WHERE
+  lat < 80
+  AND lat > -80
+  AND lon < 180
+  AND lon >-180
+  AND (distance_from_shore > 1000
+    OR (speed  > .1
+      AND speed < 20))
+GROUP BY
+  year,
+  mmsi,
+  transmitter_no,
+  raw_registered_gear_type
+  having total_fishing_hours > 0 and year < 2017 and raw_registered_gear_type != "Transporter"
+```
+
+### How big is the fleet?
+
+```{r}
+summary_of_effort_by_vessel %>% 
+  mutate(fraction_effort_in_high_seas = fishing_hours_on_high_seas/total_fishing_hours) %>% 
+  group_by(year) %>% 
+  summarize(high_seas_vessels = n_distinct(mmsi[fraction_effort_in_high_seas > 0.05]),
+            fishing_days = sum(fishing_days_on_high_seas),
+            fishing_hours = sum(fishing_hours_on_high_seas),
+            avg_fishing_days_per_vessel = round(fishing_days/high_seas_vessels))
+```
+
+```{r}
+write_csv(summary_of_effort_by_vessel, "saved_files/all_indo_vms_fleet.csv")
+```
+
+```{r}
+high_seas_indo_vessels <- summary_of_effort_by_vessel %>% 
+  mutate(fraction_effort_on_high_seas = fishing_hours_on_high_seas/total_fishing_hours) %>% 
+  filter(fraction_effort_on_high_seas >= .05) 
+```
+
+### Vessel Characteristics
+
+#### Shipnames
+
+```{r}
+shipnames <- read_csv("source_info/Indo_shipnames.csv")
+
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  left_join(shipnames %>%
+              select(transmitter_no = `Transmitter No`, shipname = Name) %>%
+              mutate(transmitter_no = as.integer(transmitter_no)) %>% 
+              group_by(transmitter_no) %>% 
+              filter(n() == 1)
+            ) %>% 
+  select(year, mmsi,transmitter_no, shipname, raw_registered_gear_type,  everything())
+```
+
+#### Gear types
+
+```{r}
+high_seas_indo_vessels %>% 
+  filter(year == 2016) %>% 
+  group_by(raw_registered_gear_type) %>% 
+  summarize(n_vessels = n_distinct(mmsi),
+            days_on_high_seas = sum(days_on_high_seas),
+            fishing_hours_on_high_seas = sum(fishing_hours_on_high_seas),
+            avg_days_on_hs_per_vessel = days_on_high_seas/n_vessels
+            ) %>% 
+  arrange(desc(n_vessels)) %>% 
+  mutate_if(is.numeric, round)
+```
+
+```{r}
+indo_gears_lookup <- read_csv("source_info/indo_gears.csv")
+
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  left_join(indo_gears_lookup) %>% 
+  filter(!raw_registered_gear_type %in% c("Transporter"))
+```
+
+#### Length 
+
+```{r}
+indo_vessel_list <- read_csv("source_info/Indo_vessel_list.csv")
+
+indo_lenghts <- indo_vessel_list %>% 
+  filter(!is.na(transmitter_no)) %>% 
+  group_by(transmitter_no) %>% 
+  summarize(avg_length = mean(length),
+            sd_length = sd(length),
+            cv_length = sd_length/avg_length,
+            n_lengths = n_distinct(length),
+            min_length = min(length),
+            max_length = max(length)) %>% 
+  arrange(desc(sd_length)) %>% 
+  mutate(length = ifelse(n_lengths == 1 | cv_length < .3, avg_length, max_length)) %>% 
+  select(transmitter_no, length)
+
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  left_join(indo_lenghts)
+
+high_seas_indo_vessels$length[high_seas_indo_vessels$mmsi == 4565580] <- 20.1
+high_seas_indo_vessels$length[high_seas_indo_vessels$mmsi == 4565582] <- 18.1
+
+high_seas_indo_vessels$length[high_seas_indo_vessels$mmsi == 4955198] <- 71.2
+
+high_seas_indo_vessels$length[high_seas_indo_vessels$mmsi == 31057362] <- 19
+
+high_seas_indo_vessels$length[high_seas_indo_vessels$mmsi == 4887548] <- 23
+high_seas_indo_vessels$length[high_seas_indo_vessels$mmsi == 40510445] <- 26
+
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  mutate(length = ifelse(length < 1, NA, length))
+```
+
+```{r}
+high_seas_indo_vessels %>% 
+  group_by(year) %>% 
+  summarise(percent_missing = 100*sum(is.na(length))/n_distinct(mmsi),
+            avg_length = mean(length, na.rm = T),
+            min_length = min(length, na.rm = T),
+            max_length = max(length, na.rm = T),)
+```
+
+#### Tonnage
+
+```{sql, connection = BQ_connection, output.var = "raw_tonnages"}
+SELECT
+  YEAR(timestamp) year,
+  mmsi,
+  raw_gross_tonnage,
+FROM
+  [world-fishing-827:KKP_Indonesia.indonesia_vms_classify]
+WHERE
+  timestamp BETWEEN TIMESTAMP('2013-01-01')
+  AND TIMESTAMP('2017-06-01')
+GROUP BY
+  year,
+  mmsi,
+  raw_gross_tonnage,
+```
+
+```{r}
+clean_tonnage <- raw_tonnages %>% 
+  mutate(raw_gross_tonnage = as.numeric(raw_gross_tonnage),
+         transmitter_no = mmsi) %>% 
+  filter(!is.na(transmitter_no), !is.na(raw_gross_tonnage)) %>% 
+  group_by(year, transmitter_no) %>% 
+  summarize(avg_gt = mean(raw_gross_tonnage),
+            sd_gt = sd(raw_gross_tonnage),
+            cv_gt = sd_gt/avg_gt,
+            n = n(),
+            n_gt = n_distinct(raw_gross_tonnage),
+            min_gt = min(raw_gross_tonnage),
+            max_gt = max(raw_gross_tonnage)) %>% 
+  mutate(tonnage = ifelse(n_gt == 1 | cv_gt < .3, avg_gt, max_gt)) %>% 
+  select(year, transmitter_no, tonnage)
+
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  left_join(clean_tonnage)
+
+high_seas_indo_vessels$tonnage[high_seas_indo_vessels$mmsi == 4887548] <- 85
+```
+
+```{r}
+high_seas_indo_vessels %>% 
+  group_by(year) %>% 
+  summarise(percent_missing = 100*sum(is.na(tonnage))/n_distinct(mmsi),
+            avg_tonnage = mean(tonnage, na.rm = T),
+            min_tonnage = min(tonnage, na.rm = T),
+            max_tonnage = max(tonnage, na.rm = T))
+```
+
+
+#### Engine Power
+
+```{r}
+engine_powers <- read_csv("source_info/Indo_engine_powers.csv")
+
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  left_join(engine_powers %>% 
+              select(transmitter_no, engine_power = `Engine Power`) %>% 
+              mutate(engine_power = ifelse(!stringr::str_detect(engine_power, "#"), engine_power, NA),
+                     engine_power = as.numeric(engine_power)*.7457) %>% 
+              filter(!is.na(engine_power)) %>%
+              group_by(transmitter_no) %>% 
+              summarise(engine_power = round(mean(engine_power), 1))) %>% 
+  select(year, mmsi, transmitter_no, shipname, raw_registered_gear_type, length, tonnage, engine_power, everything())
+
+
+high_seas_indo_vessels$engine_power[high_seas_indo_vessels$transmitter_no == 87185] <- NA
+```
+
+```{r}
+high_seas_indo_vessels %>% 
+  group_by(year) %>% 
+  summarise(percent_missing = 100*sum(is.na(engine_power))/n_distinct(mmsi),
+            avg_engine_power = mean(engine_power, na.rm = T),
+            min_engine_power = min(engine_power, na.rm = T),
+            max_engine_power = max(engine_power, na.rm = T))
+```
+
+
+```{r}
+high_seas_indo_vessels %>% 
+  filter(year == 2016) %>% 
+  group_by(raw_registered_gear_type) %>% 
+  filter(n() > 3) %>% 
+  select(mmsi, raw_registered_gear_type, length, tonnage) %>% 
+  gather(variable, value, -mmsi, -raw_registered_gear_type) %>% 
+  ungroup() %>% 
+  ggplot()+
+  ggjoy::geom_joy(aes(x = value, y = fct_reorder(raw_registered_gear_type, value, max), fill = raw_registered_gear_type), show.legend = FALSE)+
+  hrbrthemes::theme_ipsum()+
+  facet_wrap("variable", scales = 'free_x', strip.position = 'bottom')+
+  labs(x = "", y = "")+
+  theme(strip.placement = "outside")+
+  ggsci::scale_fill_startrek(name = "")+
+  theme(axis.text.x  = element_text(size = 10),
+        axis.text.y  = element_text(size = 10))
+```
+
+
+```{r}
+length_vs_tonnage_plot <- high_seas_indo_vessels %>% 
+    filter(year == 2016) %>% 
+  group_by(raw_registered_gear_type) %>% 
+  ggplot()+
+  geom_point(aes(x = length, y = tonnage, col = raw_registered_gear_type), alpha = .5)+
+  hrbrthemes::theme_ipsum()+
+  ggsci::scale_color_startrek(name = "")+
+  theme(legend.position = "bottom")
+  
+length_vs_tonnage_plot <- ggExtra::ggMarginal(length_vs_tonnage_plot, type = "histogram")
+
+plot(length_vs_tonnage_plot)
+```
+
+
+```{r}
+high_seas_indo_vessels$length[high_seas_indo_vessels$length < 10] <- NA
+```
+
+
+```{r}
+length_vs_power_plot <- high_seas_indo_vessels %>% 
+  filter(year == 2016) %>% 
+  ggplot()+
+  geom_point(aes(x = length, y = engine_power, col = raw_registered_gear_type), alpha = .5)+
+  hrbrthemes::theme_ipsum()+
+  hrbrthemes::theme_ipsum()+
+  ggsci::scale_color_startrek(name = "")+
+  theme(legend.position = "bottom")
+  
+length_vs_power_plot <- ggExtra::ggMarginal(length_vs_power_plot, type = "histogram")
+
+plot(length_vs_power_plot)
+```
+
+
+```{r}
+tonnage_vs_power_plot <- high_seas_indo_vessels %>% 
+  filter(year == 2016) %>% 
+  ggplot()+
+  geom_point(aes(x = tonnage, y = engine_power, col = raw_registered_gear_type), alpha = .5)+
+  hrbrthemes::theme_ipsum()+
+  hrbrthemes::theme_ipsum()+
+  ggsci::scale_color_startrek(name = "")+
+  theme(legend.position = "bottom")
+  
+tonnage_vs_power_plot <- ggExtra::ggMarginal(tonnage_vs_power_plot, type = "histogram")
+
+plot(tonnage_vs_power_plot)
+```
+
+##### Filling gaps 
+
+```{r}
+high_seas_indo_vessels %>% 
+  filter(year < 2017) %>% 
+  group_by(year) %>% 
+  summarise(vessels_wo_length = sum(is.na(length)),
+            vessels_wo_tonnage = sum(is.na(tonnage)),
+            vessels_wo_engine_power = sum(is.na(engine_power)))
+```
+
+```{r}
+high_seas_indo_vessels %>% 
+  filter(year < 2017) %>% 
+  group_by(year) %>% 
+  summarise(percent_fishing_hours_wo_length = 100*sum(fishing_hours_on_high_seas[is.na(length)])/sum(fishing_hours_on_high_seas),
+            percent_fishing_hours_wo_tonnage = 100*sum(fishing_hours_on_high_seas[is.na(tonnage)])/sum(fishing_hours_on_high_seas),
+            percent_fishing_hours_wo_engine_power = 100*sum(fishing_hours_on_high_seas[is.na(engine_power)])/sum(fishing_hours_on_high_seas)) %>% 
+  mutate_if(is.numeric, round, 2)
+```
+
+#### Use regression models to fill in gaps
+
+```{r}
+KW_length_nls <- read_rds("saved_files/KW_length_nls")
+ton_length_nls <- read_rds("saved_files/ton_length_nls")
+```
+
+
+```{r}
+high_seas_indo_vessels <- high_seas_indo_vessels %>%
+  mutate(length = case_when(
+    is.na(length) & !is.na(tonnage) ~ (tonnage/coef(ton_length_nls)[[1]])^(1/coef(ton_length_nls)[[2]]),
+    TRUE ~ length)) %>% 
+  mutate(tonnage = case_when(
+    !is.na(length) & is.na(tonnage) ~coef(ton_length_nls)[[1]]*length^(coef(ton_length_nls)[[2]]),
+    TRUE ~ tonnage))
+
+
+high_seas_indo_vessels <- high_seas_indo_vessels %>%
+  mutate(engine_power = case_when(
+    is.na(engine_power) & !is.na(length) ~ coef(KW_length_nls)[[1]]*length^(coef(KW_length_nls)[[2]]), 
+    TRUE ~ engine_power))
+```
+
+#### Aux power
+
+```{r}
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  mutate(aux_engine_power = 0.30*engine_power)
+```
+
+#### Crew 
+
+```{r}
+crew_cforest_length_n_tonnage <- read_rds("saved_files/random_forests/crew_cforest_length_n_tonnage")
+
+varImp(crew_cforest_length_n_tonnage)
+```
+
+
+```{r}
+crew_rf_pred <- high_seas_indo_vessels %>%
+  select(mmsi, length, tonnage, year) %>% 
+  modelr::add_predictions(crew_cforest_length_n_tonnage) %>% 
+  select(year, mmsi, crew = pred) %>% 
+  mutate(crew = round(crew))
+
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  left_join(crew_rf_pred %>% 
+              distinct(year, mmsi, crew))
+
+
+high_seas_indo_vessels %>% 
+  filter(year == 2016) %>% 
+  group_by(raw_registered_gear_type) %>% 
+  summarize(avg_crew_size = round(mean(crew))) %>% 
+  arrange(desc(avg_crew_size))
+```
+
+#### Design speed 
+
+```{r}
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  mutate(design_speed_old = 3.30*10^(-4)*engine_power+2.151*10^(-5)*tonnage-2.742*10^(-9)*engine_power*tonnage+12.93,
+         design_speed_ihs = 10.4818 + 0.0012*engine_power -3.84710*10^(-8)*engine_power^2)
+```
+
+#### SFC
+
+```{r}
+(sfc_by_size_class <- data_frame(phase = c("0-12","12-24",">24"),
+                              sfc = c(240,220,180)))
+
+aux_engine_sfc = 217
+```
+
+```{r}
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  mutate(
+    main_sfc = case_when(
+      length < 12 ~ 240,
+      length >= 12 & length < 24 ~ 220,
+      TRUE ~ 180),
+    main_sfc_low = case_when(
+      length < 12 ~ 240,
+      length >= 12 & length < 24 ~ 220,
+      TRUE ~ 180),
+    aux_sfc = 217
+  )
+```
+
+```{r}
+high_seas_indo_vessels <- high_seas_indo_vessels %>% 
+  select(year, mmsi, transmitter_no,shipname, raw_registered_gear_type, gfw_sub_gear, gfw_gear, everything())
+
+write_csv(high_seas_indo_vessels, "saved_files/complete_high_seas_indo_vms_characteristics.csv")
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "vessel_characteristics", project = "high-seas", billing = "world-fishing-827")
+
+if(dbExistsTable(BQ_connection, "complete_high_seas_indo_vms_characteristics")) {
+  dbRemoveTable(BQ_connection, "complete_high_seas_indo_vms_characteristics") 
+  dbWriteTable(BQ_connection, "complete_high_seas_indo_vms_characteristics", high_seas_indo_vessels)
+} else {dbWriteTable(BQ_connection, "complete_high_seas_indo_vms_characteristics", high_seas_indo_vessels)}
+
+```
+
+### Size distribution
+
+```{r}
+high_seas_indo_vessels %>% 
+  filter(year == 2016) %>% 
+  mutate(length_class = as.character(cut(length, breaks = c(0,12,18,24,40,200), right = F))) %>% 
+  group_by(length_class) %>% 
+  summarize(vessels = n_distinct(mmsi),
+            days_at_sea = sum(days),
+            fishing_days = sum(fishing_days)) %>% 
+  mutate(avg_days_per_vessel = days_at_sea/vessels) %>% 
+  arrange(desc(vessels)) %>% 
+  mutate_if(is.numeric, round)
+```
+
+### Most important gears
+
+The following table shows the largest fleets in the high seas:
+
+```{r}
+high_seas_indo_vessels %>% 
+  filter(year == 2016) %>% 
+  group_by(raw_registered_gear_type) %>% 
+  summarize(vessels = n_distinct(mmsi),
+            days_at_sea = sum(days),
+            fishing_days = sum(fishing_days)) %>% 
+  mutate(avg_days_per_vessel = days_at_sea/vessels) %>% 
+  arrange(desc(vessels))%>% 
+  mutate_if(is.numeric, round)
+```
+
+and by gear + size 
+
+```{r}
+high_seas_indo_vessels %>% 
+  filter(year == 2016) %>% 
+  mutate(length_class = as.character(cut(length, breaks = c(0,12,18,24,40,200), right = F))) %>% 
+  group_by(raw_registered_gear_type, length_class) %>% 
+  summarize(vessels = n_distinct(mmsi),
+            days_at_sea = sum(days),
+            fishing_days = sum(fishing_days)) %>% 
+  mutate(avg_days_per_vessel = days_at_sea/vessels) %>% 
+  arrange(desc(vessels)) %>% 
+  mutate_if(is.numeric, round)
+```
+
+
+
+
+
+
+
+
+
+
+
+

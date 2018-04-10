@@ -1,0 +1,14 @@
+known_sublabel,known_label
+drifting_longlines,drifting_longlines
+gear,gear
+motor_passenger,passenger
+other_fishing,other_fishing
+pole_and_line,other_fishing
+pots_and_traps,fixed_gear
+purse_seines,purse_seines
+reefer,reefer
+set_gillnets,fixed_gear
+set_longlines,fixed_gear
+squid_jigger,squid_jigger
+trawlers,trawlers
+trollers,other_fishing

@@ -1,0 +1,3845 @@
+mmsi,flag_country_name,gear_type_all_years,length,tonnage,known_crew
+416,Taiwan,fixed_gear,52.65,496,30
+201851,China,drifting_longlines,33.9,271,18
+500430,Japan,drifting_longlines,49.3,379,22
+532461,Kiribati,purse_seines,76.275,1359.15656064,24
+36764e3,United States,purse_seines,62.2516666667,1257.66666667,25
+200008650,China,drifting_longlines,37.08,265,14
+204212e3,Portugal,drifting_longlines,34.5,273,18
+204862e3,Portugal,drifting_longlines,37.7,319,18
+20501e4,Belgium,trawlers,17.2315370121,30.4082078923,4
+205017e3,Belgium,trawlers,23.94,94,4
+205101e3,Belgium,fixed_gear,21.53,133,6
+20515e4,Belgium,trawlers,27.2,100,10
+205153e3,Belgium,trawlers,37.2,275,8
+205155e3,Belgium,trawlers,34.9,274,5
+205161e3,Belgium,trawlers,29.8,252,6
+205162e3,Belgium,trawlers,37.87,385,6
+205165e3,Belgium,trawlers,25.94,207,5
+20517e4,Belgium,trawlers,37.09,366,6
+205189e3,Belgium,other_fishing,15.1838460846,12,14
+205191e3,Belgium,trawlers,23.94,139,4
+205197e3,Belgium,trawlers,37.88,311,8
+205232e3,Belgium,trawlers,23.85,138,4
+205236e3,Belgium,trawlers,23.94,130,5
+205239e3,Belgium,trawlers,30.7,159,5
+20524e4,Belgium,trawlers,38.22,383.5,7
+205241e3,Belgium,trawlers,32.32,336,9
+205246e3,Belgium,trawlers,37.96,388,6
+205259e3,Belgium,trawlers,32.2956458581,234,5
+20526e4,Belgium,trawlers,34.2375036749,264,6
+205265e3,Belgium,trawlers,23.82,69,6
+205269e3,Belgium,trawlers,16.8,33,3
+205273e3,Belgium,trawlers,19.5860286248,54,4
+205275e3,Belgium,trawlers,34.8,254,8
+205286e3,Belgium,trawlers,23.75,99,4
+205289e3,Belgium,trawlers,36.5719601415,284,5
+205294e3,Belgium,trawlers,21,62,3
+205296e3,Belgium,trawlers,23.99,60,4
+205306e3,Belgium,trawlers,37.79,386,8
+205307e3,Belgium,fixed_gear,21.08,67,10
+205315e3,Belgium,trawlers,21.97,44,3
+205316e3,Belgium,trawlers,36.11,351,5
+20532e4,Belgium,trawlers,23.98,82,4
+205327e3,Belgium,trawlers,12.4,22,6
+205333e3,Belgium,trawlers,37.72,396,5
+205345e3,Belgium,trawlers,37.81,385,6
+20555e4,Belgium,trawlers,23.5887125942,199,6
+205632e3,Belgium,trawlers,19.04,44,2
+211103e3,Germany,trawlers,34.15,135,4
+211105e3,Germany,trawlers,35.15,193,3
+211152e3,Germany,trawlers,14.97,23,2
+211157e3,Germany,trawlers,17.12,43,3
+211159e3,Germany,trawlers,19.9,55,3
+211164e3,Germany,trawlers,15.65,27,3
+21117e4,Germany,trawlers,16.97,45,2
+211176e3,Germany,trawlers,17,46,2
+211207270,Germany,trawlers,92.01,3071,75
+211245890,Germany,trawlers,32.9,269,8
+211287590,Germany,trawlers,19,68,3
+21129e4,Germany,trawlers,22.82,82,3
+211307520,Germany,trawlers,18.95,71,3
+211314990,Germany,trawlers,19.69,50,2
+211317290,Germany,trawlers,23.39,62,2
+211318640,Germany,trawlers,23.96,86,2
+211325290,Germany,trawlers,19.93,67,3
+211365280,Germany,trawlers,38.75,315,5
+211371e3,Germany,trawlers,17.26,48,2
+211373830,Germany,trawlers,80.35,2348,18
+211389510,Germany,trawlers,18.14,31,2
+2114e5,Germany,trawlers,15.45,47,3
+211402250,Germany,trawlers,18.03,38,3
+211402270,Germany,trawlers,14.5,18,2
+211410690,Germany,trawlers,39.3,374,5
+211411630,Germany,trawlers,38.33,304,6
+211414290,Germany,trawlers,18.54,42,3
+211415e3,Germany,trawlers,19.33,48,3
+211416e3,Germany,trawlers,17.15,49,3
+211449e3,Germany,trawlers,15.9123714707,34.6383716405,3
+211466e3,Germany,trawlers,15.09,24,2
+211471740,Germany,fixed_gear,12.1649293372,15.1566166114,2
+211479e3,Germany,trawlers,17.6,35,2
+211480810,Germany,fixed_gear,11.44,10,2
+21149e4,Germany,trawlers,15.57,22,2
+211493e3,Germany,trawlers,15.55,21,3
+211510290,Germany,trawlers,18.71,59,2
+211517200,Germany,trawlers,19.09,55,2
+211517230,Germany,trawlers,17.99,48,2
+211526e3,Germany,trawlers,16.1,35,3
+211527e3,Germany,trawlers,17.14,33,2
+211528e3,Germany,trawlers,20.84,49,3
+21153e4,Germany,trawlers,17.21,33,3
+211552e3,Germany,trawlers,19.71,65,2
+211563e3,Germany,trawlers,18.84,52,2
+211586e3,Germany,trawlers,18.99,62,2
+211593750,Germany,trawlers,35.9,432,5
+211605e3,Germany,trawlers,16.44,27,2
+211607e3,Germany,trawlers,15.96,25,2
+211608e3,Germany,trawlers,19.4,46,3
+211626e3,Germany,trawlers,17.99,49,3
+211626320,Germany,trawlers,18.79,67,3
+21164e4,Germany,fixed_gear,19.5186648492,91.7361041425,4
+211643e3,Germany,trawlers,15.41,21,2
+211647800,Germany,trawlers,17.26,48,2
+211653680,Germany,trawlers,15.66,26,3
+211658e3,Germany,trawlers,15.41,21,2
+211667030,Germany,trawlers,16.2,33,2
+211667470,Germany,trawlers,17.12,43,3
+211670320,Germany,trawlers,22.3,86,3
+211680250,Germany,trawlers,23.93,150,4
+211692850,Germany,trawlers,21.365621174,70.1696902397,2
+211793e3,Germany,trawlers,36.3,281,6
+212121212,Cyprus,drifting_longlines,43.2,496,26
+218066e3,Germany,trawlers,140.8,9082,60
+218125e3,Germany,trawlers,40.31,457,5
+218264e3,Germany,trawlers,28.42,189,4
+218299e3,Germany,trawlers,25.27,76,3
+218359e3,Germany,trawlers,86.33,2417,20
+218363e3,Germany,trawlers,28.08,338,4
+218556e3,Germany,trawlers,15.71,26,2
+218799e3,Germany,trawlers,90.66,4248,34
+218803e3,Germany,trawlers,7.7283009654,5.61593495313,12
+224015550,Spain,purse_seines,84.1,2501.88,27
+224016e3,Spain,drifting_longlines,35,394,20
+22405e4,Spain,drifting_longlines,46.45,668.3333333333334,39
+224051350,Spain,drifting_longlines,31,342,16
+224154e3,Spain,drifting_longlines,46.45,681,23
+224256e3,Spain,drifting_longlines,44.309375,589,23
+224313e3,Spain,drifting_longlines,44.45,636,17
+224405e3,Spain,purse_seines,75.6,2013.335,25
+224431e3,Spain,purse_seines,53.5416666667,970.325,22
+224459e3,Spain,drifting_longlines,37.5,408,8
+224472e3,Spain,drifting_longlines,36.8666666667,393,15
+224523e3,Spain,purse_seines,84.1,2501.97,27
+224531e3,Spain,purse_seines,73.5333333333,2022.72,25
+224556e3,Spain,drifting_longlines,39.6,432,17
+22458e4,Spain,purse_seines,52.3,877.175,22
+224587e3,Spain,purse_seines,81.075,2063.438333335,26
+224619e3,Spain,drifting_longlines,40.95,593,23
+224623e3,Spain,drifting_longlines,55,1058,40
+224651e3,Spain,purse_seines,84.1,2479,27
+22468e4,Spain,purse_seines,115.265,4272,32
+224702e3,Spain,purse_seines,98.7275,3716,24
+224717e3,Spain,purse_seines,69.61,2214,25
+224727e3,Spain,purse_seines,85.85,2336,28
+224745e3,Spain,purse_seines,54.5,857.52,22
+224755e3,Spain,purse_seines,79.4166666667,2082,26
+224782e3,Spain,purse_seines,105,3398.0191666666665,32
+227312e3,France,trawlers,23.5,157.22,2
+227318230,France,trawlers,11.82,24,4
+227580250,France,fixed_gear,17.76,24,5
+227704270,France,purse_seines,20.47,29,9
+228178e3,France,fixed_gear,15,103.057838618,7
+228185900,France,trawlers,18.9134149044,40,12
+228190600,France,trawlers,23.96,150.54,3
+228858e3,France,trawlers,31.85,241,10
+228887e3,France,trawlers,19.43,62.7429537591,5
+228966e3,France,drifting_longlines,24.95,149.81,8
+229496e3,Malta,fixed_gear,24.93,125,16
+231009e3,Faroe Islands,trawlers,38.0966630949,464,11
+23101e4,Faroe Islands,trawlers,41.0186916461,464,11
+231011e3,Faroe Islands,trawlers,37.3741465997,1240,9
+231014e3,Faroe Islands,trawlers,64.8819335782,1100,22
+231021e3,Faroe Islands,trawlers,38.4554881475,274,12
+231022e3,Faroe Islands,trawlers,35.4953960267,209,7
+231027e3,Faroe Islands,trawlers,31.1968370923,215,7
+23103e4,Faroe Islands,trawlers,35.1049152328,660,11
+231031e3,Faroe Islands,trawlers,36.370437369,660,11
+231036e3,Faroe Islands,trawlers,64.5582936966,3600,15
+231038e3,Faroe Islands,trawlers,77.1944517261,3181,30
+231045e3,Faroe Islands,trawlers,65.5845819445,2578,40
+231047e3,Faroe Islands,trawlers,30.5207855645,720,14
+231049e3,Faroe Islands,trawlers,66.2711395704,1514,12
+231051e3,Faroe Islands,trawlers,66.3248254898,5192,28
+231053e3,Faroe Islands,trawlers,63.5151789333,1845,24
+231066e3,Faroe Islands,trawlers,67.3012885208,2968,30
+231068e3,Faroe Islands,trawlers,29.9179418381,596,18
+231073e3,Faroe Islands,fixed_gear,40.8559245782,846,18
+231078e3,Faroe Islands,trawlers,67.7897728669,1428,15
+231081e3,Faroe Islands,trawlers,34.1310701834,756,14
+231084e3,Faroe Islands,trawlers,49.0049765267,993,15
+231087e3,Faroe Islands,trawlers,41.7015656242,550,14
+23109e4,Faroe Islands,trawlers,34.9016093202,724,14
+231091e3,Faroe Islands,trawlers,64.9443060473,2832,18
+231105e3,Faroe Islands,trawlers,41.64366621,481,12
+231106e3,Faroe Islands,trawlers,42.3526736703,481,12
+231107e3,Faroe Islands,trawlers,59.3367426556,1531,24
+23111e4,Faroe Islands,trawlers,56.9533942151,1647,15
+231112e3,Faroe Islands,trawlers,42.2183211958,699,12
+231115e3,Faroe Islands,fixed_gear,26.4946738014,337,14
+231116e3,Faroe Islands,trawlers,58.3977733323,3031,20
+231118e3,Faroe Islands,fixed_gear,41.9941691862,656,16
+231126e3,Faroe Islands,fixed_gear,33.3024542861,295,12
+231129e3,Faroe Islands,trawlers,42.7018383928,440.15,15
+231132e3,Faroe Islands,trawlers,78.1053870925,5099,43
+231133e3,Faroe Islands,fixed_gear,27.3374146541,349,11
+231134e3,Faroe Islands,fixed_gear,34.5984579078,408,14
+23114e4,Faroe Islands,fixed_gear,36.6523796799,211,15
+231145e3,Faroe Islands,fixed_gear,31.2719585616,355,16
+23115e4,Faroe Islands,fixed_gear,32.2205836442,163.73,15
+231156e3,Faroe Islands,fixed_gear,35.256545375,522,15
+231158e3,Faroe Islands,trawlers,26.5859325418,64,5
+231159e3,Faroe Islands,fixed_gear,36.3624860489,271,16
+23116e4,Faroe Islands,trawlers,41.4923268615,727,12
+231163e3,Faroe Islands,trawlers,29.0879442409,419,8
+231164e3,Faroe Islands,trawlers,29.2509834542,419,8
+231171e3,Faroe Islands,trawlers,39.2661669715,488,10
+231176e3,Faroe Islands,trawlers,28.6178714986,166,14
+231179e3,Faroe Islands,trawlers,13.5520895754,78,6
+231181e3,Faroe Islands,fixed_gear,31.2078256399,354,15
+231184e3,Faroe Islands,trawlers,24.8987569222,85.9,7
+231188e3,Faroe Islands,trawlers,35.9535660162,299,8
+231189e3,Faroe Islands,trawlers,34.3358778284,275,7
+23119e4,Faroe Islands,trawlers,33.4033904443,305,7
+231205e3,Faroe Islands,trawlers,16.4966571763,51.75,5
+23121e4,Faroe Islands,trawlers,43.4618766095,1600,23
+231213e3,Faroe Islands,fixed_gear,18.9608453904,67.28,6
+231215e3,Faroe Islands,trawlers,27.7637229126,475,12
+231216e3,Faroe Islands,trawlers,42.68363454,837,15
+231232e3,Faroe Islands,fixed_gear,20.0104980742,61.12,6
+231235e3,Faroe Islands,trawlers,34.3005804983,113,9
+231236e3,Faroe Islands,trawlers,30.2701762676,158,6
+23124e4,Faroe Islands,trawlers,24.6194922831,89.1,7
+231252e3,Faroe Islands,trawlers,16.6956233508,49.1,5
+231254e3,Faroe Islands,trawlers,71.3253155241,1050,18
+231256e3,Faroe Islands,fixed_gear,13.5008771932,49.86,6
+231265e3,Faroe Islands,trawlers,25.3209054681,100.88,6
+231266e3,Faroe Islands,trawlers,26.3336652014,115,6
+231289e3,Faroe Islands,trawlers,25.0892343361,140,6
+231307e3,Faroe Islands,trawlers,66.3982265374,2650,15
+231316e3,Faroe Islands,trawlers,18.4912769702,171,8
+231321e3,Faroe Islands,trawlers,31.1570826653,364,10
+231326e3,Faroe Islands,trawlers,39.2108797107,380,12
+231327e3,Faroe Islands,trawlers,38.5971509106,380,12
+231534e3,Faroe Islands,trawlers,26.915209762899998,113,4
+23173e4,Faroe Islands,trawlers,51.7388877205,1232,10
+231751e3,Faroe Islands,trawlers,67.8932500866,2136,34
+231832e3,Faroe Islands,trawlers,11.5016626029,7.6,2
+231835e3,Faroe Islands,trawlers,53.78,776,23
+232003730,United Kingdom,trawlers,17.2,76,5
+232003840,United Kingdom,trawlers,23.3673817303,331,6
+232004336,United Kingdom,fixed_gear,21.22,66,6
+232004360,United Kingdom,trawlers,18.21,86,6
+232004523,United Kingdom,trawlers,26.36,124,6
+232004676,United Kingdom,trawlers,17.07,52,3
+232004741,United Kingdom,trawlers,18.25,96,6
+232004770,United Kingdom,trawlers,16.98,74,5
+232004918,United Kingdom,trawlers,21.42,116,5
+232004920,United Kingdom,trawlers,22.0539158543,130.42,6
+232005340,United Kingdom,trawlers,17.07,80,5
+232005460,United Kingdom,trawlers,26.15,105,6
+232005520,United Kingdom,trawlers,26.2,159,6
+232005530,United Kingdom,trawlers,28.15,167,6
+232005630,United Kingdom,trawlers,34.78,237,6
+232005920,United Kingdom,trawlers,29.85,153,6
+232006030,United Kingdom,trawlers,37.75,373,6
+232006050,United Kingdom,trawlers,40,428,8
+232006060,United Kingdom,trawlers,36.5,312,6
+232006270,United Kingdom,fixed_gear,35.4,322,16
+232006500,United Kingdom,drifting_longlines,38.59,260.5,16
+232006630,United Kingdom,trawlers,26.16,149.5,6
+232006810,United Kingdom,fixed_gear,31.26,226,18
+232006830,United Kingdom,fixed_gear,38.25,395,18
+232007030,United Kingdom,fixed_gear,29.3,223,16
+232007250,United Kingdom,fixed_gear,28.13,203,16
+232007630,United Kingdom,trawlers,24.45,171,6
+232007860,United Kingdom,trawlers,21.8715933028,111,7
+232007970,United Kingdom,trawlers,24.94,156,6
+232008020,United Kingdom,trawlers,40.2,667,12
+232017e3,United Kingdom,trawlers,21.8426953149,155,5
+232091e3,United Kingdom,trawlers,21.2,189,6
+232326e3,United Kingdom,fixed_gear,35.28,315,18
+232611329,United Kingdom,trawlers,19,125,5
+233098e3,United Kingdom,trawlers,26.64,222,8
+233296e3,United Kingdom,trawlers,23.9,184,7
+233308e3,United Kingdom,trawlers,26.54,284,8
+233342e3,United Kingdom,trawlers,29.75,116.28882339,6
+233586e3,United Kingdom,trawlers,16.46,88,6
+23386e4,United Kingdom,trawlers,25.9,213,6
+233883e3,United Kingdom,trawlers,23.6,176.04,6
+233973e3,United Kingdom,trawlers,19.81,113,6
+233975e3,United Kingdom,trawlers,27.69,399,12
+234013e3,United Kingdom,trawlers,20.6,172,8
+234014e3,United Kingdom,trawlers,17.64,87,6
+234052e3,United Kingdom,trawlers,24.3,268,7
+234091e3,United Kingdom,trawlers,18.6,136,6
+234093e3,United Kingdom,trawlers,18.25,104,6
+234139e3,United Kingdom,trawlers,19.3902111879,138,5
+234167e3,United Kingdom,trawlers,21.31,164,6
+234203e3,United Kingdom,trawlers,44.94,709,8
+234383e3,United Kingdom,fixed_gear,18.28,144,6
+234414e3,United Kingdom,trawlers,17.9766215193,82,5
+234663e3,United Kingdom,trawlers,18.47,74.56,6
+234671e3,United Kingdom,trawlers,24.85,192,6
+234705e3,United Kingdom,trawlers,25.89,206,6
+234806e3,United Kingdom,trawlers,17.31,100,5
+234863e3,United Kingdom,trawlers,18.47,74.56,6
+234879e3,United Kingdom,trawlers,42,477,7
+234896e3,United Kingdom,trawlers,24.26,266,8
+234903e3,United Kingdom,trawlers,19.45,86,6
+234904e3,United Kingdom,trawlers,27.41,354,8
+234912e3,United Kingdom,trawlers,22.07,140.24,6
+234937e3,United Kingdom,trawlers,20.9,174,7
+234946562,United Kingdom,trawlers,23.13,167,6
+234999155,United Kingdom,trawlers,19.17,57,5
+234999157,United Kingdom,trawlers,16.42,50,4
+234999177,United Kingdom,trawlers,16.6,42,4
+235000121,United Kingdom,fixed_gear,13.0187406475,3,2
+235000150,United Kingdom,trawlers,18.27,133,6
+235000170,United Kingdom,trawlers,19,161,6
+235000270,United Kingdom,trawlers,19.9,195,8
+235000315,United Kingdom,trawlers,15.6100636572,24,4
+235000340,United Kingdom,trawlers,34.3062458637,239,8
+235000360,United Kingdom,trawlers,30.55,249,8
+235000480,United Kingdom,trawlers,36.75,413,6
+235000502,United Kingdom,trawlers,14.4383398639,43,4
+235000525,United Kingdom,trawlers,16.89,53,7
+235000529,United Kingdom,trawlers,13.471798377,15.3,4
+235000596,United Kingdom,trawlers,15.302382344,44,4
+235000604,United Kingdom,trawlers,16.92,56,4
+235000620,United Kingdom,trawlers,21.34,165,6
+235000623,United Kingdom,trawlers,16.95,48.73,4
+235000670,United Kingdom,trawlers,20.8,189,6
+235000710,United Kingdom,fixed_gear,18.91,60,6
+235000741,United Kingdom,trawlers,17.8549212702,36,4
+235000752,United Kingdom,trawlers,16.7308676752,60,4
+235000760,United Kingdom,trawlers,20.1,83,5
+235000765,United Kingdom,trawlers,19.3,56.5,5
+235000820,United Kingdom,fixed_gear,35.7,286,16
+235000840,United Kingdom,trawlers,18.4,50,5
+235000843,United Kingdom,trawlers,20.03,99,6
+235000867,United Kingdom,trawlers,16.4,44,6
+235000887,United Kingdom,trawlers,16.76,41,4
+235000890,United Kingdom,trawlers,14.64,35,6
+235000891,United Kingdom,trawlers,16.82,46,6
+235000900,United Kingdom,trawlers,23.99,158,7
+235000910,United Kingdom,trawlers,23.98,193,7
+235000928,United Kingdom,trawlers,24.0017736564,86,6
+235000942,United Kingdom,trawlers,16.42,78,4
+235000951,United Kingdom,trawlers,17.82,51,4
+235001005,United Kingdom,trawlers,21.7916240565,60,4
+235001029,United Kingdom,trawlers,18.5,93,5
+235001138,United Kingdom,trawlers,17.6847301234,35,5
+235001140,United Kingdom,fixed_gear,18.35,89.18,6
+235001162,United Kingdom,trawlers,16.86552269,31,4
+235001170,United Kingdom,trawlers,22.2435747542,168,6
+235001270,United Kingdom,fixed_gear,14.99,26.8,6
+235001280,United Kingdom,trawlers,23.47,230,7
+235001318,United Kingdom,fixed_gear,14.98,31.695,4
+235001320,United Kingdom,trawlers,26.5,268,11
+235001340,United Kingdom,trawlers,19.9,197.5,7
+235001390,United Kingdom,trawlers,24.8,309,10
+235001428,United Kingdom,trawlers,16.99,38.5,8
+235001440,United Kingdom,trawlers,18.8,111,3
+235001670,United Kingdom,trawlers,20.8,173,7
+235001680,United Kingdom,trawlers,18.42,97,6
+235001810,United Kingdom,trawlers,26,252,6
+235001820,United Kingdom,trawlers,23.95,246,8
+235001823,United Kingdom,trawlers,14.04,17.09,3
+235001860,United Kingdom,trawlers,24.41,201,7
+235001890,United Kingdom,trawlers,16.5,95,4
+235001921,United Kingdom,trawlers,22.82,100,6
+235002029,United Kingdom,trawlers,14.93,29.41,4
+235002039,United Kingdom,trawlers,15.4866717791,12.2,4
+235002043,United Kingdom,trawlers,17.3006727319,37,4
+235002103,United Kingdom,trawlers,24.7044073792,170,8
+235002260,United Kingdom,trawlers,18.25,106,6
+235002330,United Kingdom,trawlers,22.85,206,6
+235002430,United Kingdom,trawlers,17.07,24,5
+235002470,United Kingdom,trawlers,16.7,106,6
+235002480,United Kingdom,trawlers,16.7,106,6
+235002500,United Kingdom,trawlers,19.9,195,6
+235002522,United Kingdom,trawlers,16.5,37,4
+235002598,United Kingdom,trawlers,17.1,24.62,7
+235002690,United Kingdom,trawlers,28,46,10
+235002698,United Kingdom,trawlers,20.3445730623,27.03,3
+235002718,United Kingdom,trawlers,20.34,104,8
+235002743,United Kingdom,trawlers,18.1,47,5
+235002800,United Kingdom,trawlers,23.97,152,6
+235002870,United Kingdom,trawlers,16.78,65,6
+235002900,United Kingdom,trawlers,26.8126255014,188,6
+235002916,United Kingdom,fixed_gear,17.73,38,6
+235002997,United Kingdom,trawlers,16.65,54,3
+235003026,United Kingdom,fixed_gear,14.7110050601,14,6
+235003080,United Kingdom,trawlers,21.8803778558,166,6
+235003101,United Kingdom,trawlers,15.24,35,3
+235003120,United Kingdom,trawlers,23.94,240,8
+235003170,United Kingdom,trawlers,36.6,432,6
+235003355,United Kingdom,fixed_gear,14.39,26.82,5
+235003400,United Kingdom,fixed_gear,18.7497814319,160,7
+235003460,United Kingdom,trawlers,17.99,171,6
+235003595,United Kingdom,trawlers,15.0503183844,17,4
+235003598,United Kingdom,trawlers,17.6,30,4
+235003730,United Kingdom,trawlers,19.9,163,6
+235003760,United Kingdom,trawlers,14,36,4
+235003785,United Kingdom,trawlers,18.43,68,5
+235003825,United Kingdom,trawlers,16.48,54,4
+235003952,United Kingdom,trawlers,19.9402724025,50,6
+235003957,United Kingdom,fixed_gear,10.947623614,16.2,5
+235003969,United Kingdom,trawlers,17.61,40,4
+235003989,United Kingdom,trawlers,17.3296675652,25,3
+235004005,United Kingdom,trawlers,16.55,24,3
+235004039,United Kingdom,trawlers,17.5425227572,52,4
+235004107,United Kingdom,trawlers,15.0379717861,69,4
+235004110,United Kingdom,drifting_longlines,39.24,481,22
+235004129,United Kingdom,trawlers,18.15,46,4
+235004140,United Kingdom,trawlers,35.77,328,8
+235004196,United Kingdom,trawlers,16.095449299,25,3
+235004230,United Kingdom,trawlers,25.5,279.5,9
+235004256,United Kingdom,trawlers,16.66,47,4
+235004290,United Kingdom,trawlers,15.75,95,6
+235004300,United Kingdom,trawlers,34.08,605.5,10
+235004378,United Kingdom,fixed_gear,16.54,41.5,3
+235004390,United Kingdom,trawlers,40.2,454,8
+235004392,United Kingdom,fixed_gear,10.0846044759,1.88,4
+235004420,United Kingdom,trawlers,18.26,120,7
+235004476,United Kingdom,fixed_gear,14.39,23.59,4
+235004478,United Kingdom,trawlers,16.45,37,5
+235004610,United Kingdom,trawlers,20.87,127,6
+235004690,United Kingdom,trawlers,61.5,1641,12
+235004700,United Kingdom,trawlers,61.5,1650,12
+235004730,United Kingdom,trawlers,21.3,189,6
+235004740,United Kingdom,trawlers,19.01,70,4
+235004750,United Kingdom,trawlers,49.28,631,9
+235004756,United Kingdom,trawlers,19.1450732576,80,6
+235004768,United Kingdom,trawlers,14.55,26.8535379377,3
+235004900,United Kingdom,trawlers,18.07,108,6
+235004940,United Kingdom,trawlers,17.94,109,6
+235005050,United Kingdom,trawlers,17.091449483,74,5
+235005150,United Kingdom,fixed_gear,18.02,122,6
+235005282,United Kingdom,trawlers,14.95,35,6
+235005283,United Kingdom,trawlers,13.94,81.2895707233,3
+235005350,United Kingdom,trawlers,42.36,500,6
+235005411,United Kingdom,trawlers,19.4962764203,26,12
+235005457,United Kingdom,trawlers,25.5586789609,125,6
+235005510,United Kingdom,trawlers,32.2,265.5,11
+235005522,United Kingdom,trawlers,21.0214697279,46,6
+235005640,United Kingdom,trawlers,32.1,287,12
+235005740,United Kingdom,trawlers,43.97,527,6
+235005746,United Kingdom,trawlers,15.34,43,4
+235005820,United Kingdom,trawlers,34.6,316,14
+235005859,United Kingdom,trawlers,19.46,74,5
+235005900,United Kingdom,trawlers,19,179,7
+235005947,United Kingdom,trawlers,17.85,55.87,3
+235005980,United Kingdom,fixed_gear,14.97,45.73,5
+235006100,United Kingdom,trawlers,14.95,47,5
+235006121,United Kingdom,trawlers,17.9893752912,59,4
+235006150,United Kingdom,trawlers,28.04,160.5,7
+235006280,United Kingdom,trawlers,64,1759,12
+235006336,United Kingdom,trawlers,14.7907511511,11,4
+235006436,United Kingdom,trawlers,16.3804920437,31.01,4
+235006480,United Kingdom,fixed_gear,16.95,132,7
+235006500,United Kingdom,trawlers,66.6,2194,12
+235006582,United Kingdom,trawlers,21.9374215188,131,7
+235006654,United Kingdom,trawlers,15.417774808,17,3
+235006716,United Kingdom,trawlers,21.34,160,5
+235006729,United Kingdom,trawlers,17.7696170503,16,3
+235006840,United Kingdom,fixed_gear,22.65,198,7
+235006880,United Kingdom,drifting_longlines,46.8375,455.333333333,18
+235006956,United Kingdom,trawlers,26.5,224,7
+235006963,United Kingdom,trawlers,16.0908350428,24,4
+235007080,United Kingdom,trawlers,19.9,195,8
+235007144,United Kingdom,trawlers,20.66,58,6
+235007170,United Kingdom,trawlers,22.95,172,8
+235007300,United Kingdom,fixed_gear,39.82,349,20
+235007379,United Kingdom,trawlers,16.92,56,5
+235007418,United Kingdom,trawlers,15.9,24,4
+235007420,United Kingdom,trawlers,14.95,36,6
+235007455,United Kingdom,trawlers,16.7,46,3
+235007462,United Kingdom,trawlers,17.9,96,6
+235007552,United Kingdom,trawlers,22.8,151,5
+235007570,United Kingdom,trawlers,34,210,6
+235007600,United Kingdom,drifting_longlines,40.35,353,18
+235007752,United Kingdom,trawlers,14.1909586881,19.48,4
+235007860,United Kingdom,trawlers,40.25,474,6
+235007884,United Kingdom,fixed_gear,10.872718507,1.74,2
+235007912,United Kingdom,trawlers,18.51,106,5
+235007930,United Kingdom,trawlers,24.94,122.102978073,6
+235007942,United Kingdom,fixed_gear,8.55348126654,48,2
+235007960,United Kingdom,trawlers,22.86,167,6
+235008039,United Kingdom,trawlers,17.01,79.3112496926,4
+235008110,United Kingdom,trawlers,26.1426338752,298,6
+235008200,United Kingdom,trawlers,20.9575386101,163,6
+235008217,United Kingdom,trawlers,19.81,137,5
+235008317,United Kingdom,trawlers,18.0386109221,102,6
+235008490,United Kingdom,trawlers,22.4604607366,163,6
+235008567,United Kingdom,fixed_gear,11.5323449102,6.4,2
+235008665,United Kingdom,trawlers,23.98,97,5
+235008669,United Kingdom,trawlers,19.97,73,6
+235008670,United Kingdom,trawlers,20.9,174,7
+235008690,United Kingdom,trawlers,24.4240774531,201.728833175,6
+235008741,United Kingdom,trawlers,23.12,125.5,6
+235008860,United Kingdom,trawlers,25.9,217,5
+235009060,United Kingdom,trawlers,13.97,41.5,3
+235009100,United Kingdom,trawlers,25.5,151,6
+235009200,United Kingdom,fixed_gear,17,78,5
+235009220,United Kingdom,trawlers,20.4,170,5
+235009660,United Kingdom,trawlers,16.73,69,3
+235009978,United Kingdom,trawlers,19.3069647886,138,6
+235010110,United Kingdom,trawlers,14.2,35.4,5
+235010140,United Kingdom,trawlers,17.07,97,5
+235010670,United Kingdom,trawlers,113.97,5579,47
+235010940,United Kingdom,trawlers,16.41,90,5
+235011055,United Kingdom,trawlers,14.85,43,6
+235011170,United Kingdom,trawlers,23.0826861102,243,6
+235011218,United Kingdom,trawlers,9.83,16.86,3
+235011420,United Kingdom,trawlers,11.99,49,4
+235012902,United Kingdom,trawlers,11.99,15,3
+235013021,United Kingdom,trawlers,65,1500,14
+235013031,United Kingdom,fixed_gear,9.99,9.87,4
+235013325,United Kingdom,trawlers,19.63,123,6
+235013516,United Kingdom,trawlers,17.9377110812,8.36,4
+235013957,United Kingdom,trawlers,23.1,148,5
+235014164,United Kingdom,trawlers,13.9465722173,13.4,3
+235014666,United Kingdom,trawlers,20.963978316,126,6
+235014763,United Kingdom,trawlers,11.86,24.6517896279,4
+235015841,United Kingdom,trawlers,18.41,94,6
+235015908,United Kingdom,fixed_gear,13.2932296194,8.92,4
+235016196,United Kingdom,trawlers,15.6046007669,11,2
+235016228,United Kingdom,trawlers,23.09,196,5
+235018597,United Kingdom,trawlers,25.41,155,6
+235018598,United Kingdom,trawlers,16.76,71,4
+235018651,United Kingdom,fixed_gear,9.49589159429,3,6
+235018825,United Kingdom,fixed_gear,11.8,9.29,3
+235018981,United Kingdom,trawlers,18.26,120,6
+235019072,United Kingdom,trawlers,14.94,36,6
+235019133,United Kingdom,trawlers,14.96,82.162465193,6
+235019422,United Kingdom,fixed_gear,12.9617195322,10.91,4
+235019602,United Kingdom,fixed_gear,11.83,47.4854542178,4
+235020355,United Kingdom,trawlers,19.11,101,5
+235020423,United Kingdom,trawlers,20.2,82,5
+235020549,United Kingdom,trawlers,20.86,125,5
+235020797,United Kingdom,fixed_gear,13.95,21.87,5
+235021304,United Kingdom,trawlers,44.98,546,8
+235021469,United Kingdom,trawlers,14.95,52.95,4
+235021533,United Kingdom,trawlers,18.1042158968,89,6
+235021707,United Kingdom,trawlers,36,338,13
+235023059,United Kingdom,trawlers,11.93,26.53,3
+235023688,United Kingdom,trawlers,14.4342315783,17.33,4
+235023713,United Kingdom,fixed_gear,11.7,9,3
+235023784,United Kingdom,trawlers,16.2,46,4
+235023984,United Kingdom,trawlers,13.9926624341,24.19,3
+235024318,United Kingdom,trawlers,13.1431651948,16.08,2
+235024416,United Kingdom,trawlers,16.52,47,3
+235024537,United Kingdom,fixed_gear,12.4130383177,8,3
+235025319,United Kingdom,trawlers,40.2,465,8
+235025566,United Kingdom,trawlers,15.9449925564,15,4
+235026354,United Kingdom,trawlers,14.98,48.02,5
+235026408,United Kingdom,trawlers,13.4,23,4
+235026671,United Kingdom,trawlers,18.8141659567,62,6
+235026866,United Kingdom,trawlers,11.7777940922,9,4
+235027948,United Kingdom,trawlers,24.34,201,8
+235028301,United Kingdom,pole_and_line,9.93,12,4
+235028482,United Kingdom,trawlers,16.51,42,3
+235028768,United Kingdom,trawlers,16.84,53,5
+235029063,United Kingdom,trawlers,13.6376502322,16.21,2
+235030148,United Kingdom,trawlers,18.59,71,6
+235030325,United Kingdom,trawlers,18.9,128,5
+235030814,United Kingdom,trawlers,15.9166934008,45,6
+235030823,United Kingdom,trawlers,17.3825449069,45,6
+235031017,United Kingdom,trawlers,18.22,107,5
+235031105,United Kingdom,trawlers,14.33,45.3920211448,3
+235031151,United Kingdom,trawlers,18.18,76,6
+235031495,United Kingdom,fixed_gear,11.280179211,4,2
+235031899,United Kingdom,trawlers,16.28,62,6
+235032001,United Kingdom,trawlers,14.02,28.24,4
+235032237,United Kingdom,trawlers,14.95,73.35,6
+235032435,United Kingdom,trawlers,9.06460640845,3.55,2
+235032583,United Kingdom,trawlers,14.98,31.925,5
+235032854,United Kingdom,trawlers,16.31,58,5
+235033145,United Kingdom,trawlers,71.2,2247,14
+235033608,United Kingdom,trawlers,17.77,52,6
+235033728,United Kingdom,trawlers,21.3,192,8
+235033769,United Kingdom,fixed_gear,8.56905067894,10,3
+235033874,United Kingdom,trawlers,15.94,24,4
+235033876,United Kingdom,trawlers,15.9340515628,45,3
+235034565,United Kingdom,fixed_gear,12.5808700514,4.21,2
+235035024,United Kingdom,fixed_gear,12.4874740701,5.3,3
+235035472,United Kingdom,trawlers,16.3386095911,40,4
+235035883,United Kingdom,trawlers,16.65,36.61,4
+235036491,United Kingdom,trawlers,19.79,88,6
+235037363,United Kingdom,trawlers,16.76,65,3
+235037753,United Kingdom,fixed_gear,9.3,3.96,2
+235038583,United Kingdom,trawlers,11.0994680897,7,4
+235038764,United Kingdom,trawlers,17.0989515622,8.35,4
+235038812,United Kingdom,trawlers,13.11,34,4
+235039435,United Kingdom,trawlers,14.95,41.27,3
+235039652,United Kingdom,fixed_gear,12.0701747021,10,5
+235040028,United Kingdom,trawlers,13.5915984184,5,3
+235040079,United Kingdom,trawlers,13.91,16,2
+235040121,United Kingdom,fixed_gear,18.875088625,119,7
+235040329,United Kingdom,fixed_gear,11.5293995079,2.34,2
+235040345,United Kingdom,trawlers,19,125,5
+235040556,United Kingdom,fixed_gear,14.98,26.65,5
+235040576,United Kingdom,trawlers,14,34.1530656143,4
+235040615,United Kingdom,fixed_gear,9.43385864834,4,4
+235040663,United Kingdom,trawlers,13.8672180342,9,2
+235050118,United Kingdom,trawlers,13.1,53.6235147178,3
+235050365,United Kingdom,trawlers,13.4,19.42,4
+235050371,United Kingdom,fixed_gear,14.95,146.398275892,6
+235051022,United Kingdom,trawlers,71.96,2409,18
+235051239,United Kingdom,trawlers,16.3790593135,10.82,3
+235053875,United Kingdom,trawlers,19.27,88,6
+235054161,United Kingdom,trawlers,23.13,121,5
+235054165,United Kingdom,trawlers,14.3142728659,18.74,4
+235054653,United Kingdom,trawlers,23.97,160,6
+235054747,United Kingdom,trawlers,18.0576860704,12,3
+235054892,United Kingdom,trawlers,15.1411058811,12.48,3
+235055552,United Kingdom,fixed_gear,9.88088512527,7,2
+235056045,United Kingdom,fixed_gear,6.21,1.13,3
+235057467,United Kingdom,trawlers,19.95,166,7
+235058829,United Kingdom,trawlers,26.25,153,8
+235059169,United Kingdom,trawlers,11.4551573691,9.51,3
+235059791,United Kingdom,trawlers,18.6,167,6
+235060021,United Kingdom,trawlers,17.2971617746,88,5
+235060213,United Kingdom,fixed_gear,11.75,21.81,5
+235060277,United Kingdom,trawlers,65.48,2099,12
+235060281,United Kingdom,trawlers,24.4,199,7
+235060673,United Kingdom,fixed_gear,11.87,25.44,4
+235060913,United Kingdom,trawlers,14.3,41.88,3
+235060915,United Kingdom,trawlers,19,165.5,8
+235061018,United Kingdom,trawlers,20.4,113,6
+235061052,United Kingdom,trawlers,19.27,89,6
+235061167,United Kingdom,fixed_gear,15.6204241629,32,4
+235061272,United Kingdom,trawlers,27.6508028331,150,5
+235061559,United Kingdom,trawlers,19.9192982392,42.45,6
+235061961,United Kingdom,trawlers,14.95,42.24,5
+235063095,United Kingdom,trawlers,18.25,110,5
+235063253,United Kingdom,fixed_gear,11.5,16.02,3
+235063301,United Kingdom,fixed_gear,12.0934536936,6.73,3
+235063378,United Kingdom,fixed_gear,12.7402037062,4.06,12
+235063795,United Kingdom,trawlers,20.4,112,8
+235064801,United Kingdom,trawlers,17.48,70,6
+235065047,United Kingdom,fixed_gear,10.85,16.02,3
+235066405,United Kingdom,trawlers,33.53,186,8
+235066887,United Kingdom,trawlers,16.4820192432,12.65,4
+235066893,United Kingdom,fixed_gear,12.5016329728,5.46,6
+235067469,United Kingdom,trawlers,69.3,2225.5,18
+235068079,United Kingdom,fixed_gear,9.39301176362,3,2
+235068209,United Kingdom,trawlers,16.69,109.5,6
+235068228,United Kingdom,trawlers,9.82,9.98,3
+235068242,United Kingdom,trawlers,22.0456028777,223.534786125,6
+235068355,United Kingdom,fixed_gear,14.4681473043,4.85,4
+235068406,United Kingdom,trawlers,30.3,232,6
+235068431,United Kingdom,fixed_gear,26.3,151.105,16
+235068506,United Kingdom,trawlers,28.8,325,7
+235068889,United Kingdom,fixed_gear,7.62,4.24,2
+235069008,United Kingdom,trawlers,17.5,130,6
+235069036,United Kingdom,trawlers,25.15,152,6
+235069427,United Kingdom,fixed_gear,13.8995819203,10.65,3
+235069725,United Kingdom,fixed_gear,11.789038933,4,2
+235070113,United Kingdom,fixed_gear,10.4053438278,5,2
+235070381,United Kingdom,other_fishing,14.828446411,8.76,4
+235070436,United Kingdom,fixed_gear,18.46,130,8
+235070806,United Kingdom,trawlers,13.8793680415,7.1,4
+235071186,United Kingdom,fixed_gear,10.8582501427,3.5,6
+235071337,United Kingdom,fixed_gear,13.5602278522,6.86,2
+235071472,United Kingdom,trawlers,21.1419623137,16.7,3
+235071578,United Kingdom,fixed_gear,11.4235374882,16.67,4
+235071582,United Kingdom,fixed_gear,12.23,26.43,4
+235071779,United Kingdom,fixed_gear,9.6,17.84,4
+235072137,United Kingdom,trawlers,71.66,2707,12
+235072171,United Kingdom,trawlers,9.73,18.5825353808,4
+235072209,United Kingdom,trawlers,16.7079128088,15.17,3
+235072882,United Kingdom,fixed_gear,11.95,77.0833810899,4
+235072918,United Kingdom,trawlers,14.290102148,6.96,2
+235073457,United Kingdom,trawlers,22.1374773362,174,7
+235073521,United Kingdom,trawlers,18.1811897676,26.82,4
+235074212,United Kingdom,fixed_gear,7.71258043913,2.44,2
+235074495,United Kingdom,fixed_gear,9.72075957555,15,4
+235074776,United Kingdom,trawlers,32.9,300,6
+235074807,United Kingdom,fixed_gear,14.19,32.0182007467,3
+235074808,United Kingdom,fixed_gear,13.2677147494,5.5,3
+235074868,United Kingdom,trawlers,10,12.57,2
+235074945,United Kingdom,trawlers,14.95,96.0197301258,10
+235075285,United Kingdom,fixed_gear,10.7390288596,1.5,3
+235075291,United Kingdom,trawlers,13.98,21.31,4
+235075355,United Kingdom,trawlers,21.67,195,6
+235075499,United Kingdom,trawlers,11.0899025503,10.25,4
+235075844,United Kingdom,trawlers,13.58,45.645,4
+235075914,United Kingdom,trawlers,15.0658639368,13.5,3
+235076069,United Kingdom,trawlers,12.14,21.36,4
+235076116,United Kingdom,fixed_gear,13.4731026649,5,5
+235076225,United Kingdom,fixed_gear,10.6870760127,4.5,2
+235076242,United Kingdom,trawlers,23,225.12,8
+235076295,United Kingdom,trawlers,11.95,29.35,4
+235076457,United Kingdom,trawlers,32.99,291,12
+235076687,United Kingdom,trawlers,13.9,27.23,3
+235076728,United Kingdom,trawlers,15.1633104081,28,4
+235076743,United Kingdom,trawlers,18.95,174,7
+235076933,United Kingdom,fixed_gear,11.21,12.85,3
+235077e3,United Kingdom,purse_seines,63.97,1340,12
+235077076,United Kingdom,fixed_gear,18.4343437703,26.6,6
+235077124,United Kingdom,fixed_gear,8.42725535954,3.31,2
+235077202,United Kingdom,trawlers,14.4816680667,24,3
+235077256,United Kingdom,other_fishing,11.7408466023,6.98,3
+235077317,United Kingdom,trawlers,19.07,166,7
+235077716,United Kingdom,trawlers,12.8414599637,24,2
+235078297,United Kingdom,trawlers,15.275238763,16.82,3
+235078344,United Kingdom,trawlers,9.63,9.83,2
+235078372,United Kingdom,fixed_gear,10.8403203351,7.67,4
+235078469,United Kingdom,fixed_gear,13.7677332558,6.82,4
+235078471,United Kingdom,fixed_gear,7.95,3.22,4
+235078472,United Kingdom,fixed_gear,11.6000330914,8.05,4
+235078541,United Kingdom,fixed_gear,7.95,4,4
+235078558,United Kingdom,trawlers,73.4,2342,30
+235079016,United Kingdom,fixed_gear,11.3960866888,1.08,3
+235079089,United Kingdom,other_fishing,7.74,4,2
+235079193,United Kingdom,trawlers,16.2931745315,15.81,3
+235079307,United Kingdom,trawlers,10.7612710952,10.15,4
+235079424,United Kingdom,trawlers,16.3957889726,30,12
+235079986,United Kingdom,purse_seines,13.1089901852,4.54,14
+235080047,United Kingdom,trawlers,17.0362405522,10,3
+235080238,United Kingdom,fixed_gear,12.8210746219,9.55,2
+235080461,United Kingdom,trawlers,67.7386351994,3100,15
+235080549,United Kingdom,fixed_gear,12.8073101014,6.5,5
+235080576,United Kingdom,trawlers,13.2787279174,10,4
+235080623,United Kingdom,trawlers,14.7035039364,10,12
+235080649,United Kingdom,trawlers,18.75,115.35,5
+235080782,United Kingdom,fixed_gear,8.5,3,4
+235080874,United Kingdom,trawlers,15.8333111777,24.65,5
+235081001,United Kingdom,trawlers,14.98,28.16,4
+235081025,United Kingdom,trawlers,10,12,4
+235081647,United Kingdom,trawlers,13.33,27.78,5
+235081732,United Kingdom,trawlers,23.3,209,7
+235081826,United Kingdom,trawlers,16.5859546279,15.23,3
+235081915,United Kingdom,fixed_gear,9.23,30,3
+235082365,United Kingdom,trawlers,21.22,186,6
+235082533,United Kingdom,other_fishing,13.4454081811,5,2
+235082771,United Kingdom,trawlers,23,164,6
+235082849,United Kingdom,trawlers,16.75,71,4
+235082902,United Kingdom,fixed_gear,9.58538736272,6.71,12
+235082911,United Kingdom,fixed_gear,9.45960440287,6.99,2
+235082945,United Kingdom,trawlers,14.9545059032,41,6
+235083174,United Kingdom,fixed_gear,8.83504767953,8,2
+235083263,United Kingdom,trawlers,13.7,67.4009392819,4
+235083289,United Kingdom,fixed_gear,7.92978541297,3,10
+235083322,United Kingdom,trawlers,13.47,25.43,3
+235083369,United Kingdom,trawlers,12.4165742676,8.92,2
+235083426,United Kingdom,trawlers,27.9322897958,270,6
+235083652,United Kingdom,fixed_gear,7.02508885531,5.5,3
+235083829,United Kingdom,fixed_gear,9.46767808434,5.08,4
+235084136,United Kingdom,trawlers,18.2524588733,11.8,3
+235084141,United Kingdom,trawlers,15.372434822,10.05,4
+235084199,United Kingdom,purse_seines,13.92,31.95,4
+235084327,United Kingdom,fixed_gear,8.99359998342,2.3,2
+235084569,United Kingdom,fixed_gear,13.2046224091,2.95,3
+235084726,United Kingdom,trawlers,13.2,29.37,2
+235085146,United Kingdom,fixed_gear,9.97293426674,7,2
+235085294,United Kingdom,trawlers,16.68,42,4
+235085356,United Kingdom,fixed_gear,12.4744274335,8.87,6
+235085437,United Kingdom,fixed_gear,15.9952294076,9,4
+235085776,United Kingdom,fixed_gear,12.38,14,4
+235086094,United Kingdom,fixed_gear,15.59,42,4
+235086141,United Kingdom,trawlers,23.97,151,5
+235086338,United Kingdom,fixed_gear,8.19058236856,3.63,2
+235086424,United Kingdom,fixed_gear,9.50869262357,3.16,2
+235086928,United Kingdom,trawlers,12.8580937232,10,2
+235086952,United Kingdom,fixed_gear,9.3697188673,2.58,2
+235087354,United Kingdom,trawlers,23.1697295424,95,6
+235087378,United Kingdom,trawlers,16.0514371638,8.92,2
+235087406,United Kingdom,trawlers,25.3834801095,157,5
+235087563,United Kingdom,trawlers,14,25.97,3
+235087603,United Kingdom,fixed_gear,12.9899680092,7.69,3
+235087635,United Kingdom,trawlers,13.43,22.71,4
+235087639,United Kingdom,trawlers,20.9152283178,74,3
+235087903,United Kingdom,trawlers,13.1746287333,7.57,2
+235088008,United Kingdom,trawlers,11.48,13.96,2
+235088342,United Kingdom,fixed_gear,12.48,9.51,4
+235088442,United Kingdom,fixed_gear,10.8748465275,3.4,5
+235088774,United Kingdom,fixed_gear,9.65300067038,3.28,2
+235088807,United Kingdom,trawlers,29.86,264,7
+235088896,United Kingdom,fixed_gear,10.5933969823,6,12
+235088957,United Kingdom,trawlers,16.3004403448,16,3
+235089141,United Kingdom,fixed_gear,8.91813080948,2.91,2
+235089399,United Kingdom,trawlers,11.0197344329,13,4
+235089496,United Kingdom,trawlers,11.39,11.35,3
+235089665,United Kingdom,trawlers,40.11,419,7
+235089773,United Kingdom,trawlers,17.9948861237,7.52,3
+235089788,United Kingdom,fixed_gear,10.8544487856,6.91,3
+235089801,United Kingdom,trawlers,19.6048518743,25.96,4
+235089866,United Kingdom,trawlers,12.3388443363,9.06,4
+235089911,United Kingdom,fixed_gear,7.83243078028,5.65,2
+235089971,United Kingdom,fixed_gear,13.2021743003,10,4
+235090038,United Kingdom,trawlers,15.2856176758,8.6,2
+235090081,United Kingdom,fixed_gear,11.0889420656,8.4,4
+235090134,United Kingdom,trawlers,11.95,47.0971731309,4
+235090169,United Kingdom,trawlers,17.6436513183,19.27,12
+235090357,United Kingdom,trawlers,12.4046250215,6.34,2
+235090415,United Kingdom,fixed_gear,12.73,19.58,4
+235090444,United Kingdom,fixed_gear,16.5285821893,8.5,2
+235090516,United Kingdom,trawlers,15.2899728454,17.8,3
+235090771,United Kingdom,fixed_gear,17.76,47,5
+235090834,United Kingdom,trawlers,13.95,40.685,4
+235090864,United Kingdom,fixed_gear,13.2651079087,10,2
+235090869,United Kingdom,trawlers,13.7970554438,20.35,3
+235091917,United Kingdom,trawlers,13.6481394776,11,2
+235092091,United Kingdom,fixed_gear,10.6280096802,18.44,3
+235092219,United Kingdom,fixed_gear,8.36786149453,7.06,2
+235092244,United Kingdom,fixed_gear,12.0627864697,8.31,3
+235093015,United Kingdom,trawlers,20.37,106,6
+235093226,United Kingdom,fixed_gear,10.8063170076,7.77,3
+235094386,United Kingdom,trawlers,11.2380580666,4.1,4
+235094789,United Kingdom,trawlers,11.95,26.72,2
+235094798,United Kingdom,fixed_gear,11.5976151216,7.8,3
+235094999,United Kingdom,fixed_gear,10.7671118562,11.03,3
+235095109,United Kingdom,fixed_gear,16.42,106,6
+235095223,United Kingdom,fixed_gear,11.82790615,30,3
+235095477,United Kingdom,fixed_gear,11.4523112582,13,5
+235095542,United Kingdom,trawlers,12.19,25.5,6
+235095634,United Kingdom,trawlers,40.27,343,8
+235095849,United Kingdom,trawlers,11.95,25.93,4
+235095927,United Kingdom,trawlers,15.3033616248,13,2
+235095933,United Kingdom,fixed_gear,13.6573754459,6.28,4
+235095948,United Kingdom,fixed_gear,9.80195370958,6.15,2
+235096056,United Kingdom,fixed_gear,8.90266843827,7,3
+235096368,United Kingdom,trawlers,39.1,499,12
+235096403,United Kingdom,trawlers,11.93,49.9746088673,4
+235096425,United Kingdom,fixed_gear,9.13573853792,3.76,3
+235096462,United Kingdom,fixed_gear,12.0384221864,6.21,3
+235096643,United Kingdom,trawlers,17.9810974375,48,4
+235096845,United Kingdom,trawlers,23.96,150,6
+235096863,United Kingdom,trawlers,11.6,21.79,3
+235097013,United Kingdom,fixed_gear,20.6,136.445,8
+235097047,United Kingdom,trawlers,31.1,244,8
+235097102,United Kingdom,trawlers,13.8921984278,17.66,2
+235097169,United Kingdom,fixed_gear,8.13009249842,7.81,2
+235097217,United Kingdom,trawlers,9.91,10.37,2
+235097404,United Kingdom,trawlers,15.0700665895,9.17,4
+235097524,United Kingdom,trawlers,20.4526466871,65,6
+235097527,United Kingdom,fixed_gear,19.0480332504,12.62,2
+235097599,United Kingdom,trawlers,15.2036590772,39.82,4
+235098032,United Kingdom,trawlers,14.6325746734,17,3
+235098045,United Kingdom,fixed_gear,11.8168999519,8.4,4
+235098054,United Kingdom,other_fishing,14.3633402374,5,3
+235098256,United Kingdom,trawlers,40.72,441,6
+235098426,United Kingdom,fixed_gear,12.0660056673,5.4,2
+235098936,United Kingdom,trawlers,15.04623803,12,2
+235098956,United Kingdom,trawlers,23,227,6
+235099194,United Kingdom,fixed_gear,11.1159112794,3.95,3
+235099244,United Kingdom,fixed_gear,20.4,109,6
+235099592,United Kingdom,fixed_gear,7.32,2.1,2
+235100159,United Kingdom,fixed_gear,11.9,20.005,3
+235100414,United Kingdom,trawlers,25.94,261,9
+235100553,United Kingdom,fixed_gear,11.6771692883,10.5,3
+235100625,United Kingdom,fixed_gear,14,29.71,8
+235100821,United Kingdom,trawlers,14.8154308822,6.11,6
+235101e3,United Kingdom,fixed_gear,15.15,66,6
+235101102,United Kingdom,trawlers,26.92,187,4
+235101187,United Kingdom,trawlers,10.9,12.47,2
+235101597,United Kingdom,fixed_gear,7.87944893205,8,2
+235101674,United Kingdom,trawlers,14.0696186092,7.86,3
+235101686,United Kingdom,fixed_gear,12.5974265012,8.24,3
+235102047,United Kingdom,fixed_gear,9.09977415906,1.7,2
+235102058,United Kingdom,fixed_gear,10.4907059239,20,3
+235102162,United Kingdom,fixed_gear,11.7878533405,4.3,3
+235102179,United Kingdom,fixed_gear,13.5799080958,7.43,2
+235102453,United Kingdom,trawlers,9.9,14.585,4
+235102454,United Kingdom,fixed_gear,14.8601816632,5.57,3
+235102463,United Kingdom,fixed_gear,11.1105064162,6.8,3
+235102493,United Kingdom,fixed_gear,10.7762311092,8.78,3
+235102499,United Kingdom,trawlers,14.4946601203,9.99,2
+235102558,United Kingdom,fixed_gear,11.1557977222,9.3,5
+235102585,United Kingdom,trawlers,15.495980573,10,3
+235102587,United Kingdom,trawlers,20.0564245544,40.06,4
+235102637,United Kingdom,trawlers,14.5,40.8002506147,3
+235102697,United Kingdom,trawlers,38.1,850,12
+235102739,United Kingdom,trawlers,14.7270040713,6,4
+235102745,United Kingdom,fixed_gear,14.0416168268,12.4,3
+235102993,United Kingdom,fixed_gear,9.13739406656,7,12
+235103e3,United Kingdom,trawlers,18.62,69.79,6
+235103048,United Kingdom,trawlers,13.99,29.61,3
+235103069,United Kingdom,trawlers,12.95,24.235,3
+235103134,United Kingdom,trawlers,22.932067602,227,7
+235103197,United Kingdom,trawlers,86.06,4295,34
+235103323,United Kingdom,fixed_gear,17.1762618946,21.9,5
+235103427,United Kingdom,trawlers,15.9554883494,17,6
+235103441,United Kingdom,trawlers,12.9738544351,11.44,3
+235103559,United Kingdom,trawlers,16.3181901218,18,3
+235103685,United Kingdom,other_fishing,16.8332625798,7,14
+235103741,United Kingdom,trawlers,10.6850565376,7.32,2
+235103742,United Kingdom,fixed_gear,13.3946010356,4.12,4
+235103745,United Kingdom,fixed_gear,13.39,42.4643227876,4
+235103823,United Kingdom,other_fishing,10.2457196037,12,12
+235103824,United Kingdom,trawlers,26.01,261,9
+235103933,United Kingdom,fixed_gear,10.2457302964,1.03,2
+235103997,United Kingdom,trawlers,15.158367006,15.15,3
+235104035,United Kingdom,fixed_gear,12.7203100342,10,5
+235104322,United Kingdom,fixed_gear,11.1486631502,4.2,2
+235105005,United Kingdom,fixed_gear,9.78,9,2
+235105355,United Kingdom,fixed_gear,12.0391053785,14,4
+235105524,United Kingdom,trawlers,10.84,9.97,3
+235105723,United Kingdom,trawlers,9.98,9.94,2
+235105729,United Kingdom,fixed_gear,10.3131677983,1.09,2
+235105753,United Kingdom,fixed_gear,17.07,46,6
+235105933,United Kingdom,trawlers,17.028997385,13.8,3
+235106041,United Kingdom,trawlers,14.3806924709,10.09,3
+235106049,United Kingdom,trawlers,51.9,742,14
+235106178,United Kingdom,trawlers,11.5922305496,11.96,2
+235106445,United Kingdom,trawlers,17.0706047575,10.4,2
+235106463,United Kingdom,fixed_gear,10.6866972687,3.6,4
+235107349,United Kingdom,trawlers,15.710574209,25,3
+235107428,United Kingdom,fixed_gear,11.00570429,5.08,2
+235107475,United Kingdom,trawlers,9.26607665012,4,2
+235107482,United Kingdom,fixed_gear,9.37545061186,4.25,2
+235107535,United Kingdom,trawlers,14.4045131636,2.45,4
+235107608,United Kingdom,trawlers,11.1242199463,10.84,3
+235107979,United Kingdom,trawlers,17.1835471013,21.6,4
+235108033,United Kingdom,trawlers,13.87,41.1828173814,4
+235108066,United Kingdom,trawlers,14.98,69.0405379166,3
+235108121,United Kingdom,fixed_gear,12.8986106859,4.5,3
+235108136,United Kingdom,fixed_gear,12.3964052493,5,3
+235108169,United Kingdom,fixed_gear,11.3051012411,7.5,6
+235108172,United Kingdom,trawlers,28,306,7
+235108201,United Kingdom,fixed_gear,12.6316011685,12.29,5
+235108224,United Kingdom,trawlers,16.1800086989,18.7,3
+235108563,United Kingdom,trawlers,11.8089344576,12,2
+235108678,United Kingdom,fixed_gear,8.75440507082,1.5,3
+235108863,United Kingdom,fixed_gear,8.5912197509,610,2
+235108948,United Kingdom,fixed_gear,9.74395140216,2.19,2
+235108956,United Kingdom,fixed_gear,8.58466847121,1.58,2
+235108964,United Kingdom,trawlers,14.448240849,11,4
+235109091,United Kingdom,fixed_gear,10.9276585498,6.5,3
+235109109,United Kingdom,trawlers,15.3797968105,11,2
+235109229,United Kingdom,fixed_gear,11.1734380708,5.84,3
+235109273,United Kingdom,fixed_gear,14.5805130722,2.87,3
+235109432,United Kingdom,fixed_gear,12.2935175379,10,4
+235109887,United Kingdom,trawlers,14.95,71.035,4
+235109926,United Kingdom,fixed_gear,9.45547551349,5,3
+235110013,United Kingdom,trawlers,26.01,262,12
+235110216,United Kingdom,trawlers,11.3214228849,11,2
+235110338,United Kingdom,fixed_gear,8.69250042055,4.04,2
+235110355,United Kingdom,fixed_gear,13.7086589822,6.06,3
+235110918,United Kingdom,fixed_gear,14.7999519596,20.98,6
+235110949,United Kingdom,trawlers,17.4614213672,10,4
+235111092,United Kingdom,fixed_gear,8.84149893007,8,2
+235111597,United Kingdom,fixed_gear,8.45332166556,3.48,2
+235111702,United Kingdom,trawlers,11.2539470747,11,8
+235111765,United Kingdom,trawlers,20.6,120,8
+235112211,United Kingdom,fixed_gear,11.4320704038,3.2,3
+235112232,United Kingdom,fixed_gear,8.89957737961,4.54,4
+235112236,United Kingdom,fixed_gear,8.04645958594,2.5,4
+235112317,United Kingdom,trawlers,51,834,15
+235112332,United Kingdom,fixed_gear,11.4266319937,2.9,2
+235112502,United Kingdom,trawlers,13.8430607952,9.9,3
+235112513,United Kingdom,fixed_gear,13.8902716627,20,4
+235112648,United Kingdom,fixed_gear,10.1410583169,1.2,2
+235112905,United Kingdom,trawlers,14.3107831276,5.5,2
+235112934,United Kingdom,fixed_gear,10.5589109107,5,2
+235113099,United Kingdom,trawlers,18.7,160,8
+235113204,United Kingdom,fixed_gear,14.8353412093,18,3
+235113371,United Kingdom,trawlers,14.1196575683,42,4
+235113439,United Kingdom,trawlers,13.07,29,3
+235113535,United Kingdom,fixed_gear,9.98309841628,4.5,3
+235113634,United Kingdom,fixed_gear,13.1234842448,15,6
+235113724,United Kingdom,fixed_gear,14.99,156.52800622,6
+235113807,United Kingdom,trawlers,11.98,70.1330770314,4
+235114247,United Kingdom,fixed_gear,11.0478556239,18,4
+235114563,United Kingdom,fixed_gear,11.3164259468,10,3
+235114634,United Kingdom,trawlers,10.4305281648,3.12,3
+235114648,United Kingdom,trawlers,30.55,213,6
+235114687,United Kingdom,fixed_gear,10.7062777158,9.5,2
+235114728,United Kingdom,trawlers,18.24,113.295,7
+235118e3,United Kingdom,trawlers,70.6,1540,13
+235166e3,United Kingdom,trawlers,21.3,202,6
+235215e3,United Kingdom,fixed_gear,30,210,15
+235398e3,United Kingdom,trawlers,44.9,814,12
+235627e3,United Kingdom,trawlers,35.5,295,11
+235672e3,United Kingdom,trawlers,70.7,2424,16
+235673e3,United Kingdom,trawlers,66.1,2055,16
+23574e4,United Kingdom,trawlers,70,2200,16
+235746e3,United Kingdom,trawlers,69.7,2282,16
+235799e3,United Kingdom,trawlers,27.85,331,6
+235838e3,United Kingdom,trawlers,76.43,2809,16
+248000728,Malta,fixed_gear,20.4,128,8
+24804e4,Malta,trawlers,35,300,14
+256000656,Malta,drifting_longlines,23.9,75,7
+257155e3,Norway,drifting_longlines,54.58,1155,25
+258139e3,Norway,trawlers,133.88,9432,50
+258261e3,Norway,trawlers,99.5,5500,50
+259539e3,Norway,trawlers,92,4861,59
+261518e3,Poland,trawlers,120.42,7765,88
+261522e3,Poland,trawlers,105,7681,86
+263415290,Portugal,drifting_longlines,35,481,15
+263564e3,Portugal,drifting_longlines,45.5,453,18
+263576e3,Portugal,drifting_longlines,40.95,593,17
+263582e3,Portugal,drifting_longlines,44.9,602,21
+263821e3,Portugal,drifting_longlines,34,350,10
+272208e3,Ukraine,trawlers,103.1,6394,110
+272364e3,Ukraine,drifting_longlines,55.46,871,40
+272645e3,Ukraine,drifting_longlines,52.59,921,36
+272692e3,Ukraine,drifting_longlines,50.3,805,36
+272762e3,Ukraine,drifting_longlines,54.82,805,30
+273210600,Russia,trawlers,59,1409,40
+273211700,Russia,trawlers,62.22,2062,49
+273211800,Russia,trawlers,54.82,739,30
+273211900,Russia,drifting_longlines,53.7,919.5,30
+273212e3,Russia,trawlers,54.82,742.5,31
+273212100,Russia,trawlers,62.25,1898,40
+273212110,Russia,trawlers,64.7,1438,27
+273212500,Russia,trawlers,54.82,811,31
+273213100,Russia,trawlers,68.362499141,1898,40
+273213300,Russia,trawlers,62.25,1895,39
+273214110,Russia,trawlers,59.5,2095,38
+273217010,Russia,trawlers,62.2,1916.5,40
+273217100,Russia,trawlers,62.25,1898,40
+273217700,Russia,trawlers,54.82,735,24
+273218900,Russia,trawlers,54.82,746,31
+273219300,Russia,trawlers,54.82,814,30
+273219500,Russia,trawlers,94,3834,90
+273240030,Russia,trawlers,57.82,819,30
+273240400,Russia,trawlers,94,3816,90
+273240600,Russia,trawlers,104.5,4407,75
+273240700,Russia,trawlers,104.5,4407,75
+273240900,Russia,trawlers,62.255,1898,38
+273243200,Russia,trawlers,54.82,795,31
+273245600,Russia,trawlers,103.7,4378,99
+273246800,Russia,trawlers,62.25,1898,38
+273249600,Russia,trawlers,104.5,4407,75
+273250200,Russia,trawlers,104.5,4407,80
+273258100,Russia,trawlers,104.5,4407,80
+273259100,Russia,trawlers,104.5,4407,80
+273290200,Russia,trawlers,80.3552757281,734,32
+273290400,Russia,trawlers,54.82,745,32
+273291400,Russia,trawlers,54.82,743,31
+273291500,Russia,trawlers,49.3489316985,4407,80
+273292400,Russia,trawlers,54.82,746,30
+273293400,Russia,trawlers,54.82,741,31
+273293500,Russia,trawlers,61.7285458138,1734,50
+273294e3,Russia,trawlers,54.82,742,39
+273295700,Russia,trawlers,69.8,1734,50
+273296700,Russia,trawlers,69.8,1734,50
+273297100,Russia,trawlers,54.82,796,31
+273297700,Russia,trawlers,120.7,7765,90
+273297800,Russia,trawlers,61.387137677,1734,50
+273298800,Russia,trawlers,69.8,1734,50
+273299100,Russia,trawlers,54.82,743,30
+273310120,Russia,trawlers,37.3539671063,190,9
+273310630,Russia,drifting_longlines,53.5,651,30
+273312460,Russia,fixed_gear,56.37,661.5,30
+273313440,Russia,fixed_gear,38.97,214,20
+273313560,Russia,trawlers,34.6,383,14
+273314740,Russia,trawlers,56.6,652.5,29
+273315220,Russia,trawlers,25,119,9
+273315480,Russia,trawlers,47.15,748,32
+273315570,Russia,drifting_longlines,37.3,219.5,14
+273316960,Russia,trawlers,64.05,1929,45
+273317030,Russia,trawlers,63.8,2015,53
+273317970,Russia,trawlers,35.72,365.5,15
+273318040,Russia,trawlers,51.09,555.5,26
+273318330,Russia,trawlers,26.2398417537,15.6,8
+273318720,Russia,trawlers,58.415,1923.33333333,60
+273319630,Russia,drifting_longlines,49.99,1146,37
+273322840,Russia,trawlers,25.5,117,9
+273322990,Russia,trawlers,55.95,623.5,26
+273323130,Russia,trawlers,52.2,1231.5,26
+273324230,Russia,purse_seines,52.55,671,32
+273326830,Russia,trawlers,58.5,1998.5,37
+273327440,Russia,trawlers,57.65,815,32
+273328330,Russia,trawlers,25.5,117,9
+273329820,Russia,trawlers,56.07,669,25
+273331980,Russia,trawlers,67,2369.5,65
+273332330,Russia,drifting_longlines,55.95,703,27
+273332830,Russia,trawlers,53.205,814.333333333,32
+273332880,Russia,trawlers,63.85,2403,45
+273334490,Russia,fixed_gear,60.2,784,30
+273336280,Russia,fixed_gear,56.07,659,25
+273336810,Russia,trawlers,52.72,1042,45
+273337860,Russia,trawlers,54.2,1573,35
+273338420,Russia,drifting_longlines,43.3,431,23
+273338570,Russia,drifting_longlines,51.223333333333336,743,2
+273338720,Russia,trawlers,42.5689921682,743,32
+273339660,Russia,trawlers,105,7805,120
+273339930,Russia,trawlers,73,1574,55
+273340330,Russia,trawlers,67,2347,60
+273341320,Russia,drifting_longlines,49.6,788,35
+273341920,Russia,trawlers,56,1721.5,32
+273342630,Russia,trawlers,114.5,6394,132
+273344030,Russia,trawlers,22.8994393698,98,10
+273345230,Russia,drifting_longlines,48,743,30
+273345620,Russia,trawlers,50.965,685,32
+273345950,Russia,trawlers,120.47,7765,83
+273346480,Russia,trawlers,54.82,744,30
+273347910,Russia,trawlers,51.6,1035,32
+273348470,Russia,trawlers,43.3,378,15
+273348570,Russia,trawlers,63.85,2427,40
+273349130,Russia,trawlers,93.9,3142,36
+273349180,Russia,purse_seines,55.0499003077,987,20
+273349420,Russia,trawlers,58.2,795,40
+273349480,Russia,trawlers,51.04,543,27
+273350120,Russia,trawlers,53.32,635,30
+273350410,Russia,trawlers,82.6,2187,62
+273350610,Russia,trawlers,69.5,3082,40
+273350650,Russia,trawlers,104.5,4407,71
+273351500,Russia,trawlers,55.48,631,30
+273352230,Russia,trawlers,66.06,1483,35
+273352280,Russia,trawlers,47.6,1136,23
+273352910,Russia,trawlers,94,3828,66
+273352930,Russia,drifting_longlines,49.42,607,24
+273353060,Russia,trawlers,67.85,1185,60
+273353090,Russia,trawlers,94,3834.5,36
+273353630,Russia,drifting_longlines,52.785951191,580,27
+273354130,Russia,drifting_longlines,49.9,1137.27,28
+273354220,Russia,trawlers,59.05,819,31
+273354460,Russia,fixed_gear,67.17,1060.33333333,20
+273354540,Russia,trawlers,62.9,1807,35
+273354560,Russia,fixed_gear,53.51,557.5,22
+273354640,Russia,squid_jigger,52.5682714248,498,20
+273354660,Russia,fixed_gear,60.75,1098,20
+273354820,Russia,trawlers,56.9,1676,36
+273355070,Russia,trawlers,56,753,33
+273355290,Russia,trawlers,65.5,2068.5,36
+273355660,Russia,fixed_gear,59,906,20
+273355780,Russia,trawlers,65.5,2943,40
+273356020,Russia,trawlers,42,708,15
+273356070,Russia,trawlers,65.7,877,30
+273356640,Russia,drifting_longlines,46.8519243971,498,20
+273357560,Russia,trawlers,55.82,685,30
+273358010,Russia,trawlers,114.5,6394,132
+273358330,Russia,trawlers,37.68,531,18
+273358420,Russia,fixed_gear,54.8,678,30
+273358560,Russia,trawlers,57.02,677.5,30
+273358840,Russia,trawlers,59.2,826,30
+273359300,Russia,trawlers,94,3861,88
+273359310,Russia,trawlers,67.4004813067,2187,72
+273359630,Russia,trawlers,56.9,1630,50
+273359650,Russia,trawlers,44.88,560,14
+273359770,Russia,trawlers,26.97,292,8
+273370020,Russia,trawlers,69.2,2843.5,40
+273370230,Russia,drifting_longlines,56.17,767,30
+273370280,Russia,fixed_gear,57.41,698,30
+273370490,Russia,trawlers,66.56,1181,32
+273370750,Russia,fixed_gear,56.07,657.5,25
+273371750,Russia,fixed_gear,55.2,687.5,25
+273372520,Russia,fixed_gear,56.17,616.5,30
+273372740,Russia,trawlers,24.8968203272,723,17
+273372840,Russia,fixed_gear,56,656,27
+273373190,Russia,trawlers,57.75,694,30
+273373430,Russia,fixed_gear,67.94,1176.5,32
+273373740,Russia,trawlers,28.0095459901,738,17
+273373840,Russia,trawlers,22.9190147932,742,17
+273374020,Russia,fixed_gear,55.8,693.5,20
+273374230,Russia,trawlers,26.2459389815,748,32
+273374740,Russia,trawlers,29.0656915637,734,36
+273376120,Russia,trawlers,68.18,1109.5,32
+273376220,Russia,trawlers,34,423.5,17
+273376350,Russia,trawlers,55.6,590,30
+273376640,Russia,trawlers,26.3172174649,721,17
+273376740,Russia,trawlers,26.9762749483,748,32
+273377720,Russia,trawlers,26.3254193422,748,32
+273380120,Russia,trawlers,47.7006230198,488,25
+273380310,Russia,trawlers,59.9,2552,31
+273380430,Russia,trawlers,60,2225,25
+273381120,Russia,trawlers,48.9,488,25
+273381930,Russia,trawlers,56,608,25
+273382120,Russia,trawlers,48.9,488,25
+273382320,Russia,fixed_gear,54.6,589.5,32
+273383020,Russia,trawlers,40.8196791335,488,25
+273384020,Russia,trawlers,58.4282238355,488,25
+273384310,Russia,trawlers,71.61,1592.5,35
+273387020,Russia,trawlers,45.3403298329,488,25
+273387130,Russia,trawlers,58.23,799,39
+273388020,Russia,trawlers,70.5756307199,488,25
+273388130,Russia,trawlers,61.76,1045.5,47
+273389020,Russia,trawlers,58.0812970325,488,25
+273390020,Russia,trawlers,76.9294051087,488,25
+273410310,Russia,fixed_gear,63.68,1125,44
+273410900,Russia,trawlers,48.01,464.5,20
+273411800,Russia,trawlers,64.05,2058,55
+273412090,Russia,trawlers,54.82,814,30
+273413800,Russia,trawlers,103.7,4329,80
+273413910,Russia,trawlers,53.74,833.5,29
+273414800,Russia,fixed_gear,57.91,916,30
+273415200,Russia,fixed_gear,53.7,782,33
+273417010,Russia,fixed_gear,54.86,780,28
+273417900,Russia,trawlers,52.1129539533,904,30
+273420560,Russia,fixed_gear,54.9,871,28
+273420630,Russia,trawlers,25.4037498444,15.6,8
+273420660,Russia,trawlers,73.8658473173,4407,80
+273420800,Russia,fixed_gear,54.9,765,28
+273421500,Russia,trawlers,53.7,864,23
+273421520,Russia,trawlers,62,1575,36
+273421600,Russia,trawlers,54.82,740,30
+273421700,Russia,trawlers,54.82,806,27
+273421800,Russia,trawlers,54.9,1084,30
+273422540,Russia,trawlers,39,342,23
+273423060,Russia,trawlers,104.5,4407,98
+273423560,Russia,trawlers,53.5,736,24
+273423800,Russia,trawlers,64.05,1944,55
+273424080,Russia,trawlers,38.5,601,20
+273424250,Russia,trawlers,42.24,606,20
+273424560,Russia,trawlers,61.74,1155,24
+273424870,Russia,trawlers,59.58,867,40
+273425470,Russia,trawlers,65.4328782401,4629,98
+273426670,Russia,trawlers,104,4407,98
+273426900,Russia,trawlers,104.5,4407,110
+273427e3,Russia,trawlers,54.82,795,30
+273428220,Russia,trawlers,54.82,732,29
+273428300,Russia,trawlers,54.82,748,31
+273429220,Russia,trawlers,54.8,872,31
+273429300,Russia,trawlers,54.82,744,30
+273429800,Russia,trawlers,101.48,3942.5,78
+273430630,Russia,trawlers,53.74,837,29
+273430750,Russia,trawlers,54.8,1198,30
+273430790,Russia,trawlers,52.11,557,30
+273431480,Russia,trawlers,35.72,356,17
+273431530,Russia,trawlers,35.72,354.5,22
+273431690,Russia,drifting_longlines,50.266666666666666,642,30
+273432500,Russia,trawlers,53.74,804,26
+273433220,Russia,trawlers,62.6,1067,28
+273433400,Russia,trawlers,53.74,949,30
+273433540,Russia,trawlers,51,863,28
+273435020,Russia,trawlers,61.44,1438,47
+273435250,Russia,trawlers,104.5,4407,96
+273435300,Russia,trawlers,41.9,398,24
+273435560,Russia,trawlers,25.5,117,10
+273435580,Russia,trawlers,104.5,4407,80
+273435700,Russia,trawlers,53.74,928,27
+273435790,Russia,trawlers,27.8464841375,216,18
+273435850,Russia,trawlers,54.82,747,32
+273436060,Russia,trawlers,104.5,4407,75
+273436240,Russia,pole_and_line,30.1198640172,15.6,8
+273436430,Russia,trawlers,54.82,776,45
+273436440,Russia,trawlers,53.74,806,30
+273436830,Russia,drifting_longlines,39.05,466,18
+273437080,Russia,drifting_longlines,54.82,889,25
+273437550,Russia,trawlers,62.25,1896,40
+273437790,Russia,trawlers,55.5,639,32
+273437810,Russia,trawlers,104.5,4407,93
+273438070,Russia,trawlers,54.3,786,21
+273438080,Russia,trawlers,53.74,867,31
+273438500,Russia,fixed_gear,42.67,652,26
+273439560,Russia,trawlers,27.8471941258,291,20
+273440420,Russia,trawlers,96.9934357827,3918,100
+273440600,Russia,trawlers,88.9917321759,4638,93
+273440690,Russia,trawlers,64.05,1899,50
+273440720,Russia,trawlers,95.07,3641,90
+273440730,Russia,drifting_longlines,45.6,563,16
+273440840,Russia,trawlers,112.9,4989.5,110
+273441490,Russia,trawlers,56.54,715,26
+273441610,Russia,trawlers,61.4,972.5,52
+273442400,Russia,trawlers,93.5,3206,105
+273443420,Russia,trawlers,84.5,2194,70
+273444610,Russia,trawlers,54.82,741,29
+273444660,Russia,trawlers,58.74,872.5,40
+273444750,Russia,fixed_gear,51.82,698,30
+273445180,Russia,drifting_longlines,57.7,776.5,28
+273445230,Russia,trawlers,59.42,882,35
+273445250,Russia,trawlers,59.5,825,34
+273445310,Russia,drifting_longlines,62.8,1136,45
+273445660,Russia,trawlers,58.67,835.5,40
+273446920,Russia,trawlers,53,1225,44
+273447010,Russia,trawlers,49.8,1113,25
+273447080,Russia,trawlers,93.65,3986,82
+273447440,Russia,trawlers,27.0291596708,15.6,8
+273447750,Russia,trawlers,73.75,1529,57
+273447860,Russia,fixed_gear,57.4,746,32
+273447930,Russia,trawlers,42.7409483565,2390,74
+273448380,Russia,trawlers,93.67,3981,75
+273448620,Russia,trawlers,25.855947911,15.6,8
+273448750,Russia,trawlers,84,2146,70
+273449320,Russia,trawlers,82.622372571,3728,95
+273449380,Russia,trawlers,93.65,3981,75
+273449620,Russia,fixed_gear,56.2,827,34
+273449630,Russia,drifting_longlines,34.95,315,16
+273450230,Russia,trawlers,61.3678500928,3890,90
+273450570,Russia,trawlers,48.25,958,20
+273450760,Russia,trawlers,58.76,870,40
+273450930,Russia,trawlers,50.75,753,28
+273451340,Russia,trawlers,35.72,356,16
+273451570,Russia,trawlers,50.75,822,18
+273454800,Russia,trawlers,54.82,742,31
+273456310,Russia,trawlers,54.8,662,26
+273457250,Russia,trawlers,25,338,26
+273457870,Russia,trawlers,51.5,1146,31
+273457950,Russia,trawlers,39,516,12
+273458740,Russia,trawlers,44.88,448,16
+273459300,Russia,trawlers,54.82,770.5,31
+273459510,Russia,trawlers,104.5,4407,80
+273510600,Russia,trawlers,54.82,831,31
+273511900,Russia,trawlers,94,3834,90
+273513600,Russia,trawlers,53.74,738,27
+273514800,Russia,drifting_longlines,53.74,909,29
+273516e3,Russia,trawlers,54.82,737,32
+273526800,Russia,trawlers,120.47,7765,100
+273527500,Russia,trawlers,62.25,1895,40
+273527800,Russia,trawlers,120.47,7765,95
+273528800,Russia,trawlers,120.47,7765,80
+273529800,Russia,trawlers,120.7,7765,95
+273532110,Russia,trawlers,120.47,7765,75
+273534110,Russia,trawlers,120.47,7765,75
+273536210,Russia,trawlers,104.5,4407,75
+273537800,Russia,trawlers,62.25,1895,40
+273538800,Russia,trawlers,62.25,1895,40
+273550400,Russia,trawlers,40.8,837,17
+273550500,Russia,trawlers,54.82,743,31
+273550600,Russia,trawlers,38.5,601,20
+273552400,Russia,trawlers,40.8,837,17
+273554490,Russia,fixed_gear,60.2,784,30
+273554600,Russia,trawlers,49.95,1040,29
+273555e3,Russia,trawlers,53.7,823,30
+273555500,Russia,trawlers,56,1021,34
+273556500,Russia,trawlers,50.55,751,30
+273558300,Russia,trawlers,44.8329780398,782,27
+273559400,Russia,trawlers,54.82,735,31
+273559500,Russia,trawlers,53.74,894,30
+273563800,Russia,trawlers,37.464004417,805,30
+273564500,Russia,trawlers,36.0600892892,738,30
+273564700,Russia,trawlers,50.93,808,30
+273567010,Russia,fixed_gear,50.93,783,29
+273619100,Russia,trawlers,85.06,2413.5,70
+273810080,Russia,trawlers,54.9,1076,30
+273810100,Russia,trawlers,105,7735,81
+273810400,Russia,fixed_gear,54.86,867,24
+273810610,Russia,trawlers,101.48,3983,90
+273811060,Russia,trawlers,104.5,4407,93
+273811080,Russia,trawlers,64.05,1914,40
+273811100,Russia,trawlers,54.82,777,30
+273811300,Russia,trawlers,57.5580510733,2062,53
+273812100,Russia,trawlers,54.82,753,31
+273812400,Russia,trawlers,50.6,965,30
+273812600,Russia,trawlers,53.74,739,23
+273812700,Russia,trawlers,53.7,738,24
+273813100,Russia,trawlers,54.82,726,31
+273813300,Russia,trawlers,62.2,2062,53
+273813600,Russia,trawlers,53.74,782,30
+273813610,Russia,purse_seines,33.97,162,14
+273814110,Russia,trawlers,44.85,479,25
+273814310,Russia,trawlers,105,7796.66666667,135
+273814510,Russia,trawlers,77.4026112718,3916,90
+273814610,Russia,trawlers,114.53,6392,130
+273814700,Russia,trawlers,53.74,738,25
+273815070,Russia,drifting_longlines,56.39,704,29
+273815110,Russia,trawlers,44.88,519.5,24
+273816200,Russia,trawlers,54.82,754,31
+273817400,Russia,trawlers,72.5,3072,107
+273817600,Russia,trawlers,51.8666666667,739,25
+273817700,Russia,trawlers,53.74,741,24
+273817900,Russia,trawlers,54.8,723,31
+273818700,Russia,trawlers,35.72,359,20
+273819e3,Russia,trawlers,54.82,748,30
+273819100,Russia,trawlers,54.82,786,31
+273819200,Russia,trawlers,62.2,2062,55
+273819400,Russia,trawlers,40.4038923165,836,31
+273819810,Russia,trawlers,53.74,739,23
+273820320,Russia,trawlers,53.52,663.5,30
+273820420,Russia,fixed_gear,44.88,498,30
+273821e3,Russia,trawlers,54.82,790.5,31
+273821310,Russia,trawlers,101.48,3918,91
+273822210,Russia,trawlers,104.5,4210.5,100
+273822400,Russia,trawlers,53.74,919,32
+273822810,Russia,trawlers,54.82,823.5,30
+273823020,Russia,trawlers,53.74,843,30
+273823800,Russia,trawlers,33.97,162,14
+273824300,Russia,trawlers,50.9,772,29
+273824500,Russia,trawlers,53.74,867,32
+273825110,Russia,trawlers,101.48,3920,100
+273825210,Russia,trawlers,104.5,4210.5,100
+273825520,Russia,trawlers,52.56,834,30
+273825600,Russia,trawlers,53.74,773,30
+273825610,Russia,trawlers,53.74,840,29
+273825710,Russia,trawlers,85,3869,90
+273825720,Russia,trawlers,44.88,453.5,18
+273826220,Russia,trawlers,53.74,883,30
+273826700,Russia,trawlers,50.92,738,25
+273827030,Russia,drifting_longlines,41.5,716,24
+273828100,Russia,trawlers,53.7,773,30
+273828110,Russia,trawlers,104.5,4210.5,100
+273828600,Russia,trawlers,53.74,857,30
+273828800,Russia,drifting_longlines,56.39,704,30
+273829100,Russia,trawlers,53.74,763,30
+273829810,Russia,trawlers,53.74,739,30
+273830200,Russia,trawlers,104.5,4407,90
+273840020,Russia,trawlers,104.5,4407,98
+273840710,Russia,trawlers,64.05,1931.5,70
+273840800,Russia,drifting_longlines,52.53,1315,28
+273840900,Russia,drifting_longlines,52.53,1315,28
+273840910,Russia,trawlers,104.5,4407,98
+273841020,Russia,trawlers,104.5,4407,98
+273841220,Russia,trawlers,50.93,739,25
+273841710,Russia,trawlers,64.05,1932.5,50
+273841800,Russia,drifting_longlines,52.57,1315,28
+273842020,Russia,trawlers,104.5,4407,98
+273842100,Russia,drifting_longlines,45.05,395,24
+273842400,Russia,trawlers,50.5220026655,1220,26
+273842510,Russia,trawlers,54.82,768,30
+273842800,Russia,drifting_longlines,52.53,1315,29
+273843020,Russia,trawlers,104.5,4407,98
+273843610,Russia,trawlers,53.74,791,30
+273843700,Russia,drifting_longlines,52.51,1315,28
+273843800,Russia,drifting_longlines,52.5,1315,28
+273843810,Russia,trawlers,64.05,1944,66
+273844010,Russia,trawlers,54.82,723,20
+273844020,Russia,trawlers,104.5,4407,98
+273844100,Russia,drifting_longlines,55.16,741,29
+273844200,Russia,trawlers,44.88,448,18
+273844610,Russia,trawlers,44.88,458,20
+273844800,Russia,drifting_longlines,52.5,1315,28
+273844910,Russia,trawlers,73.1945893792,4347,98
+273844920,Russia,trawlers,50.6,761,25
+273845300,Russia,trawlers,44.88,453.5,18
+273845320,Russia,fixed_gear,26.1065904768,15.6,8
+273845500,Russia,trawlers,53.74,847.5,30
+273845610,Russia,trawlers,53.74,853,31
+273845700,Russia,drifting_longlines,52.5,1315,28
+273845800,Russia,trawlers,64.05,1928,50
+273845900,Russia,trawlers,104.5,4407,94
+273845910,Russia,trawlers,103.7,4347,98
+273846010,Russia,trawlers,54.82,722.5,29
+273846020,Russia,trawlers,104.5,4407,97
+273846120,Russia,squid_jigger,65.1794545264,604,30
+273846400,Russia,drifting_longlines,54.82,784,31
+273846610,Russia,fixed_gear,50.93,853,30
+273846700,Russia,drifting_longlines,52.55,1315,34
+273847400,Russia,trawlers,54.82,797.5,31
+273847420,Russia,trawlers,24.4664888863,15.6,8
+273847700,Russia,drifting_longlines,52.55,1315,28
+273847910,Russia,trawlers,103.7,4347,97
+273848010,Russia,fixed_gear,54.1,825,30
+273848100,Russia,trawlers,120.7,7765,125
+273848210,Russia,trawlers,103.7,4347,98
+273848300,Russia,trawlers,44.88,446,16
+273848400,Russia,trawlers,50.15,530.5,25
+273848600,Russia,fixed_gear,54.24,680,33
+273848610,Russia,trawlers,53.7,852.5,30
+273848700,Russia,drifting_longlines,52.53,1315,28
+273848710,Russia,trawlers,64.05,1944,70
+273848910,Russia,trawlers,103.7,4347,98
+273849520,Russia,trawlers,46.2140638804,865,30
+273849700,Russia,drifting_longlines,52.53,1315,28
+273849820,Russia,trawlers,25.9871384907,15.6,8
+273853e3,Russia,trawlers,54.8,820.5,24
+273853400,Russia,trawlers,54.86,790,30
+273854e3,Russia,trawlers,120.47,7765,121
+273854500,Russia,trawlers,50.92,743.333333333,25
+273861e3,Russia,trawlers,53.74,867,30
+273862e3,Russia,trawlers,29.2411826136,830,32
+273863100,Russia,trawlers,44.88,609,25
+273869e3,Russia,trawlers,53.74,741,27
+273870300,Russia,trawlers,33.97,162,16
+273870500,Russia,trawlers,53.74,816,30
+273874e3,Russia,trawlers,103.7,4432,100
+273875100,Russia,trawlers,80.0261678246,6232,120
+273877e3,Russia,trawlers,103.7,4457,110
+273877329,Russia,fixed_gear,67.17,1060.33333333,20
+273877500,Russia,trawlers,52.55,563,32
+273878100,Russia,trawlers,104.5,4407,110
+273880100,Russia,trawlers,105,7805,130
+273890100,Russia,trawlers,63.97,2058,55
+273890200,Russia,trawlers,64.05,2067,55
+273890710,Russia,trawlers,104.5,4411,92
+273891300,Russia,drifting_longlines,53.7,877,28
+273892e3,Russia,trawlers,64.05,2058,63
+273892100,Russia,trawlers,53.7,876,30
+273892228,Russia,trawlers,53.7,876,30
+273892610,Russia,trawlers,53.74,852,29
+273893400,Russia,trawlers,47.03,641,21
+273894e3,Russia,trawlers,54.82,804,30
+273894010,Russia,trawlers,54.82,772.5,32
+273894100,Russia,trawlers,41.8,374,22
+273894200,Russia,trawlers,53.74,849.5,32
+273894710,Russia,trawlers,54.82,796,29
+273895e3,Russia,trawlers,64.05,2058,55
+273895100,Russia,trawlers,64.05,2058,55
+273895110,Russia,trawlers,52.55,691,33
+273895200,Russia,trawlers,104.5,4407,90
+273895300,Russia,trawlers,104.5,4406.5,105
+273895700,Russia,trawlers,53.74,778,29
+273896e3,Russia,trawlers,63.97,2058,58
+273896100,Russia,trawlers,64.05,2058,63
+273896200,Russia,trawlers,93.65,4038,85
+273896300,Russia,trawlers,104.5,4407,92
+273897200,Russia,trawlers,44.88,465,23
+273897710,Russia,trawlers,104.5,4407,100
+273898e3,Russia,trawlers,60.765,2070.66666667,70
+273898100,Russia,trawlers,54.82,749,31
+273898600,Russia,trawlers,54.82,749,31
+273898610,Russia,trawlers,53.74,810,32
+273898800,Russia,trawlers,104.5,4407,98
+273899e3,Russia,trawlers,64.05,2058,55
+273899300,Russia,trawlers,53.74,737,30
+273899500,Russia,trawlers,53.74,871,18
+273899600,Russia,trawlers,49.95,608,30
+275009e3,Latvia,fixed_gear,26.5,114,6
+275016e3,Latvia,trawlers,25.45,114.5,6
+275019e3,Latvia,trawlers,62.23,1943,34
+275026e3,Latvia,trawlers,25.6,110,6
+275053e3,Latvia,trawlers,25.45,114.5,6
+275058e3,Latvia,fixed_gear,26.5,114,6
+275062e3,Latvia,trawlers,25.45,112,6
+275064e3,Latvia,fixed_gear,27.1,76,6
+275072e3,Latvia,trawlers,25.45,112,8
+275086e3,Latvia,trawlers,25.45,112,9
+275094e3,Latvia,trawlers,25.45,114.5,6
+275098e3,Latvia,trawlers,25.6,110,6
+275099e3,Latvia,trawlers,25.45,113,6
+275107e3,Latvia,trawlers,38.5,554,6
+275127e3,Latvia,trawlers,25.45,114.5,7
+275129e3,Latvia,trawlers,29,122,9
+275131e3,Latvia,trawlers,98.1,4378,75
+275136e3,Latvia,trawlers,25.45,109,6
+275138e3,Latvia,trawlers,25.45,112,6
+275141e3,Latvia,trawlers,25.6,110,6
+275143e3,Latvia,trawlers,25.45,112,8
+275151e3,Latvia,trawlers,25.45,114.5,6
+275162e3,Latvia,trawlers,25.45,112,6
+275164e3,Latvia,fixed_gear,25.23,71,6
+275169e3,Latvia,fixed_gear,27.1,85,6
+275191e3,Latvia,fixed_gear,19.48,122,6
+2752e5,Latvia,trawlers,25.45,112,6
+27521e4,Latvia,trawlers,27.1,80,4
+275214e3,Latvia,trawlers,25.45,110,4
+275218e3,Latvia,trawlers,25.45,114.5,6
+27522e4,Latvia,trawlers,25.33,109,6
+275221e3,Latvia,trawlers,25.45,112,6
+275222e3,Latvia,trawlers,23.8,204,6
+275223e3,Latvia,trawlers,25.6,109,9
+275226e3,Latvia,trawlers,25.45,119,9
+275228e3,Latvia,trawlers,25.45,114.5,9
+27523e4,Latvia,trawlers,25.45,114.5,6
+275231e3,Latvia,trawlers,25.45,114.5,6
+275232e3,Latvia,trawlers,25.45,112,5
+275237e3,Latvia,trawlers,25.45,110,6
+275238e3,Latvia,trawlers,103.7,4376,85
+275247e3,Latvia,trawlers,17.56,27,6
+275248e3,Latvia,trawlers,17.56,27,3
+275258e3,Latvia,trawlers,17.56,27,6
+275268e3,Latvia,trawlers,17.56,28,3
+27527e4,Latvia,trawlers,17.8,41,3
+275271e3,Latvia,trawlers,17.56,27,3
+275272e3,Latvia,trawlers,17.56,27,3
+275273e3,Latvia,trawlers,17.56,28,3
+275274e3,Latvia,trawlers,17.56,28,3
+275312e3,Latvia,trawlers,30.71,296,6
+275407e3,Latvia,trawlers,25.45,112,6
+275412e3,Latvia,trawlers,33.99,395,6
+275416e3,Latvia,trawlers,25.45,112,6
+27542e4,Latvia,trawlers,33.5,246,6
+275424e3,Latvia,trawlers,25.45,112,6
+27544e4,Latvia,trawlers,25.5,117,5
+275448e3,Latvia,trawlers,56.39,704,35
+276174e3,Estonia,trawlers,25.5,117,7
+276299e3,Estonia,trawlers,25.5,117,7
+276329e3,Estonia,purse_seines,28.9828377711,202,7
+276371e3,Estonia,trawlers,27.54,166,7
+276377e3,Estonia,trawlers,25.5,117,7
+276381e3,Estonia,trawlers,32.2,197,7
+276388e3,Estonia,trawlers,58,1780,14
+276451e3,Estonia,trawlers,46.4999985526,1403,20
+276458e3,Estonia,trawlers,63.83,1410,15
+276544e3,Estonia,trawlers,73.8,1602,15
+27669e4,Estonia,trawlers,19.99,99,6
+276806e3,Estonia,trawlers,61,2350,25
+303114e3,United States,drifting_longlines,23.73529333335,174,6
+303137e3,United States,purse_seines,70.4322857143,1858.4,25
+303174e3,United States,drifting_longlines,28.250813333350003,187,6
+303301e3,United States,drifting_longlines,45.7,860,22
+303513e3,United States,drifting_longlines,20.57,93.5,6
+303835e3,United States,drifting_longlines,21.24228,118,4
+306034e3,Bonaire,purse_seines,101.001428571,3329.70542625,27
+306097e3,Bonaire,purse_seines,76.34,2159,25
+306276e3,Bonaire,drifting_longlines,37.66,355,8
+316001012,Canada,other_fishing,15.24,31,2
+316001022,Canada,other_fishing,16.46,28,2
+316001023,Canada,trawlers,21.5634868876,115,5
+316001325,Canada,purse_seines,26.493040733,369,9
+316001412,Canada,trawlers,22.4065020857,188,4
+316001451,Canada,trawlers,37.9807967174,310,20
+316001453,Canada,purse_seines,36.6877848319,368,20
+316001454,Canada,trawlers,38.0316353269,312,20
+316001464,Canada,other_fishing,15.3954802559,38,3
+316001514,Canada,trawlers,22.6696411652,139,5
+316001577,Canada,purse_seines,28.3606165618,286,10
+316001649,Canada,other_fishing,22.66,218.569145018,5
+316001738,Canada,trawlers,72.9002343949,3320,41
+316001821,Canada,trawlers,28.7046197973,450,15
+316001843,Canada,drifting_longlines,19.2943866925,139,12
+316001850,Canada,purse_seines,23.1372994982,282,9
+316001956,Canada,drifting_longlines,20.9546009309,102,8
+316001963,Canada,drifting_longlines,24.6995796042,139,10
+316002052,Canada,fixed_gear,15.881582663,18,4
+316002090,Canada,other_fishing,15.3426227675,59,4
+316002303,Canada,drifting_longlines,22.8696883444,116,7
+316002518,Canada,trawlers,24.5165130829,180,8
+316002519,Canada,purse_seines,24.4033770901,234,10
+316002764,Canada,trawlers,22.5385042883,99,6
+316002799,Canada,trawlers,30.8554505023,284,17
+316002801,Canada,trawlers,29.4370576394,239,17
+316002916,Canada,trawlers,29.8651354261,125,10
+316002917,Canada,trawlers,26.7678955649,127,10
+316002950,Canada,pole_and_line,35.66,268,6
+316002956,Canada,purse_seines,26.205,148,9
+316002974,Canada,purse_seines,20.6213396841,77,7
+316002978,Canada,purse_seines,18.2413072367,75,6
+316003050,Canada,other_fishing,18.8375,100.671051169,4
+316003152,Canada,fixed_gear,20.5318537435,58,4
+316003176,Canada,trawlers,19.2917341483,148,4
+316003182,Canada,trawlers,19.7977369843,116,6
+316003227,Canada,fixed_gear,17.4439615789,55,5
+316003286,Canada,drifting_longlines,21.2874956486,123,4
+316003365,Canada,trawlers,23.5277747241,237,8
+316003438,Canada,fixed_gear,14.299369502,23,5
+316003446,Canada,purse_seines,22.2590026668,115,10
+316003447,Canada,trawlers,19.9932031646,115,8
+316003459,Canada,trawlers,29.34,148,8
+316003481,Canada,other_fishing,14.3,27.8692647703,6
+316003513,Canada,purse_seines,23.7507587476,240,7
+316003514,Canada,trawlers,27.5013379238,147,5
+316003534,Canada,other_fishing,19.8985894869,39,5
+316003577,Canada,trawlers,16.5180868138,43,4
+316003587,Canada,trawlers,24.5223319156,263,11
+316003610,Canada,fixed_gear,28.5,346,15
+316003660,Canada,drifting_longlines,21.3172122343,60,5
+316003695,Canada,fixed_gear,28.1562092393,149,6
+316003702,Canada,trawlers,13.5708318172,101,6
+316003768,Canada,other_fishing,23.6275,117,6
+316003791,Canada,purse_seines,16.724720983,16,3
+316004026,Canada,purse_seines,23.3668888445,191,7
+316004070,Canada,fixed_gear,38.6666391487,346,14
+316004164,Canada,purse_seines,17.3698495547,131,9
+316004170,Canada,trawlers,47.3348643125,1113,32
+316004191,Canada,fixed_gear,23.2747098827,76,8
+316004202,Canada,purse_seines,31.4775160531,287,7
+316004392,Canada,other_fishing,17.0001622472,63,4
+316004443,Canada,purse_seines,23.6213786355,278,9
+316004539,Canada,trawlers,25.9340053048,41,4
+316004559,Canada,trawlers,23.1955212821,96,7
+316004576,Canada,trawlers,18.4349687432,40,4
+316004685,Canada,drifting_longlines,23.76,187,18
+316004790,Canada,drifting_longlines,22.6376187128,149,10
+316004867,Canada,other_fishing,25,158.035407782,7
+316004981,Canada,trawlers,20.2035460291,113,7
+316004982,Canada,fixed_gear,13.6543005816,31,4
+316005022,Canada,purse_seines,30.7562561271,167,8
+316005077,Canada,drifting_longlines,19.0081589731,99,6
+316005105,Canada,fixed_gear,15.9811948742,22,4
+316005190,Canada,purse_seines,20.7021903738,21,6
+316005265,Canada,fixed_gear,16.1788083466,49,6
+316005396,Canada,drifting_longlines,19.5816717953,91,6
+316005404,Canada,fixed_gear,18.299833372,38,5
+316005444,Canada,trawlers,16.1790215769,91,8
+316005448,Canada,trawlers,24.8298890493,246,8
+316005672,Canada,trawlers,19.9846726314,123,6
+316005771,Canada,trawlers,24.1091195599,119,6
+316005772,Canada,purse_seines,18.6259486788,99,6
+316005774,Canada,fixed_gear,14.1145177257,38,4
+316005780,Canada,purse_seines,13.8259981284,63,10
+316005782,Canada,other_fishing,21.4574802383,28,4
+316005813,Canada,purse_seines,23.52288893,99,6
+316005953,Canada,other_fishing,14.375735011,15,5
+316005965,Canada,purse_seines,19.6816721578,59,6
+316005996,Canada,fixed_gear,21.1402188113,99,6
+316005998,Canada,trawlers,70.4808788889,2003,25
+316006199,Canada,purse_seines,22.2563304342,70,8
+316006786,Canada,trawlers,28.4739459882,81,8
+316006826,Canada,drifting_longlines,17.8484402376,43,6
+316006847,Canada,other_fishing,12.09,31.801997638,2
+316006988,Canada,trawlers,20.933887033,126,6
+316006996,Canada,purse_seines,18.0336222664,121,8
+316007088,Canada,purse_seines,18.1696785966,42,6
+316007154,Canada,purse_seines,23.1139341962,71,7
+316007519,Canada,purse_seines,21.6873225576,43,4
+316007539,Canada,trawlers,19.7181673943,112,5
+316007541,Canada,trawlers,17.3844516047,88,5
+316007546,Canada,fixed_gear,19.1752819615,46,3
+316007555,Canada,fixed_gear,15.5844683256,23,4
+316007587,Canada,trawlers,20.83,117,8
+316007791,Canada,trawlers,29.9299041263,120,8
+316008440,Canada,trawlers,19.7584117379,42,7
+316008470,Canada,fixed_gear,19.0886220978,50,7
+316009550,Canada,trawlers,18.370621102,82,4
+316009852,Canada,trawlers,20.7303988331,95,8
+31601e4,Canada,trawlers,60.4,2291,12
+316010401,Canada,drifting_longlines,13,45,4
+316010543,Canada,other_fishing,13.495,22,2
+316010794,Canada,drifting_longlines,13.5,50,4
+316010795,Canada,purse_seines,12,45,4
+316011403,Canada,fixed_gear,13.6,45,4
+316011441,Canada,trawlers,22.7,135,9
+316011549,Canada,fixed_gear,15.1,55,4
+316011640,Canada,trawlers,14.93,28,5
+316011757,Canada,other_fishing,12.76,25,5
+316011760,Canada,trawlers,60.2,2045,30
+316011860,Canada,fixed_gear,23.4389170536,47,4
+316011907,Canada,fixed_gear,13.1,36,4
+316011910,Canada,trawlers,65.54,2334,32
+316012074,Canada,other_fishing,12,19.7837586039,3
+316012240,Canada,drifting_longlines,29,387,20
+316012260,Canada,trawlers,38.95,520,20
+316012470,Canada,pole_and_line,39.36,837,28
+316012480,Canada,trawlers,39.36,837,28
+316012859,Canada,fixed_gear,12.89,60,4
+316012953,Canada,trawlers,21.03,90,8
+316013073,Canada,other_fishing,12.65,15,4
+316013290,Canada,trawlers,67.9,2173,27
+316013350,Canada,trawlers,15.8,72,4
+316013590,Canada,trawlers,40.6,599,22
+316013610,Canada,trawlers,28.4078265789,78,4
+316013660,Canada,trawlers,40,630,12
+316013712,Canada,trawlers,13.11,40,4
+316014090,Canada,trawlers,73,4300,41
+316014240,Canada,trawlers,56.78,2598,31
+316014803,Canada,trawlers,34.9,515,10
+316015233,Canada,fixed_gear,11.68,14,4
+316015632,Canada,trawlers,18.75,99,4
+316015644,Canada,trawlers,16.8,59,5
+316015742,Canada,trawlers,25.54,213,8
+316016064,Canada,trawlers,12.3,42,4
+316016225,Canada,trawlers,20,58,6
+316016341,Canada,trawlers,27.52,218,9
+316016387,Canada,fixed_gear,15.6,37,5
+316017767,Canada,purse_seines,15.1,42,3
+316018394,Canada,fixed_gear,14.95,45,4
+316018582,Canada,fixed_gear,12.2,42,4
+316018679,Canada,drifting_longlines,15.1,45,4
+316018816,Canada,other_fishing,23.32,73.5477103833,5
+316018828,Canada,purse_seines,19.48,84,7
+316019185,Canada,other_fishing,15.2,86,8
+316019367,Canada,purse_seines,24,100,6
+316019404,Canada,fixed_gear,12.1,14,3
+316019447,Canada,trawlers,23.7,124,7
+316019959,Canada,fixed_gear,14.92,5,5
+316020099,Canada,fixed_gear,14.7,39,4
+316020458,Canada,fixed_gear,15.1,46,3
+316020762,Canada,trawlers,23.4099760781,150,6
+316020917,Canada,fixed_gear,15.1,26,3
+316021004,Canada,trawlers,56,1932,34
+316021024,Canada,trawlers,15.1,42,3
+316021117,Canada,fixed_gear,15.1,47,4
+316021118,Canada,purse_seines,14.2,42,4
+316021392,Canada,fixed_gear,12.1,15,3
+316021629,Canada,fixed_gear,15.1,86,4
+316022149,Canada,trawlers,39.1,624,22
+316022197,Canada,fixed_gear,12.16,15,4
+316023119,Canada,other_fishing,20.6578067664,68,4
+316023452,Canada,trawlers,21.03,93,6
+316023598,Canada,fixed_gear,14.9,43,4
+316023664,Canada,fixed_gear,23.5558782817,46,4
+316023833,Canada,trawlers,42.9,931,23
+316024697,Canada,fixed_gear,11.9,15,3
+316024796,Canada,other_fishing,13.64,34.9496850993,3
+316024842,Canada,fixed_gear,9.7,12,4
+316024853,Canada,drifting_longlines,14.5,57,4
+316025653,Canada,drifting_longlines,15.1,55,5
+316025894,Canada,fixed_gear,12.8,54,3
+316026978,Canada,drifting_longlines,15.1,70,5
+316027146,Canada,drifting_longlines,15.1,79,4
+316028083,Canada,other_fishing,13.39,13,4
+316028469,Canada,drifting_longlines,14.9,59,3
+316028561,Canada,other_fishing,12.4133333333,15,4
+316029311,Canada,fixed_gear,12,15,4
+316029374,Canada,purse_seines,14.93,46,4
+316029736,Canada,trawlers,14.9,55,3
+316030469,Canada,trawlers,15.1,62,3
+316030659,Canada,drifting_longlines,15.1,64,3
+316030874,Canada,trawlers,11.9,15,2
+316030938,Canada,fixed_gear,13.1,15,4
+316031058,Canada,purse_seines,11.9,15,3
+316031981,Canada,purse_seines,16.22,75,8
+316111e3,Canada,trawlers,47.7,1129,24
+316303e3,Canada,trawlers,62.3,2524,36
+316319e3,Canada,trawlers,55.12,1855,28
+316323e3,Canada,trawlers,62.98,3380,37
+323103e3,Cuba,trawlers,120.7,7765,100
+331072e3,Greenland,trawlers,66,1248.45592158,27
+331142e3,Greenland,trawlers,67.5,1328.28289613,29
+331168e3,Greenland,trawlers,75.8,1436.65041587,24
+331428e3,Greenland,trawlers,66.4,2347.41857765,25
+331549e3,Greenland,trawlers,50,878.665962691,11
+338013e3,United States,purse_seines,82.1282777778,2344.33333333,29
+338074e3,United States,purse_seines,66.492,1416,40
+338077e3,United States,drifting_longlines,21.335,103,7
+338081e3,United States,drifting_longlines,21.335,103,7
+338298e3,United States,purse_seines,68.1875351725,1474.11914745,40
+338394e3,United States,purse_seines,65.7718333333,1517,40
+338539e3,United States,purse_seines,75.3458333333,1239.33333333,20
+33854e4,United States,purse_seines,71.9466666667,1442.4,20
+338622e3,United States,purse_seines,59.368125,979.866666667,25
+338712e3,United States,purse_seines,74.2341666667,2019,25
+338793e3,United States,purse_seines,65.2435,1517,38
+338873e3,United States,purse_seines,73.428,2031.6,25
+350107e3,United States,purse_seines,64.6446,1518,25
+359001e3,El Salvador,purse_seines,91.9,3005.66666667,30
+359002e3,El Salvador,purse_seines,79.2666666667,2113.5,30
+359004e3,El Salvador,purse_seines,80.106,2157,30
+365878412,United States,purse_seines,74.80250000000001,2019,25
+36602e4,United States,purse_seines,67.2285,1517,40
+366135e3,United States,drifting_longlines,24.6869,127,6
+36627e4,United States,purse_seines,65.556228,1375.4,38
+36682e4,United States,drifting_longlines,50.9,979,22
+366827e3,United States,purse_seines,62.4,1569,24
+366827010,United States,drifting_longlines,21.945600000000002,146.226356884,5
+366878e3,United States,purse_seines,78.64,991,21
+366903e3,United States,purse_seines,65.3390527671,1416,40
+366909880,United States,drifting_longlines,23.772199999999998,95.5,6
+366926988,United States,purse_seines,73.95,2019,25
+366928330,United States,drifting_longlines,20.5895694636,90.7086508932,8
+366981180,United States,drifting_longlines,16.4592,175.638837205,6
+367045610,United States,drifting_longlines,25.53112,142,6
+367084e3,United States,purse_seines,66.3188333333,1415,40
+367107220,United States,drifting_longlines,25.38742,178.75,6
+367107250,United States,drifting_longlines,20.7264,102.590162582,6
+367111320,United States,drifting_longlines,17.0688,83.1591956541,6
+367114110,United States,drifting_longlines,23.25562,115.5,6
+367123290,United States,other_fishing,26.98125,167,6
+367128410,United States,drifting_longlines,20.1168,104.004146586,6
+367128430,United States,drifting_longlines,23.435,119,6
+367131270,United States,drifting_longlines,22.86,151,6
+367132820,United States,drifting_longlines,24.14016,139,6
+367132830,United States,drifting_longlines,25.968960000000003,135,6
+367137680,United States,drifting_longlines,23.2882802424,143.767281133,6
+367140060,United States,drifting_longlines,22.46,105,7
+367140260,United States,drifting_longlines,20.1626990421,156.559370057,8
+367148380,United States,drifting_longlines,21.945600000000002,135.666492907,6
+367150430,United States,drifting_longlines,22.827260000000003,159,5
+367151660,United States,drifting_longlines,20.02518,92,4
+367159690,United States,drifting_longlines,25.38742,159,7
+367161340,United States,drifting_longlines,24.140053333333338,120,5
+367163840,United States,drifting_longlines,24.87084,121,7
+36717e4,United States,purse_seines,66.6051666667,1517,40
+367179e3,United States,purse_seines,68.162,1416,40
+367183810,United States,drifting_longlines,21.640800000000002,122.282914377,6
+367191940,United States,other_fishing,23.590760000000003,116.25,4
+367306510,United States,drifting_longlines,20.7264,42.65550730067444,5
+367320820,United States,drifting_longlines,23.743920000000003,189.791826357,6
+367323610,United States,drifting_longlines,25.823,135.5,5
+367324020,United States,other_fishing,25.51925,129.5,4
+367333e3,United States,purse_seines,68.24,1466,25
+367341510,United States,drifting_longlines,20.1329166549,122.287345945,6
+367343e3,United States,drifting_longlines,20.237693333350002,102,6
+367344e3,United States,purse_seines,66.6051666667,1517,40
+367347e3,United States,other_fishing,33.2012,189.5,5
+367359220,United States,purse_seines,58.4395,1091,25
+367364340,United States,other_fishing,24.333625,134.666666667,5
+367370380,United States,drifting_longlines,26.60904,201,7
+367373170,United States,drifting_longlines,25.0164922925,135.223098605,8
+367377660,United States,purse_seines,72.257,1691,48
+367387110,United States,drifting_longlines,20.0764620413,117.467976869,6
+367396870,United States,drifting_longlines,29.8702,173,6
+367402670,United States,other_fishing,19.4215,84,3
+367403980,United States,drifting_longlines,21.335,37,4
+367418820,United States,drifting_longlines,22.1589129438,123.695231423,6
+367433150,United States,drifting_longlines,22.73808,149,8
+367439730,United States,drifting_longlines,21.6475,84,6
+367442170,United States,drifting_longlines,22.86,145.42104672,6
+367445940,United States,drifting_longlines,22.3672140167,107.378206565,6
+367460990,United States,drifting_longlines,15.880040000000001,54.5,4
+367463e3,United States,purse_seines,66.7718333333,1449.66666667,40
+367466760,United States,other_fishing,27.25475,180,5
+367467330,United States,drifting_longlines,25.9002345502,155.670170852,7
+367479170,United States,drifting_longlines,23.439120000000003,126.559978711,5
+367479450,United States,drifting_longlines,22.03704,104,6
+367480150,United States,drifting_longlines,22.934811903,94.0152053491,6
+367482650,United States,drifting_longlines,22.555200000000003,140.138032121,5
+367485680,United States,drifting_longlines,19.3285,75.5,6
+367492480,United States,drifting_longlines,23.8818818422,143.97082356,6
+367512170,United States,pole_and_line,26.94658,165,5
+367512180,United States,pole_and_line,24.17825,133.333333333,4
+367512490,United States,pole_and_line,26.1595,164.333333333,4
+367512510,United States,pole_and_line,25.36425,156.5,4
+367513810,United States,drifting_longlines,22.736539999999998,154.25,6
+367516940,United States,drifting_longlines,20.8,43.09933536106228,6
+367523880,United States,drifting_longlines,15.17702,57,5
+367534310,United States,pole_and_line,24.7792,138.8,5
+367557620,United States,drifting_longlines,23.772199999999998,102,5
+367566210,United States,drifting_longlines,24.015,99,8
+367568960,United States,drifting_longlines,19.2,88.5,6
+367570430,United States,drifting_longlines,56,1712,31
+367571490,United States,drifting_longlines,26.1276,163.6,5
+367577170,United States,drifting_longlines,20.725,60,6
+367578510,United States,drifting_longlines,21,110.5,6
+367581690,United States,drifting_longlines,20.7931914286,138.468196526,5
+367590390,United States,drifting_longlines,20.1159,62,6
+367593450,United States,drifting_longlines,25.3,156.5,9
+367598710,United States,drifting_longlines,21.4867,113.5,7
+367602730,United States,drifting_longlines,22.64664,97.1425954332,6
+367602740,United States,drifting_longlines,23.465,97.5,6
+367602750,United States,drifting_longlines,23.4696,138.189909555,6
+367603420,United States,drifting_longlines,21.7019720925,99.2977634253,7
+367604540,United States,drifting_longlines,23.414515323,135.79321669,6
+367638270,United States,drifting_longlines,21.640800000000002,133.392286333,6
+367639430,United States,drifting_longlines,21.5518431287,93.8739627412,6
+367659170,United States,drifting_longlines,20.875,94.5,6
+367662660,United States,drifting_longlines,20.905,118,8
+367663880,United States,drifting_longlines,21.8236301959,164.601597999,6
+367666e3,United States,purse_seines,79.251,1977,21
+367667630,United States,drifting_longlines,25.171074867,162.732831342,6
+367692620,United States,drifting_longlines,21.2265,137.666666667,6
+367707290,United States,drifting_longlines,22.735,142,6
+367711550,United States,drifting_longlines,17.37,62,6
+367719270,United States,drifting_longlines,25.1143232465,70.929626272,7
+367721e3,United States,pole_and_line,23.78,92,5
+367732990,United States,drifting_longlines,25.385,114.5,6
+367733060,United States,drifting_longlines,21.9697641127,108.690167194,6
+367738010,United States,drifting_longlines,23.5587506458,153.618015379,6
+367738980,United States,purse_seines,75.1559333333,1896.33333333,39
+367767e3,United States,purse_seines,66.3253333333,1366.5,38
+368046e3,United States,purse_seines,67.7005,1415,40
+368144e3,United States,drifting_longlines,21.945600000000002,103.48712264,7
+368489e3,United States,purse_seines,63.8203333333,1122.6,25
+368492e3,United States,drifting_longlines,20.1159,72,5
+369004e3,United States,drifting_longlines,23.9268,120.296599792,6
+369059e3,United States,drifting_longlines,96.7,162,7
+36906e4,United States,drifting_longlines,89.5,141,7
+369061e3,United States,drifting_longlines,88.8,125,7
+369189e3,United States,drifting_longlines,23.5,174.5,8
+412002142,China,drifting_longlines,23.6,68,10
+412200078,China,drifting_longlines,57.31,636,31
+412200079,China,drifting_longlines,56.17,588,31
+412200115,China,drifting_longlines,37.25,242,15
+412200116,China,drifting_longlines,37.25,242,15
+412201817,China,drifting_longlines,35.1333333333,271,18
+412201818,China,drifting_longlines,35.1333333333,271,18
+412201849,China,drifting_longlines,35.1333333333,271,18
+412205077,China,trawlers,26.7027837131,1095,32
+412205130,China,drifting_longlines,48.6,626,30
+412205140,China,drifting_longlines,48.6,626,30
+412205520,China,drifting_longlines,48.6,626,30
+412209183,China,drifting_longlines,55.6,551.5833333333334,25
+412209233,China,drifting_longlines,35.1333333333,271,18
+412209234,China,drifting_longlines,35.75,271,6
+412217989,China,purse_seines,60.52,1095,32
+412217991,China,purse_seines,59.63,1091,32
+412217999,China,trawlers,110.375,5306,100
+412270001,China,drifting_longlines,50.593999999999994,592.8,27
+412270002,China,trawlers,120.7,7765,110
+412270024,China,purse_seines,70.59,1284,35
+412270039,China,trawlers,120.30666666666667,7765,110
+412270057,China,drifting_longlines,51.845,647,30
+412270058,China,drifting_longlines,48.6625,565,30
+412270059,China,drifting_longlines,51.845,647,30
+412280982,China,trawlers,92.33,3879,92
+412283998,China,drifting_longlines,49.15,591,30
+412283999,China,drifting_longlines,50.8,625,30
+412300365,China,drifting_longlines,39.66,255,13
+412320019,China,drifting_longlines,54.01,577,31
+412320021,China,fixed_gear,55.6,619,31
+412320024,China,drifting_longlines,35.04,199,12
+412320025,China,drifting_longlines,33.76,199,12
+412320026,China,drifting_longlines,35.04,199,12
+412322630,China,drifting_longlines,27.4518562151,190,13
+412324390,China,drifting_longlines,30.87,145,14
+412326560,China,drifting_longlines,36,148,12
+412326570,China,drifting_longlines,34,291.97078534,12
+412326873,China,drifting_longlines,39.9,254.894237903,15
+412326875,China,drifting_longlines,39.9,451.46238505,14
+412326876,China,drifting_longlines,39.9,356.367876015,14
+412326877,China,drifting_longlines,39.9,255,13
+412326881,China,drifting_longlines,39.9,255,13
+412326882,China,drifting_longlines,39.9,255,13
+412326894,China,drifting_longlines,35.755,255,12
+412326895,China,drifting_longlines,35.5,255,12
+412326896,China,drifting_longlines,35.5,255,12
+412326902,China,drifting_longlines,35.67,223,15
+412326904,China,drifting_longlines,33.74,223,15
+412326905,China,drifting_longlines,33.74,223,15
+412326906,China,drifting_longlines,33.74,223,15
+412326971,China,drifting_longlines,37.16,271,14
+412326972,China,drifting_longlines,42.8,271,16
+412328714,China,drifting_longlines,54.56,653,30
+412328724,China,drifting_longlines,37.56,276,15
+412328726,China,drifting_longlines,37.56,276,15
+412328728,China,drifting_longlines,35.16,255,13
+412328729,China,purse_seines,64.2366666667,1280,35
+412328731,China,purse_seines,60.9625,1203,35
+412328755,China,drifting_longlines,36.52,270,12
+412328757,China,drifting_longlines,36.52,270,12
+412328758,China,drifting_longlines,36.52,270,12
+412328759,China,drifting_longlines,36.52,270,12
+412328761,China,drifting_longlines,36.52,270,12
+412328785,China,drifting_longlines,59.67,917,14
+412328786,China,drifting_longlines,51.6796645952,1266,14
+412328793,China,drifting_longlines,39.9,279.26295809,14
+412328796,China,drifting_longlines,42.6,698,14
+412329402,China,drifting_longlines,41.565,357,14
+412329403,China,drifting_longlines,41.565,357,14
+412329416,China,drifting_longlines,35.16,255,14
+412329417,China,drifting_longlines,37.56,276,13
+412329418,China,drifting_longlines,37.56,276,13
+412329426,China,drifting_longlines,35.16,255,13
+412329557,China,drifting_longlines,37.56,276,15
+412329588,China,drifting_longlines,37.56,276,15
+412330102,China,drifting_longlines,40.17,316,15
+412330103,China,drifting_longlines,40.17,316,15
+412330105,China,drifting_longlines,40.17,316,15
+412331009,China,drifting_longlines,38.36,227.322413435,15
+412331012,China,drifting_longlines,43.38,338.947111185,15
+412331013,China,drifting_longlines,43.78,298.971680724,15
+412331014,China,drifting_longlines,56.94,684,30
+412331026,China,drifting_longlines,53.51,577,30
+412331027,China,drifting_longlines,59.6,642.768936712,31
+412331029,China,drifting_longlines,59.6,698,31
+412331031,China,drifting_longlines,51.2,698,31
+412331032,China,drifting_longlines,51.2,698,31
+412331033,China,drifting_longlines,59.6,698,31
+412331051,China,trawlers,120.7,7765,110
+412331064,China,drifting_longlines,37.56,276,14
+412331099,China,drifting_longlines,26.8666666667,157,11
+412331102,China,drifting_longlines,26.8666666667,157,11
+412331103,China,drifting_longlines,26.8666666667,157,11
+412331104,China,drifting_longlines,26.8666666667,157,11
+412331122,China,trawlers,56,720,23
+412331123,China,trawlers,56,720,23
+412370006,China,drifting_longlines,50.235,642,28
+412370007,China,drifting_longlines,52.3066666667,619,28
+412370008,China,drifting_longlines,46.279999999999994,643,28
+412371178,China,drifting_longlines,49.54,577,30
+412371179,China,drifting_longlines,50.0433333333,577,30
+412371181,China,purse_seines,68.5025,1640,33
+412371182,China,purse_seines,70.825,1640,33
+412371191,China,drifting_longlines,56.17,577,30
+412371192,China,drifting_longlines,53.51,577,30
+412371194,China,purse_seines,75.34,1792,38
+412371197,China,drifting_longlines,45.34,411,19
+412371198,China,drifting_longlines,45.34,411,19
+412371206,China,drifting_longlines,44.875,560,20
+412371207,China,drifting_longlines,44.875,560,20
+412371208,China,drifting_longlines,44.875,560,20
+412371222,China,purse_seines,75.94,1782,40
+412420109,China,squid_jigger,56.5,613,33
+412420195,China,drifting_longlines,37.0857054623,298,23
+412420236,China,drifting_longlines,40.5,297,15
+412420237,China,drifting_longlines,40.05,297,15
+412420238,China,drifting_longlines,40.5,297,15
+412420239,China,drifting_longlines,40.5,297,15
+412420433,China,drifting_longlines,40.5,299,18
+412420434,China,drifting_longlines,40.5,299,18
+412420435,China,drifting_longlines,40.5,299,18
+412420436,China,drifting_longlines,40.5,299,18
+412420582,China,drifting_longlines,44.8,394,15
+412420583,China,drifting_longlines,44.8,394,15
+412420584,China,drifting_longlines,44.8,394,15
+412420585,China,drifting_longlines,44.8,394,15
+412420596,China,drifting_longlines,42.21,345,20
+412420792,China,drifting_longlines,41.2175,396,20
+412420812,China,drifting_longlines,45.3925,473,17
+412420814,China,drifting_longlines,44.19,473,17
+412420817,China,drifting_longlines,49,473,19
+412420818,China,drifting_longlines,49,473,19
+412420819,China,drifting_longlines,49,473,19
+412420821,China,drifting_longlines,49,473,19
+412420846,China,drifting_longlines,45,460,25
+412420847,China,drifting_longlines,45,489.812764804,25
+412420848,China,drifting_longlines,47.59,460,22
+412420849,China,drifting_longlines,45,460,25
+412420851,China,drifting_longlines,45,460,25
+412420852,China,drifting_longlines,41,460,22
+412420862,China,drifting_longlines,47.6,462,30
+412420863,China,drifting_longlines,45,428,20
+412420864,China,drifting_longlines,45.2,428,20
+412420865,China,drifting_longlines,45,428,20
+412420867,China,drifting_longlines,45.2,428,20
+412420875,China,drifting_longlines,44.19,474,20
+412420876,China,drifting_longlines,46.6375,510,28
+412420877,China,drifting_longlines,44.19,474,20
+412420891,China,drifting_longlines,42,462,20
+412420892,China,drifting_longlines,49.8,496,26
+412420896,China,drifting_longlines,41,462,20
+412420901,China,drifting_longlines,41,462,20
+412420902,China,drifting_longlines,47.6,520.766523453,17
+412420905,China,drifting_longlines,42.5,461,20
+412420906,China,drifting_longlines,42.5,461,20
+412420911,China,drifting_longlines,42,461,20
+412420913,China,drifting_longlines,42,461,20
+412420914,China,drifting_longlines,42,461,20
+412420915,China,drifting_longlines,42,461,20
+412420918,China,purse_seines,75.34,1813,38
+412420919,China,purse_seines,71.025,1813,38
+412420985,China,drifting_longlines,56.5,646,30
+412421023,China,drifting_longlines,37,317,16
+412421025,China,drifting_longlines,38.8575,317,16
+412421026,China,drifting_longlines,37,317,15
+412433510,China,purse_seines,78.25,1735,42
+412439604,China,purse_seines,65.35666666666667,1152,30
+412439605,China,purse_seines,66.265,1280,33
+412439607,China,purse_seines,66.265,1284,30
+412440029,China,drifting_longlines,55.6,619,31
+412440031,China,drifting_longlines,55.97,577,31
+412440032,China,drifting_longlines,54.2,577,30
+412460001,China,drifting_longlines,46.88,576,30
+412460002,China,drifting_longlines,35.6666666667,268,13
+412460003,China,drifting_longlines,32.74,196,15
+412460004,China,drifting_longlines,32.74,196,15
+412460005,China,drifting_longlines,32.74,196,14
+412460006,China,drifting_longlines,32.74,196,15
+412460007,China,drifting_longlines,32.74,196,14
+412460008,China,drifting_longlines,32.74,196,14
+412460009,China,drifting_longlines,32.74,196,14
+412460013,China,drifting_longlines,37,317,16
+412460029,China,drifting_longlines,51.2433333333,619,25
+412460043,China,drifting_longlines,56.18,493,25
+412460052,China,drifting_longlines,33.3670644301,196,15
+412460053,China,drifting_longlines,32.74,196,13
+412460054,China,drifting_longlines,30.24,193,10
+412460055,China,drifting_longlines,30.24,193,10
+412460073,China,drifting_longlines,38.15,296,18
+412460075,China,drifting_longlines,38.15,296,18
+412460083,China,drifting_longlines,36.34,277,14
+412460084,China,drifting_longlines,36.34,277,14
+412460112,China,drifting_longlines,38.15,296,18
+412460114,China,drifting_longlines,38.15,296,18
+412460115,China,drifting_longlines,38.15,296,18
+412460116,China,drifting_longlines,38.15,296,18
+412460117,China,drifting_longlines,38.15,296,18
+412460278,China,drifting_longlines,41.3866666667,362,19
+412460279,China,drifting_longlines,41.3866666667,362,19
+412460281,China,drifting_longlines,43.18,302,18
+412460282,China,drifting_longlines,43.18,302,18
+412460283,China,drifting_longlines,43.18,302,18
+412460284,China,drifting_longlines,43.18,302,18
+412460285,China,drifting_longlines,43.18,302,18
+412460286,China,drifting_longlines,43.18,302,18
+412460287,China,drifting_longlines,43.18,302,18
+412460288,China,drifting_longlines,38.85,302,18
+412460289,China,drifting_longlines,43.18,302,18
+412460296,China,drifting_longlines,39.9,295,15
+412460297,China,drifting_longlines,39.9,295,15
+412460299,China,drifting_longlines,46.70333333333334,619,25
+412463406,China,drifting_longlines,43.18,302,18
+412463901,China,drifting_longlines,44.19,471,18
+412463903,China,drifting_longlines,44.19,471,18
+412463904,China,drifting_longlines,44.19,471,18
+412463905,China,drifting_longlines,44.19,471,18
+412464117,China,trawlers,30.42,30.2905260048,10
+412465077,China,drifting_longlines,30.42,149,10
+412465078,China,drifting_longlines,30.42,149,10
+412470420,China,drifting_longlines,32.7,225,13
+412470430,China,trawlers,34,151,15
+412500156,China,drifting_longlines,32.7,225,13
+412500157,China,drifting_longlines,37,225,15
+412500244,China,drifting_longlines,33.78,228,15
+412500245,China,drifting_longlines,33.78,228,13
+412658750,China,drifting_longlines,32.28,97,10
+412658760,China,drifting_longlines,32.28,97,10
+412674190,China,drifting_longlines,56.45,577.6666666665001,26
+412676430,China,drifting_longlines,53.67,606,30
+412676580,China,drifting_longlines,39.6119206183,375.750222743,19
+412677470,China,drifting_longlines,54.3,609,31
+412679030,China,drifting_longlines,23.9866666667,119,9
+412679210,China,drifting_longlines,56.4,497,25
+412679230,China,drifting_longlines,59.2,698,31
+412679240,China,drifting_longlines,59.2,698,31
+412679330,China,drifting_longlines,47.9,577,30
+412685210,China,drifting_longlines,59.2,698,31
+412685220,China,drifting_longlines,59.2,698,31
+412687110,China,drifting_longlines,23.9866666667,119,10
+412687130,China,drifting_longlines,23.9866666667,119,9
+412687150,China,drifting_longlines,23.7533333333,98,9
+412687160,China,drifting_longlines,23.7533333333,98,9
+412687180,China,drifting_longlines,27.3331670439,115,9
+412688710,China,drifting_longlines,56.32,700,30
+412689320,China,drifting_longlines,29.3,225,17
+412689460,China,drifting_longlines,51,701,30
+412689520,China,drifting_longlines,27.86,120,12
+412689540,China,drifting_longlines,27.86,120,12
+412689850,China,drifting_longlines,33.599999999999994,128,15
+412689860,China,drifting_longlines,33.599999999999994,128,15
+412689870,China,drifting_longlines,33.599999999999994,128,15
+412689880,China,drifting_longlines,33.599999999999994,128,15
+412690490,China,drifting_longlines,34,140,12
+412690510,China,drifting_longlines,34,140,12
+412691310,China,drifting_longlines,48.6,523,28
+412691520,China,drifting_longlines,34.2,164,14
+412691530,China,drifting_longlines,34.2,164,14
+412691540,China,drifting_longlines,29.2,157,12
+412691550,China,drifting_longlines,26.233333333333334,157,14
+412691770,China,drifting_longlines,37.3451264204,284,17
+412694520,China,drifting_longlines,29.8,150,12
+412694550,China,drifting_longlines,29.98,150,12
+412694570,China,drifting_longlines,29.98,150,13
+412694580,China,drifting_longlines,29.98,150,12
+412694590,China,drifting_longlines,29.98,150,12
+412694610,China,drifting_longlines,29.98,150,12
+412694640,China,drifting_longlines,50.25,523,30
+412694830,China,drifting_longlines,46.75,579,30
+412694840,China,drifting_longlines,48.6125,579,30
+412695170,China,drifting_longlines,28.7,112,10
+412695430,China,drifting_longlines,59.2,698,31
+412695550,China,drifting_longlines,56.5,634,33
+412695560,China,drifting_longlines,56.5,634,33
+412695580,China,drifting_longlines,56.5,634,33
+412695620,China,drifting_longlines,56.5,634,33
+412695650,China,drifting_longlines,56.5,634,33
+412695760,China,drifting_longlines,50.9425,622,30
+412696740,China,drifting_longlines,48.6,626,30
+412698150,China,drifting_longlines,27.17,105,10
+412698170,China,drifting_longlines,27.17,105,10
+412698510,China,drifting_longlines,49.61,619,30
+412699120,China,drifting_longlines,50.54,619,30
+412699440,China,drifting_longlines,29.1,117,10
+412699450,China,drifting_longlines,29.1,117,10
+412699460,China,drifting_longlines,29.1,117,10
+412699470,China,drifting_longlines,29.1,117,10
+412699510,China,drifting_longlines,24.5,91,10
+412699520,China,drifting_longlines,24.5,84,10
+412699530,China,drifting_longlines,26.5,107,10
+412699540,China,drifting_longlines,26.5,107,10
+412699550,China,drifting_longlines,26.5,100,10
+412699560,China,drifting_longlines,26.5,100,10
+412699570,China,drifting_longlines,26.5,100,10
+412699950,China,drifting_longlines,26.5,123,10
+412926e3,China,purse_seines,64.7,995,30
+412985e3,China,drifting_longlines,52.5,497,27
+412992e3,China,drifting_longlines,48.6,497,28
+412993e3,China,drifting_longlines,53.95,497,30
+412994e3,China,drifting_longlines,51.2266666667,657,30
+413011e3,China,drifting_longlines,50.25,523,30
+413031e3,China,drifting_longlines,53.2518420923,660,25
+413032e3,China,purse_seines,64.7,995,30
+413034e3,China,purse_seines,66.23,1087,30
+413201090,China,drifting_longlines,49.67,577,30
+413219e3,China,trawlers,120.7,7847,101
+413223e3,China,drifting_longlines,48.6,502,30
+413224e3,China,purse_seines,70.26,1198,29
+413235e3,China,trawlers,95.73333333333333,7671,101
+413236e3,China,trawlers,118.85000000000001,7847,96
+413270220,China,drifting_longlines,50.9475,619,30
+413270240,China,drifting_longlines,49.9,619,30
+413270430,China,drifting_longlines,49.16,616,28
+413278e3,China,purse_seines,79.77,1769,30
+413298e3,China,purse_seines,75.225,2109,32
+413300480,China,drifting_longlines,49.475,573,30
+413322620,China,drifting_longlines,36.6,233,16
+413322640,China,drifting_longlines,39.5,199,15
+413322660,China,drifting_longlines,39.5,199,16
+413322670,China,drifting_longlines,39.5,199,16
+413322680,China,drifting_longlines,36.5,191,12
+413322690,China,drifting_longlines,36.5,191,12
+413322760,China,drifting_longlines,36.6,191,12
+413322770,China,drifting_longlines,36.6,191,11
+41334e4,China,drifting_longlines,34,191,13
+413341e3,China,drifting_longlines,34,191,13
+413342e3,China,drifting_longlines,34,191,13
+413343e3,China,drifting_longlines,34,191,13
+413344e3,China,drifting_longlines,34,191,13
+413345e3,China,drifting_longlines,34,191,13
+413462010,China,drifting_longlines,40.01,432,24
+413501950,China,drifting_longlines,30.2,165,15
+416000013,Taiwan,drifting_longlines,27.65,79.48,15
+416000029,Taiwan,drifting_longlines,27,79.07,12
+416000139,Taiwan,drifting_longlines,23.5,74.87,15
+416000141,Taiwan,drifting_longlines,27.6,88.06,15
+416000143,Taiwan,drifting_longlines,24.1,57.65,15
+416000146,Taiwan,drifting_longlines,29.6,97.185,15
+416000154,Taiwan,drifting_longlines,28.2,96.12,15
+416000159,Taiwan,drifting_longlines,22.72,49.2,10
+416000205,Taiwan,drifting_longlines,23.7,62.27,14
+416000211,Taiwan,drifting_longlines,21.6,48.61,10
+416000212,Taiwan,drifting_longlines,24.5,61.53,12
+416000221,Taiwan,drifting_longlines,21.0333333333,71.45,14
+416000235,Taiwan,drifting_longlines,29,97,15
+416000237,Taiwan,drifting_longlines,24.6,73.43,13
+416000238,Taiwan,drifting_longlines,24.57,64.98,14
+416000246,Taiwan,drifting_longlines,22.65,57.21,13
+416000251,Taiwan,drifting_longlines,24.56,64.93,15
+416000265,Taiwan,drifting_longlines,22.06,52.06,12
+416000299,Taiwan,drifting_longlines,22.5,53.51,12
+416000301,Taiwan,drifting_longlines,23.6,62.15,15
+416000303,Taiwan,drifting_longlines,27,79.46,14
+416000307,Taiwan,drifting_longlines,21.1,33.85,11
+416000347,Taiwan,drifting_longlines,20.6,34.15,12
+416000357,Taiwan,drifting_longlines,20.9,32.94,8
+416000358,Taiwan,drifting_longlines,26.15,76.36,10
+416000392,Taiwan,drifting_longlines,22.59,62.58,12
+416000394,Taiwan,drifting_longlines,26.35,97.52,15
+416000398,Taiwan,drifting_longlines,18.05,25.33,8
+416000405,Taiwan,drifting_longlines,27.02,98.96000000000001,15
+416000411,Taiwan,drifting_longlines,29.6,97.36999999999999,15
+416000412,Taiwan,drifting_longlines,27.05,99.86,14
+416000448,Taiwan,purse_seines,21.95,33.71,10
+416000459,Taiwan,drifting_longlines,23.13,49.85,13
+416000461,Taiwan,drifting_longlines,29.15625,98.97749999999999,15
+416000462,Taiwan,drifting_longlines,27,75.91,15
+416000464,Taiwan,drifting_longlines,28.2,98.11,15
+416000466,Taiwan,drifting_longlines,22.5,53.3,10
+416000476,Taiwan,drifting_longlines,28.2,97.5,15
+416000486,Taiwan,drifting_longlines,24.36,72.47,16
+416000487,Taiwan,drifting_longlines,21.7,41.39,15
+416000499,Taiwan,drifting_longlines,20.1,40.76,10
+416000502,Taiwan,drifting_longlines,26.15,78.12,15
+416000519,Taiwan,drifting_longlines,23.25,71.64,9
+416000547,Taiwan,drifting_longlines,25.79,96.79,15
+416000594,Taiwan,drifting_longlines,25,93.36,13
+416000633,Taiwan,drifting_longlines,27.55,93,15
+416000639,Taiwan,drifting_longlines,19.9,32.86,12
+416000652,Taiwan,drifting_longlines,27.3,79.2,15
+416000698,Taiwan,drifting_longlines,20.15,43.82,12
+416000732,Taiwan,drifting_longlines,26.74,72.59,6
+416000776,Taiwan,drifting_longlines,21.8,49.07,10
+416000783,Taiwan,drifting_longlines,20.5,42.1,10
+416000784,Taiwan,drifting_longlines,24.5,65.87,15
+416000788,Taiwan,drifting_longlines,20.15,39.35,9
+416000804,Taiwan,drifting_longlines,23.97,79.2625,15
+416000817,Taiwan,drifting_longlines,21.5,48.47,10
+416000831,Taiwan,drifting_longlines,22,49.63,13
+416000855,Taiwan,drifting_longlines,26.15,79.56,15
+416000934,Taiwan,drifting_longlines,22.5,54.46,15
+416000961,Taiwan,drifting_longlines,23.2,61.23,10
+416000986,Taiwan,drifting_longlines,27.76,88.58,15
+416001013,Taiwan,drifting_longlines,20.09,35.27,9
+416001036,Taiwan,drifting_longlines,27.25,99,15
+416001043,Taiwan,drifting_longlines,25.06,62.59,15
+416001047,Taiwan,drifting_longlines,22.1,58.43,10
+416001054,Taiwan,drifting_longlines,20.3,41.120000000000005,10
+416001063,Taiwan,drifting_longlines,23.21,63.44,10
+416001083,Taiwan,drifting_longlines,27,79.11,15
+416001225,Taiwan,drifting_longlines,27.9,99.005,15
+416001228,Taiwan,drifting_longlines,24.15,53.53,10
+416001229,Taiwan,drifting_longlines,22.2,49.3,12
+416001235,Taiwan,drifting_longlines,21.95,47.52,12
+416001238,Taiwan,drifting_longlines,23.31,73.15,12
+416001241,Taiwan,drifting_longlines,20.95,37.08,10
+416001245,Taiwan,drifting_longlines,28.3,97.73125,15
+416001248,Taiwan,drifting_longlines,25.3,85.24,20
+416001249,Taiwan,drifting_longlines,20.55,42.38,12
+416001252,Taiwan,drifting_longlines,23.95,73.68,15
+416001255,Taiwan,drifting_longlines,26.15625,95.865,15
+416001265,Taiwan,drifting_longlines,25.62,71.95,12
+416001306,Taiwan,drifting_longlines,17.9,29.48,10
+416001327,Taiwan,drifting_longlines,20.8,33.78,12
+416001354,Taiwan,drifting_longlines,20.1,28.57,10
+416001355,Taiwan,drifting_longlines,25.16,95.35,19
+416001356,Taiwan,drifting_longlines,18.4,25.13,10
+416001358,Taiwan,drifting_longlines,19.85,33.01,10
+416001413,Taiwan,drifting_longlines,22.8,49.32,15
+416001414,Taiwan,drifting_longlines,26.15,95.57,15
+416001415,Taiwan,drifting_longlines,23.73,48.24,15
+416001421,Taiwan,drifting_longlines,21.66,41.34,12
+416001424,Taiwan,drifting_longlines,22.55,50.52,15
+416001425,Taiwan,drifting_longlines,20.2,36.29,14
+416001426,Taiwan,drifting_longlines,23,46.290000000000006,15
+416001427,Taiwan,purse_seines,21.65,31.13,12
+416001432,Taiwan,drifting_longlines,25.04,64.32,15
+416001433,Taiwan,drifting_longlines,19.8,37.660000000000004,12
+416001437,Taiwan,drifting_longlines,20.3,30.71,11
+416001444,Taiwan,drifting_longlines,20.95,37.08,10
+416001447,Taiwan,drifting_longlines,25,96.96000000000001,15
+416001448,Taiwan,drifting_longlines,19.92,34.48,10
+416001451,Taiwan,drifting_longlines,26.7,98,15
+416001468,Taiwan,drifting_longlines,19.96,31.71,10
+416001471,Taiwan,drifting_longlines,22.85,66.56,12
+416001486,Taiwan,drifting_longlines,21.4,49.38,7
+416001496,Taiwan,drifting_longlines,25,88.27,17
+416001500,Taiwan,purse_seines,66.3,995,35
+416001504,Taiwan,drifting_longlines,19.78,28.9,12
+416001519,Taiwan,drifting_longlines,26.15,95.82,15
+416001521,Taiwan,drifting_longlines,23.23,54.16,10
+416001531,Taiwan,drifting_longlines,24.17,48.46,14
+416001543,Taiwan,drifting_longlines,23.75,71.09,16
+416001544,Taiwan,drifting_longlines,20.56,34.56,12
+416001547,Taiwan,drifting_longlines,21.7,45.87,12
+416001549,Taiwan,drifting_longlines,21.05,39.22,8
+416001576,Taiwan,drifting_longlines,24.2,57.15,12
+416001584,Taiwan,drifting_longlines,18.32,25.47,8
+416001591,Taiwan,purse_seines,20.3,30.26,10
+416001619,Taiwan,drifting_longlines,22.3,63.03,15
+416001621,Taiwan,drifting_longlines,19.18,32.22,15
+416001631,Taiwan,purse_seines,25.93,60.98,12
+416001645,Taiwan,drifting_longlines,22.15,33.4,14
+416001659,Taiwan,drifting_longlines,25.28,98.43,13
+416001661,Taiwan,drifting_longlines,25.25,94.83,12
+416001666,Taiwan,drifting_longlines,26.42,73.18,15
+416001717,Taiwan,drifting_longlines,21.76,43.79,10
+416001745,Taiwan,drifting_longlines,20.3,43.53,10
+416001769,Taiwan,drifting_longlines,28.3,97.87,15
+416001774,Taiwan,drifting_longlines,17.25,64.96,10
+416001787,Taiwan,drifting_longlines,25.71,78.48,19
+416001792,Taiwan,drifting_longlines,22.17,38.08,13
+416001795,Taiwan,drifting_longlines,23.9,59.13,15
+416001799,Taiwan,drifting_longlines,27.62,79.18,15
+416001803,Taiwan,drifting_longlines,21.18,37.93,11
+416001833,Taiwan,drifting_longlines,22.7,59.37,12
+416001838,Taiwan,drifting_longlines,28.3,98.09,15
+416001839,Taiwan,drifting_longlines,20.1,40.75,10
+416001845,Taiwan,drifting_longlines,22.3,63.03,15
+416001958,Taiwan,drifting_longlines,27.36,84.43,15
+416002017,Taiwan,drifting_longlines,17.5,31.96,10
+416002039,Taiwan,drifting_longlines,28.3,98.17,15
+416002066,Taiwan,drifting_longlines,25.24,49.96,12
+416002067,Taiwan,drifting_longlines,20.6,29.76,12
+416002092,Taiwan,drifting_longlines,22.97,70.7,14
+416002096,Taiwan,drifting_longlines,23.95,79.72,12
+416002099,Taiwan,drifting_longlines,22.2,52.48,14
+416002101,Taiwan,drifting_longlines,22.5,49.74,10
+416002109,Taiwan,drifting_longlines,21.35,43.75,9
+416002116,Taiwan,drifting_longlines,29.2,98,15
+416002117,Taiwan,drifting_longlines,23.75,71.19,13
+416002135,Taiwan,drifting_longlines,27,79.80000000000001,14
+416002141,Taiwan,drifting_longlines,22.08,45,11
+416002147,Taiwan,drifting_longlines,23.26,64.98,14
+416002151,Taiwan,drifting_longlines,26.4,79.09375,15
+416002162,Taiwan,drifting_longlines,22.5,51.05,10
+416002173,Taiwan,drifting_longlines,23.65,76.83,12
+416002175,Taiwan,drifting_longlines,28.2,97.03750000000001,15
+416002178,Taiwan,drifting_longlines,27.6,97.16,18
+416002195,Taiwan,drifting_longlines,28.2,98.47,15
+416002198,Taiwan,drifting_longlines,28.95,98,14
+416002201,Taiwan,drifting_longlines,24.2,56.6,15
+416002206,Taiwan,drifting_longlines,27.88,83,15
+416002216,Taiwan,drifting_longlines,24.9,79.56,15
+416002222,Taiwan,drifting_longlines,20.3,40.69,10
+416002232,Taiwan,drifting_longlines,26.6,99.41000000000001,15
+416002235,Taiwan,drifting_longlines,29.3,98,15
+416002245,Taiwan,drifting_longlines,24.38,67.41,15
+416002251,Taiwan,drifting_longlines,18,63.58,7
+416002257,Taiwan,drifting_longlines,29.36,98.33,17
+416002269,Taiwan,drifting_longlines,26.1,74.89,15
+416002282,Taiwan,drifting_longlines,23.5,64.5,12
+416002286,Taiwan,drifting_longlines,27.9,79.73,10
+416002287,Taiwan,drifting_longlines,24.51,65.32,10
+416002291,Taiwan,drifting_longlines,25.9,79.86,15
+416002298,Taiwan,drifting_longlines,25.8,79.72,15
+416002304,Taiwan,drifting_longlines,25,75,17
+416002325,Taiwan,drifting_longlines,28.2,97.17999999999999,15
+416002357,Taiwan,drifting_longlines,22.5,52.09,15
+416002362,Taiwan,drifting_longlines,20.09,37.91,8
+416002368,Taiwan,drifting_longlines,24.37,65.17999999999999,15
+416002374,Taiwan,drifting_longlines,29.7,98,15
+416002376,Taiwan,drifting_longlines,25.08,49.93,12
+416002378,Taiwan,drifting_longlines,18.5,29.64,10
+416002383,Taiwan,drifting_longlines,20.8,42.33,10
+416002404,Taiwan,drifting_longlines,25.7825,78.9325,15
+416002407,Taiwan,drifting_longlines,28.2,97.27,15
+416002425,Taiwan,drifting_longlines,29.7,99,22
+416002441,Taiwan,drifting_longlines,25.0166666667,79.87,15
+416002445,Taiwan,drifting_longlines,26,74.58,15
+416002446,Taiwan,drifting_longlines,26,79.92,15
+416002447,Taiwan,drifting_longlines,28.2,98.86,15
+416002465,Taiwan,drifting_longlines,26.1,76.66,15
+416002467,Taiwan,drifting_longlines,27.2,79.88,15
+416002469,Taiwan,drifting_longlines,27.2,79.88,15
+416002477,Taiwan,drifting_longlines,26.8,85.16,13
+416002491,Taiwan,drifting_longlines,22.3,68.45,12
+416002492,Taiwan,drifting_longlines,26.8,85.6,15
+416002494,Taiwan,drifting_longlines,22.93,66.84,12
+416002496,Taiwan,drifting_longlines,28.2,96.36,15
+416002506,Taiwan,drifting_longlines,24.51,65.32,14
+416002507,Taiwan,drifting_longlines,17.3,27.51,10
+416002508,Taiwan,drifting_longlines,26.15,72.72,12
+416002514,Taiwan,drifting_longlines,22.5,48.36,8
+416002515,Taiwan,drifting_longlines,27.2,79.58,15
+416002527,Taiwan,drifting_longlines,29.88,99,15
+416002536,Taiwan,drifting_longlines,28.2,98.66,15
+416002537,Taiwan,drifting_longlines,26,79.5,15
+416002553,Taiwan,drifting_longlines,24.7,63.01,13
+416002556,Taiwan,drifting_longlines,28.2,96.70624999999998,15
+416002566,Taiwan,drifting_longlines,29.28,98,20
+416002568,Taiwan,drifting_longlines,26,79.89,15
+416002569,Taiwan,drifting_longlines,24.5,61.94375,15
+416002581,Taiwan,drifting_longlines,29.88,99,20
+416002586,Taiwan,drifting_longlines,28.2,98.91,15
+416002596,Taiwan,drifting_longlines,25.8,98,13
+416002604,Taiwan,drifting_longlines,29.88,99,14
+416002605,Taiwan,drifting_longlines,26.1,72.78,14
+416002615,Taiwan,drifting_longlines,27,77.45,15
+416002616,Taiwan,drifting_longlines,28.2,98.78,14
+416002632,Taiwan,drifting_longlines,28.6,98,14
+416002636,Taiwan,drifting_longlines,21.92,42.35,10
+416002639,Taiwan,drifting_longlines,21.7,49.8,10
+416002642,Taiwan,drifting_longlines,26.8,87.43,15
+416002643,Taiwan,drifting_longlines,26.1,79.78,12
+416002646,Taiwan,drifting_longlines,27.2,79.69,14
+416002655,Taiwan,drifting_longlines,27.16,79.08,15
+416002656,Taiwan,drifting_longlines,28.2,97.88,15
+416002659,Taiwan,drifting_longlines,29.7,99,15
+416002675,Taiwan,drifting_longlines,19.23,24.81,12
+416002681,Taiwan,drifting_longlines,29.88,99,15
+416002682,Taiwan,drifting_longlines,28.2,97.38,15
+416002695,Taiwan,drifting_longlines,27.2,79.46000000000001,14
+416002726,Taiwan,drifting_longlines,23.53,49.07,13
+416002732,Taiwan,drifting_longlines,29.28,98,14
+416002744,Taiwan,drifting_longlines,26.1,76.08,15
+416002745,Taiwan,purse_seines,39.2,283,20
+416002747,Taiwan,drifting_longlines,25.8,79.86,14
+416002755,Taiwan,drifting_longlines,20.8,28.51,11
+416002764,Taiwan,drifting_longlines,29.7,99,14
+416002767,Taiwan,drifting_longlines,29.88,99,14
+416002768,Taiwan,drifting_longlines,27.2,79.725,14
+416002779,Taiwan,drifting_longlines,25.8,79.85,15
+416002794,Taiwan,drifting_longlines,26.1,78.925,13
+416002804,Taiwan,drifting_longlines,29.7,99,15
+416002813,Taiwan,drifting_longlines,26.1,79.925,14
+416002825,Taiwan,drifting_longlines,27.2,79.56,14
+416002826,Taiwan,drifting_longlines,26.8,85.88,15
+416002839,Taiwan,drifting_longlines,27.3,99.33,14
+416002841,Taiwan,drifting_longlines,29.28,98,14
+416002858,Taiwan,drifting_longlines,28.2,97.7875,15
+416002859,Taiwan,drifting_longlines,28.2,97.7875,15
+416002865,Taiwan,drifting_longlines,29.28,98,14
+416002875,Taiwan,drifting_longlines,29.7,99,14
+416002876,Taiwan,drifting_longlines,29.7,99,14
+416002885,Taiwan,drifting_longlines,29.88,99,15
+416002888,Taiwan,drifting_longlines,22.5,54.23,8
+416002893,Taiwan,drifting_longlines,20.72,49.3,12
+416002896,Taiwan,drifting_longlines,26.1,79.15,14
+416002904,Taiwan,drifting_longlines,26.8,86.875,15
+416002922,Taiwan,drifting_longlines,26.8,88.76,15
+416002926,Taiwan,drifting_longlines,28.2,96.16999999999999,15
+416002934,Taiwan,drifting_longlines,20.1,40.21,10
+416002944,Taiwan,drifting_longlines,29.28,98,14
+416002946,Taiwan,drifting_longlines,28.3,99.36,15
+416002947,Taiwan,drifting_longlines,29.7,98,17
+416002948,Taiwan,drifting_longlines,26.1,79.8,15
+416002962,Taiwan,drifting_longlines,29.88,99,14
+416002983,Taiwan,drifting_longlines,22.1,49.79,10
+416002998,Taiwan,drifting_longlines,27.45,67.23,15
+416003015,Taiwan,drifting_longlines,29.7,99,20
+416003021,Taiwan,drifting_longlines,28.1,95.96,15
+416003048,Taiwan,drifting_longlines,28.1,95.96000000000001,15
+416003073,Taiwan,drifting_longlines,26.02,99,20
+416003074,Taiwan,drifting_longlines,25,99,15
+416003089,Taiwan,drifting_longlines,25.88,99,14
+416003097,Taiwan,drifting_longlines,25.5,99,14
+416003162,Taiwan,drifting_longlines,29.2,98,15
+416003173,Taiwan,drifting_longlines,29.2,99,15
+416003189,Taiwan,drifting_longlines,29.2,98,15
+416003192,Taiwan,drifting_longlines,28,93.45,14
+416003205,Taiwan,drifting_longlines,27.45,62.94,12
+416003223,Taiwan,drifting_longlines,29.7,99,15
+416003236,Taiwan,drifting_longlines,22.39,51.76,13
+416003315,Taiwan,drifting_longlines,23.9,82.64999999999999,14
+416003371,Taiwan,drifting_longlines,23.6,63.58,14
+416003408,Taiwan,drifting_longlines,20.8,46.08,12
+416003409,Taiwan,drifting_longlines,22.1,49.79,10
+416003418,Taiwan,drifting_longlines,20.8,49.48,10
+416003429,Taiwan,drifting_longlines,18.55,29.49,9
+416003445,Taiwan,drifting_longlines,22.5,49.63,9
+416003451,Taiwan,drifting_longlines,29.88,98,18
+416003452,Taiwan,drifting_longlines,23.9,82,14
+416003466,Taiwan,drifting_longlines,22.4,59.34,9
+416003472,Taiwan,drifting_longlines,23.9,75.45,17
+416003484,Taiwan,drifting_longlines,23.9,80.66,14
+416003496,Taiwan,drifting_longlines,26.1,90.13,15
+416003505,Taiwan,drifting_longlines,19.23,39.58,8
+416003541,Taiwan,drifting_longlines,22.5,56.19,12
+416003556,Taiwan,drifting_longlines,29.88,99,15
+416003561,Taiwan,drifting_longlines,29.4,99,15
+416003600,Taiwan,drifting_longlines,53.7,535,30
+416003632,Taiwan,drifting_longlines,21.5,80.8,14
+416003665,Taiwan,drifting_longlines,22.76,60.96,13
+416003676,Taiwan,drifting_longlines,23.93,95.1,14
+416003677,Taiwan,drifting_longlines,23.9,81.1,14
+416003700,Taiwan,drifting_longlines,56.9,720,30
+416003724,Taiwan,drifting_longlines,27.8,79.64,10
+416003735,Taiwan,drifting_longlines,24.5,61.5,10
+416003741,Taiwan,drifting_longlines,30.2,184,18
+416003756,Taiwan,drifting_longlines,28,149.66028974,15
+416003803,Taiwan,drifting_longlines,28,166.073433311,15
+416003814,Taiwan,drifting_longlines,23.9,88.63,14
+416003867,Taiwan,drifting_longlines,22.5,66.77,13
+416003869,Taiwan,drifting_longlines,24.29,85.8,14
+416003881,Taiwan,drifting_longlines,24.98,47.46,12
+416003955,Taiwan,drifting_longlines,34,180,14
+416004e3,Taiwan,purse_seines,70.59,1484,40
+416004029,Taiwan,drifting_longlines,22.1,49.7,10
+416004043,Taiwan,drifting_longlines,23.9,96.1,14
+416004044,Taiwan,drifting_longlines,20.83,98.32,14
+416004049,Taiwan,drifting_longlines,23.9,98.28,14
+416004058,Taiwan,drifting_longlines,20.84,42.18,12
+416004073,Taiwan,drifting_longlines,20.85,98.86,14
+416004084,Taiwan,drifting_longlines,23.9,98.83,14
+416004095,Taiwan,drifting_longlines,23.9,98.79,14
+416004098,Taiwan,drifting_longlines,21.5,98.98750000000001,14
+416004158,Taiwan,drifting_longlines,23.9,97.28,14
+416004168,Taiwan,drifting_longlines,23.9,99.35,15
+416004187,Taiwan,drifting_longlines,23.9,99.35,15
+416004214,Taiwan,drifting_longlines,23.9,96.42,14
+416004236,Taiwan,drifting_longlines,36,198,14
+416004242,Taiwan,drifting_longlines,23.8,99.925,18
+416004245,Taiwan,drifting_longlines,23.9,97.7375,14
+416004246,Taiwan,drifting_longlines,35.7,188,20
+416004248,Taiwan,drifting_longlines,30.24,199,20
+416004268,Taiwan,drifting_longlines,21.6,97.66000000000001,14
+416004299,Taiwan,drifting_longlines,23.9,99.7,14
+416004339,Taiwan,drifting_longlines,23.9,99.74375,17
+416004342,Taiwan,drifting_longlines,23.92,98.3,15
+416004344,Taiwan,drifting_longlines,20.35,31.57,15
+416004363,Taiwan,drifting_longlines,23.8,78,15
+416004367,Taiwan,drifting_longlines,23.9,99,17
+416004368,Taiwan,drifting_longlines,29.3,98,15
+416004369,Taiwan,drifting_longlines,35.76,230,23
+416004375,Taiwan,drifting_longlines,21.5,99.69,14
+416004409,Taiwan,drifting_longlines,23.85,98.48,18
+416004411,Taiwan,drifting_longlines,23.7,99.6,15
+416004418,Taiwan,drifting_longlines,23.8,98.98,15
+416004421,Taiwan,drifting_longlines,23.9,99.84375,14
+416004427,Taiwan,drifting_longlines,23.95,99.76,15
+416004442,Taiwan,drifting_longlines,23.92,98.82,15
+416004453,Taiwan,drifting_longlines,23.95,99.7,17
+416004463,Taiwan,drifting_longlines,23.8,98.91,15
+416004485,Taiwan,drifting_longlines,23.9,99.75,15
+416004523,Taiwan,drifting_longlines,23.6,48.99,12
+416004581,Taiwan,drifting_longlines,23.6,48.99,12
+416004582,Taiwan,drifting_longlines,23.95,99.75,17
+416004583,Taiwan,drifting_longlines,23.9,99.85,17
+416004591,Taiwan,drifting_longlines,35.5,209,25
+416004594,Taiwan,drifting_longlines,23.9,99.125,18
+416004624,Taiwan,drifting_longlines,23.9,99.82,17
+416004662,Taiwan,drifting_longlines,23.9,99.8,18
+416004675,Taiwan,drifting_longlines,23.9,99.68,18
+416004685,Taiwan,drifting_longlines,23.82,49.93,15
+416004687,Taiwan,drifting_longlines,23.9,99.68,18
+416004704,Taiwan,drifting_longlines,18.4,25.19,10
+416004728,Taiwan,purse_seines,70.59,1288,40
+416004759,Taiwan,drifting_longlines,38.1,273,24
+416004797,Taiwan,drifting_longlines,22.9,54.47,13
+416004831,Taiwan,purse_seines,70.59,1288,38
+416004887,Taiwan,drifting_longlines,23.9,99.76,17
+416005036,Taiwan,drifting_longlines,23.25,77.56,15
+416005097,Taiwan,drifting_longlines,40.2,327,30
+416005188,Taiwan,drifting_longlines,63.16,775,38
+416008800,Taiwan,drifting_longlines,52.65,496,30
+416010900,Taiwan,drifting_longlines,54.85,708,50
+416016600,Taiwan,purse_seines,69.25,1089,40
+416017500,Taiwan,purse_seines,66.215,996,26
+416032700,Taiwan,drifting_longlines,52.65,489,34
+416033600,Taiwan,drifting_longlines,54,705.953333333,30
+416043800,Taiwan,purse_seines,64.7,995,38
+416052600,Taiwan,drifting_longlines,59.2,696,31
+416053500,Taiwan,drifting_longlines,55.9,496,32
+416069700,Taiwan,drifting_longlines,27,76.14999999999999,10
+416072600,Taiwan,drifting_longlines,55.2,705,30
+416075700,Taiwan,drifting_longlines,23.05,67.5,13
+416075900,Taiwan,drifting_longlines,27.88,89.46,15
+416077500,Taiwan,drifting_longlines,27.9,94.58,14
+416079500,Taiwan,drifting_longlines,27,80.16,14
+416082900,Taiwan,drifting_longlines,27,80.16,15
+416084500,Taiwan,drifting_longlines,59.2,623,30
+416085700,Taiwan,drifting_longlines,29.16,98,20
+416086600,Taiwan,drifting_longlines,53.15,449,30
+416088900,Taiwan,drifting_longlines,56.5,722,30
+416091600,Taiwan,drifting_longlines,55.9,531,32
+416091900,Taiwan,drifting_longlines,59.2,697,30
+416097500,Taiwan,drifting_longlines,57.6,696,30
+416098600,Taiwan,drifting_longlines,29.3,98,15
+416099800,Taiwan,drifting_longlines,56.96,707,36
+416101900,Taiwan,drifting_longlines,27.32,87.65333333333332,12
+416102500,Taiwan,drifting_longlines,27.32,84.89,12
+416118500,Taiwan,drifting_longlines,40,296,30
+416119800,Taiwan,drifting_longlines,57.6,704,30
+416119900,Taiwan,drifting_longlines,56,525,30
+416120500,Taiwan,drifting_longlines,57.78,643,30
+416120600,Taiwan,drifting_longlines,56,530,30
+416122800,Taiwan,drifting_longlines,56.3,718,30
+416123900,Taiwan,drifting_longlines,55.75,568,29
+416127500,Taiwan,drifting_longlines,23.9,76.38,12
+416127800,Taiwan,drifting_longlines,27.32,79.69,12
+416127900,Taiwan,drifting_longlines,27.32,79.69,12
+416138600,Taiwan,purse_seines,37.29,188,30
+416142600,Taiwan,drifting_longlines,41,363,28
+416154700,Taiwan,drifting_longlines,23.99,79,15
+416164600,Taiwan,drifting_longlines,56,530,30
+416168500,Taiwan,drifting_longlines,59.2,627,31
+416168600,Taiwan,drifting_longlines,59.2,627,31
+416171600,Taiwan,drifting_longlines,57.1,635,35
+416173500,Taiwan,drifting_longlines,29.7,98,15
+416173900,Taiwan,drifting_longlines,56,530,30
+416174900,Taiwan,drifting_longlines,54.2,712.68,38
+416175800,Taiwan,drifting_longlines,25.5,98,15
+416176700,Taiwan,drifting_longlines,56.49,562,32
+416180900,Taiwan,drifting_longlines,24.14,45.73,15
+416182700,Taiwan,drifting_longlines,22.09,41.35,14
+416183900,Taiwan,drifting_longlines,23.68,49.309999999999995,10
+416187800,Taiwan,drifting_longlines,27.3,99.68,19
+416189600,Taiwan,drifting_longlines,29.7,98,20
+416193900,Taiwan,drifting_longlines,23,79.45,11
+416196700,Taiwan,drifting_longlines,27.2,79.28,15
+416196800,Taiwan,drifting_longlines,27,76.61999999999999,10
+416198500,Taiwan,drifting_longlines,29.7,99,17
+416198800,Taiwan,drifting_longlines,27.2,83.7148975503,15
+416199500,Taiwan,drifting_longlines,26.1,78.9,14
+416199700,Taiwan,drifting_longlines,29.88,99,20
+416199800,Taiwan,drifting_longlines,23.4,99.81800000000001,15
+416201800,Taiwan,drifting_longlines,21.5,47.03,12
+416203600,Taiwan,drifting_longlines,20,29.23,9
+416208900,Taiwan,drifting_longlines,29.2,98,15
+416210600,Taiwan,drifting_longlines,27.3,99.82,17
+416211600,Taiwan,drifting_longlines,26.15,95.82,15
+416211900,Taiwan,drifting_longlines,24.35,79.97,15
+416212600,Taiwan,drifting_longlines,25.7,86.73,23
+416212700,Taiwan,drifting_longlines,24.3,49.86,12
+416212800,Taiwan,drifting_longlines,26.15,95.785,15
+416213700,Taiwan,drifting_longlines,22.45,62.96,10
+416213800,Taiwan,drifting_longlines,29.2,98,15
+416214600,Taiwan,drifting_longlines,29.7,99,14
+416214900,Taiwan,drifting_longlines,25.88,99,15
+416216800,Taiwan,drifting_longlines,28.2,95.96,15
+416217800,Taiwan,drifting_longlines,23.22,57.58,10
+416217900,Taiwan,drifting_longlines,26.1,78.96000000000001,14
+416218500,Taiwan,drifting_longlines,27.3,99.33,14
+416218600,Taiwan,drifting_longlines,29.7,98,18
+416218900,Taiwan,drifting_longlines,22.4,55.19,12
+416219500,Taiwan,drifting_longlines,29.2,99,15
+416219600,Taiwan,drifting_longlines,28.2,97.38,15
+416219700,Taiwan,drifting_longlines,29.88,98,15
+416220600,Taiwan,drifting_longlines,29.2,98,18
+416220800,Taiwan,drifting_longlines,32.64,246,20
+416220900,Taiwan,drifting_longlines,29.4,98,15
+416221600,Taiwan,drifting_longlines,23.9,82,14
+416221900,Taiwan,drifting_longlines,29.7,98,14
+416222700,Taiwan,drifting_longlines,29.7,98,18
+416225500,Taiwan,drifting_longlines,29.2,99,15
+416226600,Taiwan,drifting_longlines,27,84.19,15
+416226700,Taiwan,drifting_longlines,23.9,99.45,15
+416227600,Taiwan,drifting_longlines,23.9,93.26,15
+416227800,Taiwan,drifting_longlines,23.92,91.2,15
+416228600,Taiwan,drifting_longlines,23.9,95,14
+416229700,Taiwan,drifting_longlines,23.4,98.49000000000001,16
+416229900,Taiwan,drifting_longlines,23.9,96.875,15
+416230500,Taiwan,drifting_longlines,23.9,98.16,14
+416230600,Taiwan,drifting_longlines,23.95,96.96875,14
+416230800,Taiwan,drifting_longlines,23.9,95.88,14
+416231500,Taiwan,drifting_longlines,23.9,95.29,14
+416231600,Taiwan,drifting_longlines,23.9,95.66,15
+416232500,Taiwan,drifting_longlines,57.6,643,30
+416232600,Taiwan,drifting_longlines,30.24,180,15
+416232900,Taiwan,drifting_longlines,21.36,94.97,14
+416233500,Taiwan,drifting_longlines,21.5,96.8,10
+416233600,Taiwan,purse_seines,71.79,1416,40
+416233700,Taiwan,drifting_longlines,33.8,185,23
+416233900,Taiwan,drifting_longlines,23.92,98.16,14
+416234700,Taiwan,drifting_longlines,23.8,98.86,20
+416234800,Taiwan,purse_seines,69.755,1416,40
+416235500,Taiwan,drifting_longlines,32.26,199,20
+416236600,Taiwan,drifting_longlines,22.9733333333,98.96,14
+416237500,Taiwan,purse_seines,70.59,1280,40
+416237600,Taiwan,drifting_longlines,23.95,97.88,17
+416237700,Taiwan,drifting_longlines,23.95,98.4,17
+416237800,Taiwan,drifting_longlines,23.95,97.55,17
+416238700,Taiwan,purse_seines,71.79,1428,40
+416238800,Taiwan,purse_seines,71.79,1428,40
+416239700,Taiwan,drifting_longlines,35.7,198,14
+416240800,Taiwan,drifting_longlines,35.7,198,25
+416240900,Taiwan,purse_seines,71.79,1428,40
+416242800,Taiwan,drifting_longlines,35.5,205,25
+416242900,Taiwan,purse_seines,70.59,1467,40
+416243500,Taiwan,purse_seines,71.79,1428,40
+416243600,Taiwan,purse_seines,71.79,1428,40
+416243700,Taiwan,purse_seines,71.79,1428,40
+416244700,Taiwan,drifting_longlines,37.5,256,25
+416245700,Taiwan,drifting_longlines,23.95,99.17,15
+416247500,Taiwan,drifting_longlines,22.9333333333,99.13,18
+416247600,Taiwan,purse_seines,68.62666666666668,1442.12037122,40
+416247900,Taiwan,purse_seines,70.59,1484,40
+416248600,Taiwan,purse_seines,71.79,1428,40
+416248700,Taiwan,purse_seines,71.79,1428,40
+416298160,Taiwan,drifting_longlines,27.17,105,10
+416298180,Taiwan,drifting_longlines,27.17,105,10
+416298190,Taiwan,drifting_longlines,27.17,105,10
+416303e3,Taiwan,drifting_longlines,57.78,720,35
+416333e3,Taiwan,drifting_longlines,59.2,630,30
+416338e3,Taiwan,drifting_longlines,56.18,503,29
+416342e3,Taiwan,drifting_longlines,56.49,520,25
+416349e3,Taiwan,drifting_longlines,58.8,660,37
+416353e3,Taiwan,drifting_longlines,59.2,628,32
+416367e3,Taiwan,drifting_longlines,55.9,531,36
+416368e3,Taiwan,drifting_longlines,59.199999999999996,627,35
+416411e3,Taiwan,purse_seines,72.37,1179,34
+4165e5,Taiwan,purse_seines,65.7,1098,35
+416501e3,Taiwan,purse_seines,69.26,1096,32
+416503e3,Taiwan,drifting_longlines,45.6,496,30
+416506e3,Taiwan,purse_seines,65.5,1098,32
+416532e3,Taiwan,purse_seines,64.76,995,38
+416569e3,Taiwan,purse_seines,69.26,1080,38
+416574e3,Taiwan,purse_seines,69.26,1091,28
+416623e3,Taiwan,drifting_longlines,55.9,535,26
+416631e3,Taiwan,drifting_longlines,52.646875,497,32
+416641e3,Taiwan,drifting_longlines,55.75,712.242,36
+416697e3,Taiwan,drifting_longlines,55.26,730,30
+41671e4,Taiwan,drifting_longlines,56.3,718,30
+416717e3,Taiwan,drifting_longlines,48.95,472,28
+416741e3,Taiwan,drifting_longlines,57.1,716,30
+416745e3,Taiwan,drifting_longlines,53.75,538,29
+416761e3,Taiwan,drifting_longlines,56.3,717,38
+416779e3,Taiwan,drifting_longlines,56.65,719,35
+416785e3,Taiwan,drifting_longlines,52.65,494.13333333339995,34
+416804e3,Taiwan,drifting_longlines,52.65,494.13333333339995,34
+416815e3,Taiwan,drifting_longlines,54.85,711,30
+416822e3,Taiwan,drifting_longlines,54.85,711,24
+416836e3,Taiwan,purse_seines,66.23,1052,28
+416853e3,Taiwan,purse_seines,78.25,1735,40
+416867e3,Taiwan,drifting_longlines,48.800000000000004,450.9083333333333,32
+416894e3,Taiwan,purse_seines,62.5,995.02,30
+416898e3,Taiwan,purse_seines,65.76666666666667,1098,33
+416899e3,Taiwan,purse_seines,70.26,1124,38
+431000650,Japan,drifting_longlines,48.4,459,56
+431005871,Japan,drifting_longlines,26.23,181.281864942,12
+431006099,Japan,pole_and_line,22.35,51,17
+431022e3,Japan,drifting_longlines,52.6,499,25
+431028e3,Japan,drifting_longlines,59.2,664,74
+43103e4,Japan,drifting_longlines,62.6,716,83
+431038e3,Japan,drifting_longlines,49.99,431,23
+431046e3,Japan,pole_and_line,34.27,158,24
+431047e3,Japan,drifting_longlines,49.99,409,24
+431053e3,Japan,drifting_longlines,51.5475,439,23
+431067e3,Japan,drifting_longlines,49.2,417,24
+43107e4,Japan,drifting_longlines,52.7065,439,25
+431100030,Japan,purse_seines,60.52,349,24
+431100690,Japan,drifting_longlines,51.2,512,25
+431100750,Japan,drifting_longlines,52.6,469,24
+431100790,Japan,drifting_longlines,49.99,439,24
+431100850,Japan,purse_seines,61.1366666667,349,26
+431100990,Japan,drifting_longlines,48.19,441.8,30
+431101080,Japan,drifting_longlines,51.1497890501,466.390880015,25
+431101210,Japan,drifting_longlines,48.19,409,24
+431101320,Japan,drifting_longlines,51.445,409,21
+431105e3,Japan,drifting_longlines,46.89,379,21
+431116e3,Japan,drifting_longlines,50.9425,379,22
+431128e3,Japan,purse_seines,79.61,1788,30
+431154e3,Japan,drifting_longlines,49.2,437,28
+431155e3,Japan,purse_seines,60.665,1093,24
+431159e3,Japan,purse_seines,60.5525,349,24
+431167e3,Japan,purse_seines,73.9433333333,1884,28
+431171e3,Japan,pole_and_line,59.0175,499,33
+431175e3,Japan,drifting_longlines,44.05,358,45
+431187e3,Japan,purse_seines,63.89,1099.08496232,23
+431200010,Japan,pole_and_line,29.7,137.519287242,23
+431200030,Japan,drifting_longlines,58.9607623695,632.329369299,23
+431200045,Japan,pole_and_line,29.7,101.778495867,22
+431200060,Japan,pole_and_line,58.565,499,30
+431200130,Japan,pole_and_line,34.4789216541,162.723672855,25
+431200140,Japan,pole_and_line,29.7,120,22
+431200150,Japan,pole_and_line,33.2823403936,144.498000161,25
+431200170,Japan,pole_and_line,30.3809198841,112.184206091,23
+431200184,Japan,pole_and_line,37.7265459583,242.999306168,25
+431200190,Japan,drifting_longlines,51.6,409,23
+431200250,Japan,pole_and_line,27.82,167,25
+431200254,Japan,pole_and_line,33.2,153,25
+431200650,Japan,drifting_longlines,51.5061726419,453.802253271,25
+431200730,Japan,drifting_longlines,49.9,430,25
+431200740,Japan,drifting_longlines,50.59,462,25
+431200880,Japan,pole_and_line,56.31,499,35
+431200910,Japan,pole_and_line,54.72,463,30
+431200970,Japan,pole_and_line,59.2425,499,30
+431200990,Japan,pole_and_line,50.8575,359,24
+431206e3,Japan,drifting_longlines,50.9425,396,22
+431245e3,Japan,drifting_longlines,50.59,479,25
+431251e3,Japan,drifting_longlines,51.35,379,25
+431253e3,Japan,drifting_longlines,50.9425,379,23
+431254e3,Japan,drifting_longlines,61.05,646,80
+431255e3,Japan,pole_and_line,62.315,599,32
+431258e3,Japan,pole_and_line,31,119,24
+431267e3,Japan,squid_jigger,37.8,199,23
+431272e3,Japan,drifting_longlines,51.19,499,76
+431277e3,Japan,drifting_longlines,47.23,559.014500205,43
+431295e3,Japan,pole_and_line,34.28,158,25
+431298e3,Japan,drifting_longlines,56.96,430,24
+4313e5,Japan,drifting_longlines,48.19,418.6,22
+431308e3,Japan,purse_seines,60.68,1094,24
+43131e4,Japan,purse_seines,60.52,1096,24
+431311e3,Japan,pole_and_line,31,121.487263446,24
+431316e3,Japan,drifting_longlines,52.6,499,25
+431329e3,Japan,drifting_longlines,49.2,395,25
+431331e3,Japan,purse_seines,61.84625,349,24
+431346e3,Japan,pole_and_line,29.7,122,23
+431351e3,Japan,pole_and_line,34.28,157,25
+431361e3,Japan,drifting_longlines,49.99,450.447368421,25
+431377e3,Japan,drifting_longlines,22,72,10
+43138e4,Japan,drifting_longlines,52.905,469,25
+431382e3,Japan,drifting_longlines,52.6,499,24
+431395e3,Japan,drifting_longlines,51.4,499,24
+431399e3,Japan,purse_seines,60.46,1095,24
+431424e3,Japan,drifting_longlines,52.76,498,25
+431426e3,Japan,pole_and_line,39.2246880575,260.194139789,24
+431435e3,Japan,purse_seines,65.0799658385,884.894532614,22
+431444e3,Japan,drifting_longlines,54.8,499,25
+431447e3,Japan,pole_and_line,56.87,499,31
+431457e3,Japan,drifting_longlines,50.97,439,22
+431469e3,Japan,drifting_longlines,50.6,499,56
+431487e3,Japan,pole_and_line,59.0525,499,32
+43149e4,Japan,drifting_longlines,49.2,390,24
+431500040,Japan,drifting_longlines,50.9425,409,22
+431500120,Japan,drifting_longlines,23,66,9
+431500180,Japan,drifting_longlines,49.2,418.6,28
+431500360,Japan,drifting_longlines,16.64,22.46354301972827,9
+431500430,Japan,drifting_longlines,50.985,379,22
+431500460,Japan,drifting_longlines,49.8275,379,20
+431500470,Japan,drifting_longlines,49.9,409,25
+431500530,Japan,drifting_longlines,50.09,379,22
+431500911,Japan,pole_and_line,29.12,99,24
+431500990,Japan,drifting_longlines,49.8275,434,25
+431501170,Japan,drifting_longlines,23.1480653108,85.6871971734,10
+431501259,Japan,drifting_longlines,23.1861381932,72.4826679366,13
+431501305,Japan,pole_and_line,29.18,121.823463267,22
+431501404,Japan,purse_seines,63.51,1093,22
+431503e3,Japan,purse_seines,60.5325,1094,24
+431511e3,Japan,purse_seines,58.705,349,26
+431600010,Japan,drifting_longlines,49.3,379,24
+431600092,Japan,drifting_longlines,33.248329683,140,12
+431600120,Japan,drifting_longlines,33.4092473225,203.977338914,10
+431600220,Japan,drifting_longlines,31.25,149,15
+431600270,Japan,drifting_longlines,49.9,409,25
+431600275,Japan,drifting_longlines,39.9775,199,20
+431600280,Japan,pole_and_line,29.7,130.483354031,23
+431600310,Japan,pole_and_line,29.7,125.62948877,23
+431600520,Japan,pole_and_line,33.2,151,24
+431600570,Japan,drifting_longlines,31.3073356885,171.959383105,10
+431600640,Japan,drifting_longlines,22,71,10
+431600660,Japan,drifting_longlines,28.9922157644,225,11
+431600760,Japan,drifting_longlines,29.0431997235,126.847446585,12
+431600930,Japan,pole_and_line,29.7,119,24
+431600943,Japan,pole_and_line,29.0622992248,104.312292238,20
+431600950,Japan,pole_and_line,30,138,25
+431600960,Japan,pole_and_line,28.7,111,22
+431601080,Japan,pole_and_line,29.7,153.534727701,25
+431601326,Japan,drifting_longlines,14.96,16.462796750785927,7
+431601550,Japan,drifting_longlines,34.7910504713,156.264387647,12
+431601657,Japan,pole_and_line,29.2,175.294743424,24
+431601704,Japan,pole_and_line,24.53,271.475004209,20
+431601746,Japan,pole_and_line,32.0596664884,109.781813787,21
+431602020,Japan,drifting_longlines,47.8,379,25
+431602040,Japan,drifting_longlines,49.2,418.6,23
+431602220,Japan,drifting_longlines,49.32,430,22
+431602221,Japan,drifting_longlines,16,61.2497452729,10
+431602240,Japan,drifting_longlines,43.31,199,20
+431602260,Japan,drifting_longlines,49.32,409,22
+431602420,Japan,drifting_longlines,36.2013932677,244.841020689,10
+431602530,Japan,drifting_longlines,51.2,439,25
+431602570,Japan,pole_and_line,29.7,136.674995343,23
+431602610,Japan,drifting_longlines,47.8,418.6,25
+431602620,Japan,drifting_longlines,49.9,430,25
+431602710,Japan,drifting_longlines,47.8,428.4,25
+431602750,Japan,drifting_longlines,33.4840897292,193.120996074,10
+431602890,Japan,drifting_longlines,49.14,453,25
+431602990,Japan,pole_and_line,27.5,100,22
+431603110,Japan,drifting_longlines,47.2,379,25
+431603140,Japan,pole_and_line,25.5,139.520765212,22
+431612e3,Japan,pole_and_line,32.2,122,23
+431613e3,Japan,drifting_longlines,49.2,379,21
+43162e4,Japan,drifting_longlines,49.9,467,30
+431644e3,Japan,drifting_longlines,52.61,537.8,24
+431659e3,Japan,drifting_longlines,31.5,223,15
+431663e3,Japan,drifting_longlines,50.9918179457,467.618200311,25
+43167e4,Japan,purse_seines,60.13,1094,23
+431671e3,Japan,purse_seines,60.68,1093,24
+431679e3,Japan,purse_seines,59.0525,1094,24
+43168e4,Japan,pole_and_line,65.07,498,35
+431680150,Japan,drifting_longlines,25.8597653646,116.557430912,8
+431680190,Japan,drifting_longlines,24.3898723644,86.0814208527,8
+431680580,Japan,drifting_longlines,24.3262458134,88.6166770608,10
+431680620,Japan,drifting_longlines,23.0249607163,69.2985752338,8
+431680680,Japan,pole_and_line,18.26,19,8
+431680730,Japan,drifting_longlines,19.7180705567,35.260056881,9
+431682e3,Japan,drifting_longlines,52.61,499,25
+431686e3,Japan,purse_seines,60.519999999999996,1096,29
+431693e3,Japan,pole_and_line,59.0175,499,32
+431698e3,Japan,pole_and_line,56.27,385,28
+431700030,Japan,drifting_longlines,50.9425,379,22
+431700060,Japan,drifting_longlines,50.9425,379,23
+431700120,Japan,drifting_longlines,31.5,288.503398904,15
+431700130,Japan,drifting_longlines,49.9,445.5,23
+431700140,Japan,drifting_longlines,32.56,119,15
+431700150,Japan,pole_and_line,59.0175,499,33
+431700190,Japan,drifting_longlines,32.56,148,15
+431700200,Japan,drifting_longlines,46.49,319,23
+431700260,Japan,drifting_longlines,49.99,410,25
+431700367,Japan,drifting_longlines,20.71,50,12
+431700454,Japan,drifting_longlines,17.59,26.417429594399984,7
+431700550,Japan,drifting_longlines,51.2,454,25
+431700560,Japan,drifting_longlines,49.9,418,25
+431700660,Japan,drifting_longlines,48.4,427,24
+431700830,Japan,drifting_longlines,49.39,379,24
+431700970,Japan,drifting_longlines,51.7175,409,24
+431700980,Japan,drifting_longlines,48.87,379,23
+431701010,Japan,drifting_longlines,49.32,439,23
+431701040,Japan,drifting_longlines,49.32,419,23
+431701560,Japan,drifting_longlines,49.39,430.6,23
+431701650,Japan,drifting_longlines,49.32,409,23
+431701710,Japan,drifting_longlines,51.5623100554,492.863025513,23
+431701720,Japan,drifting_longlines,48.4,379,23
+431701780,Japan,drifting_longlines,54.56,398.8,25
+431702e3,Japan,drifting_longlines,46.49,319,23
+431702040,Japan,drifting_longlines,31.5,272.144639071,15
+431702230,Japan,drifting_longlines,51.15,379,22
+431702430,Japan,drifting_longlines,32.5024565986,193.010977303,15
+431702470,Japan,drifting_longlines,48.03,398.8,21
+431702510,Japan,drifting_longlines,31.42,147,15
+431702580,Japan,drifting_longlines,48.4,391,25
+431702640,Japan,drifting_longlines,48.4,398.8,22
+431702850,Japan,drifting_longlines,45.3475,319,22
+431702990,Japan,drifting_longlines,51.6,435,25
+431703560,Japan,drifting_longlines,51.1275,409,25
+431703660,Japan,drifting_longlines,49.9775,379,23
+431703710,Japan,drifting_longlines,49.3775,393,24
+431703830,Japan,drifting_longlines,53.7101186478,532.077077695,24
+431704070,Japan,drifting_longlines,48,495.45767340762427,23
+431704110,Japan,drifting_longlines,51.5287515448,516.171380181,23
+431704330,Japan,drifting_longlines,49.9,409,25
+431704420,Japan,drifting_longlines,50.09,409,24
+431704520,Japan,drifting_longlines,49.9,409,25
+431714e3,Japan,drifting_longlines,49.71,379,23
+431722e3,Japan,pole_and_line,59.24375,483,29
+431725e3,Japan,drifting_longlines,56.5475,499,25
+431729e3,Japan,drifting_longlines,53.3,499,70
+431739e3,Japan,drifting_longlines,49.3,422,24
+43175e4,Japan,drifting_longlines,49.3,379,24
+431753e3,Japan,drifting_longlines,49.9,409,29
+431763e3,Japan,pole_and_line,31,119,22
+431768e3,Japan,pole_and_line,58.4175,499,32
+431769e3,Japan,pole_and_line,55.715,495,30
+43177e4,Japan,pole_and_line,29.7,108,24
+431782e3,Japan,drifting_longlines,49.3,415.4,24
+431791e3,Japan,drifting_longlines,49.9,423,25
+431795e3,Japan,pole_and_line,59.0175,499,33
+431796e3,Japan,purse_seines,59.2966666667,1227,23
+431797e3,Japan,drifting_longlines,49.99,432,23
+431798e3,Japan,drifting_longlines,56.5475,499,25
+431801e3,Japan,pole_and_line,58.4175,499,32
+431802e3,Japan,drifting_longlines,49.39,379,23
+431809e3,Japan,drifting_longlines,49.915,417.5,25
+431812e3,Japan,purse_seines,60.68,349,25
+431813e3,Japan,drifting_longlines,49.99,409,25
+431817e3,Japan,purse_seines,60.52,349,24
+431828e3,Japan,pole_and_line,59.0175,499,31
+431838e3,Japan,drifting_longlines,49.39,379,23
+431853e3,Japan,drifting_longlines,57.831875,499,30
+431855e3,Japan,drifting_longlines,51.2,439,24
+431864e3,Japan,drifting_longlines,51.2,439,24
+431866e3,Japan,purse_seines,60.8025,1092,24
+431869e3,Japan,drifting_longlines,50.985,408,25
+431873e3,Japan,drifting_longlines,51.4,499,25
+431882e3,Japan,drifting_longlines,56.08,451,23
+431889e3,Japan,drifting_longlines,51.4,499,24
+431893e3,Japan,drifting_longlines,51.4,439,24
+431903e3,Japan,pole_and_line,57.07125,499,32
+431914e3,Japan,pole_and_line,55.6,455,30
+431918e3,Japan,drifting_longlines,23.292181021,91.4343042583,8
+431924e3,Japan,drifting_longlines,49.98,439,25
+431925e3,Japan,drifting_longlines,49.98,439,25
+431927e3,Japan,drifting_longlines,52.6,499,25
+431932e3,Japan,purse_seines,64.09,1091,28
+431935e3,Japan,pole_and_line,59.73333333333333,499,32
+432045e3,Japan,drifting_longlines,52.6,499,25
+432106e3,Japan,drifting_longlines,50.94,499,70
+432226e3,Japan,drifting_longlines,49.99,439,25
+432228e3,Japan,drifting_longlines,49.3,399,25
+432256e3,Japan,pole_and_line,31,119,24
+432261e3,Japan,purse_seines,65.02,1479.5619692,25
+432276e3,Japan,drifting_longlines,51.4,499,24
+432282e3,Japan,drifting_longlines,49.2,409,25
+432298e3,Japan,drifting_longlines,49.99,409,24
+432306e3,Japan,drifting_longlines,50.6,438,25
+432319e3,Japan,drifting_longlines,50.8,439,25
+432321e3,Japan,drifting_longlines,56,645,63
+432322e3,Japan,drifting_longlines,50.9,499,75
+432343e3,Japan,drifting_longlines,51.2,469,24
+432346e3,Japan,drifting_longlines,50.6,439,24
+432353e3,Japan,drifting_longlines,51.1625,379,24
+432367e3,Japan,drifting_longlines,50.5608333333,439,25
+43237e4,Japan,drifting_longlines,50.25,469,60
+432374e3,Japan,drifting_longlines,52.6,499,25
+432378e3,Japan,drifting_longlines,23.5,19,10
+432395e3,Japan,drifting_longlines,60.81,650,68
+432399e3,Japan,drifting_longlines,57,660,78
+432402e3,Japan,drifting_longlines,49.98,379,21
+432405e3,Japan,drifting_longlines,49.99,439,25
+432408e3,Japan,drifting_longlines,49.99,439,28
+43241e4,Japan,purse_seines,60.9325,349,24
+432411e3,Japan,drifting_longlines,51.685,471,25
+432412e3,Japan,pole_and_line,36.5,199,30
+432425e3,Japan,pole_and_line,31,144.879346252,24
+432426e3,Japan,drifting_longlines,49.99,439,25
+432438e3,Japan,purse_seines,61.0275,349,24
+432441e3,Japan,pole_and_line,34.9,167,25
+432444e3,Japan,drifting_longlines,49.99,439,25
+432447e3,Japan,drifting_longlines,49.99,439,25
+432448e3,Japan,drifting_longlines,49.99,439,25
+432453e3,Japan,drifting_longlines,52.1908333333,489,25
+432454e3,Japan,drifting_longlines,49.99,439,25
+432458e3,Japan,drifting_longlines,52.6,499,25
+432463e3,Japan,drifting_longlines,49.708,439,25
+432468e3,Japan,drifting_longlines,52.19,469,25
+432475e3,Japan,drifting_longlines,52.963,439,24
+432487e3,Japan,purse_seines,62.56,1094,24
+432503e3,Japan,drifting_longlines,50.6,439,25
+432507e3,Japan,pole_and_line,57.0225,499,32
+432511e3,Japan,drifting_longlines,64.21,646,68
+432515e3,Japan,drifting_longlines,51.4,498,25
+432525e3,Japan,pole_and_line,32.39,119,23
+432549e3,Japan,purse_seines,66.9466666667,1338,24
+432549100,Japan,purse_seines,66.9466666667,1341.66998425,24
+432558e3,Japan,drifting_longlines,50.3,499,63
+432561e3,Japan,drifting_longlines,30.22,149,16
+432564e3,Japan,purse_seines,74.50833333333334,1826,30
+432568e3,Japan,drifting_longlines,42.02,289,21
+432586e3,Japan,drifting_longlines,40.24,299,50
+432605e3,Japan,drifting_longlines,49.99,439,24
+432626e3,Japan,drifting_longlines,52.7425,439,25
+432685e3,Japan,purse_seines,76.75,760,27
+432706e3,Japan,drifting_longlines,65.24,559,67
+432708e3,Japan,purse_seines,68.42,1350,29
+432726e3,Japan,purse_seines,76.7475,760,30
+432738e3,Japan,purse_seines,79.61,1788,34
+432761e3,Japan,drifting_longlines,32.1,145,17
+432776e3,Japan,drifting_longlines,29.8,119,15
+432845e3,Japan,purse_seines,66.93,1339,30
+432848e3,Japan,drifting_longlines,51.1535,387,25
+43285e4,Japan,drifting_longlines,57.42,1284,72
+432856e3,Japan,drifting_longlines,49.3,392,25
+432878e3,Japan,drifting_longlines,49.99,439,25
+432881e3,Japan,drifting_longlines,50.59,436,24
+43289e4,Japan,drifting_longlines,51.6521838938,459.692620632,24
+432894e3,Japan,drifting_longlines,49.3,398,24
+432896e3,Japan,drifting_longlines,29.98,119,15
+432899e3,Japan,drifting_longlines,61.46,703.330128072,93
+432907e3,Japan,drifting_longlines,29.98,119,15
+432914e3,Japan,drifting_longlines,50.59,436,24
+432918e3,Japan,drifting_longlines,49.99,439,25
+432924e3,Japan,drifting_longlines,49.99,439,25
+432936e3,Japan,drifting_longlines,50.59,436,25
+432942e3,Japan,drifting_longlines,52.295625,436,24
+432943e3,Japan,drifting_longlines,50.59,436,24
+432948e3,Japan,purse_seines,65.9833333333,1331,26
+432955e3,Japan,drifting_longlines,49.3,398,24
+432958e3,Japan,pole_and_line,23.65,125.662072545,17
+432962e3,Japan,drifting_longlines,51.7675,439,25
+432966e3,Japan,purse_seines,70.15,1470,26
+432967e3,Japan,drifting_longlines,52.6,469,25
+432971e3,Japan,drifting_longlines,50.5725,479,24
+432984e3,Japan,drifting_longlines,52.3,714,24
+432987e3,Japan,drifting_longlines,49.65,439,25
+43299e4,Japan,drifting_longlines,50.59,436,24
+432991e3,Japan,drifting_longlines,52.6,469,24
+433226e3,Japan,drifting_longlines,49.99,439,25
+436827810,United States,drifting_longlines,63.51,108.126351972,7
+440045e3,South Korea,drifting_longlines,49.646,380,25
+440053e3,South Korea,purse_seines,79.56,1016,29
+440055e3,South Korea,drifting_longlines,50.198,389,25
+440089e3,South Korea,drifting_longlines,53.2496666667,442,25
+440100510,South Korea,purse_seines,37.14,129,27
+440101040,South Korea,purse_seines,41.82,129,27
+440104e3,South Korea,purse_seines,76.04,1016,28
+440125e3,South Korea,drifting_longlines,52.6275,392,25
+440167e3,South Korea,purse_seines,79.6,1013,30
+440195e3,South Korea,purse_seines,79.6,1012,29
+440203e3,South Korea,drifting_longlines,51.01,573,42
+440226e3,South Korea,purse_seines,79.6,1012,29
+440233e3,South Korea,purse_seines,74.663,733,24
+440236e3,South Korea,drifting_longlines,52.6204,408,25
+440239e3,South Korea,drifting_longlines,49.646,385,25
+440246e3,South Korea,drifting_longlines,50.79,411,25
+44028e4,South Korea,drifting_longlines,49.61,427,25
+440281e3,South Korea,drifting_longlines,44.301875,392,25
+440298e3,South Korea,drifting_longlines,52.21875,414,25
+440339e3,South Korea,drifting_longlines,51.142,408,25
+440347e3,South Korea,drifting_longlines,51.01,584,42
+44041e4,South Korea,purse_seines,68.28,606,22
+440444e3,South Korea,purse_seines,68.867,606,24
+44045e4,South Korea,purse_seines,76.9913333333,1349.13333333,25
+440462e3,South Korea,purse_seines,66.3275,535,25
+440479e3,South Korea,purse_seines,73.049,745,24
+440492e3,South Korea,purse_seines,74.314,1349.15,25
+440503e3,South Korea,drifting_longlines,51.942,424,26
+440504e3,South Korea,drifting_longlines,49.646,384,24
+440517e3,South Korea,drifting_longlines,51.738,427,26
+440522e3,South Korea,drifting_longlines,51.752,427,26
+440542e3,South Korea,purse_seines,77.326,1349.13333333,25
+440549e3,South Korea,drifting_longlines,51.762,427,26
+440552e3,South Korea,purse_seines,66.225,1349,22
+440574e3,South Korea,drifting_longlines,51.142,408,25
+440575e3,South Korea,purse_seines,72.768,733.333333333,26
+440584e3,South Korea,drifting_longlines,51.142,410,25
+44059e4,South Korea,drifting_longlines,49.646,385,25
+440595e3,South Korea,drifting_longlines,51.746,427,26
+440604e3,South Korea,drifting_longlines,50.368,401,25
+440612e3,South Korea,drifting_longlines,50.368,401,26
+440617e3,South Korea,drifting_longlines,51.718,427,26
+44062e4,South Korea,drifting_longlines,51.142,408,25
+440623e3,South Korea,drifting_longlines,52.374,410,25
+440624e3,South Korea,drifting_longlines,49.91,408,25
+440628e3,South Korea,drifting_longlines,51.9435,424,26
+440636e3,South Korea,drifting_longlines,52.374,414,25
+440641e3,South Korea,drifting_longlines,50.91,424,26
+440644e3,South Korea,purse_seines,68.17,1201.65,22
+440645e3,South Korea,drifting_longlines,51.7629166667,408,25
+440646e3,South Korea,drifting_longlines,49.646,389.25,25
+440647e3,South Korea,drifting_longlines,48.428,383,25
+440648e3,South Korea,drifting_longlines,51.1176,408,25
+440654e3,South Korea,drifting_longlines,49.646,384,25
+440656e3,South Korea,drifting_longlines,49.646,384,25
+44067e4,South Korea,drifting_longlines,51.45,411,25
+440671e3,South Korea,purse_seines,70.3311111111,982,25
+440677e3,South Korea,purse_seines,36.01,129,27
+440703e3,South Korea,drifting_longlines,52.32,416,25
+440704e3,South Korea,drifting_longlines,52.194,416,25
+440705e3,South Korea,drifting_longlines,52.37,414,25
+440706e3,South Korea,drifting_longlines,51.4425,414,25
+440707e3,South Korea,drifting_longlines,48.5,377,25
+440731e3,South Korea,drifting_longlines,49.646,380,25
+440733e3,South Korea,drifting_longlines,49.646,384,25
+440735e3,South Korea,purse_seines,34.9,376.92913176,27
+440751e3,South Korea,drifting_longlines,52.22,418.75,25
+440755e3,South Korea,fixed_gear,53.4,694,42
+440765e3,South Korea,drifting_longlines,50.1395,380,25
+44077e4,South Korea,drifting_longlines,52.436,414,25
+440772e3,South Korea,drifting_longlines,52.3735,410,25
+440773e3,South Korea,drifting_longlines,49.91,638,25
+440777e3,South Korea,drifting_longlines,51.142,408,25
+440778e3,South Korea,drifting_longlines,49.84,388,25
+44078e4,South Korea,drifting_longlines,50.908,431.7142857142857,25
+440781e3,South Korea,drifting_longlines,52.194,431.7142857142857,25
+440782e3,South Korea,drifting_longlines,51.142,416.7083333333333,25
+440786e3,South Korea,drifting_longlines,51.1415,423,25
+440787e3,South Korea,drifting_longlines,49.91,638,25
+440788e3,South Korea,drifting_longlines,52.374,397,25
+440792e3,South Korea,drifting_longlines,52.368,414,25
+440796e3,South Korea,drifting_longlines,49.6975,385,25
+440801e3,South Korea,drifting_longlines,49.664,378,25
+440807e3,South Korea,drifting_longlines,52.32,416,25
+440808e3,South Korea,drifting_longlines,46.564,393,25
+440809e3,South Korea,drifting_longlines,51.142,424.09999999999997,26
+44082e4,South Korea,drifting_longlines,49.646,384.25,25
+440821e3,South Korea,drifting_longlines,49.646,384.75,25
+440822e3,South Korea,purse_seines,75.33375,745,28
+440823e3,South Korea,purse_seines,78.33,1349.2,28
+440825e3,South Korea,purse_seines,78.33,1349.2,28
+440826e3,South Korea,purse_seines,64.625,1241.63670544,25
+440846e3,South Korea,drifting_longlines,50.255,384,25
+440847e3,South Korea,drifting_longlines,52.682,410,25
+440854e3,South Korea,fixed_gear,49.61,587,42
+440858e3,South Korea,drifting_longlines,50.789642857142844,404.32142857142856,25
+440863e3,South Korea,trawlers,93.5,3012,96
+440871e3,South Korea,drifting_longlines,52.682,416,25
+440885e3,South Korea,drifting_longlines,52.194,446,25
+440886e3,South Korea,drifting_longlines,52.194,421,25
+440894e3,South Korea,drifting_longlines,52.041,425,25
+440895e3,South Korea,drifting_longlines,50.9015,420,25
+440899e3,South Korea,trawlers,95.6,2999.12,99
+4409e5,South Korea,drifting_longlines,52.374,424.60714285714283,25
+440919e3,South Korea,drifting_longlines,52.374,411,25
+44092e4,South Korea,drifting_longlines,50.066,383,25
+440926e3,South Korea,drifting_longlines,49.548,398.1,25
+440931e3,South Korea,drifting_longlines,52.194,416,25
+440933e3,South Korea,drifting_longlines,52.37,414,25
+440934e3,South Korea,drifting_longlines,52.194,416,25
+440935e3,South Korea,drifting_longlines,52.32,416,25
+440936e3,South Korea,drifting_longlines,52.194,416,25
+440941e3,South Korea,drifting_longlines,49.646,380,25
+440944e3,South Korea,drifting_longlines,47.9745,353,25
+440946e3,South Korea,drifting_longlines,52.374,416,25
+44095e4,South Korea,drifting_longlines,48.906875,398,25
+440951e3,South Korea,purse_seines,34.88,129,27
+440952e3,South Korea,drifting_longlines,52.374,417,25
+440954e3,South Korea,drifting_longlines,52.2,424,25
+440958e3,South Korea,drifting_longlines,52.8818283407,592.65021597,25
+440963e3,South Korea,drifting_longlines,52.209,423,25
+440966e3,South Korea,drifting_longlines,51.45,416,25
+440968e3,South Korea,purse_seines,68.1,1475,25
+440986e3,South Korea,drifting_longlines,49.646,380,25
+440987e3,South Korea,drifting_longlines,49.646,380,25
+440989e3,South Korea,drifting_longlines,48.65,587,25
+44099e4,South Korea,purse_seines,68.075,1526,25
+440992e3,South Korea,drifting_longlines,50.902,408,25
+441014e3,South Korea,drifting_longlines,52.682,417,25
+441018e3,South Korea,drifting_longlines,50.105,383,25
+441024e3,South Korea,purse_seines,74.51,2023,22
+441038e3,South Korea,drifting_longlines,52.6835,416,25
+441043e3,South Korea,drifting_longlines,52.374,417,25
+441066e3,South Korea,purse_seines,78.96,780,25
+441072e3,South Korea,drifting_longlines,52.374,416,25
+441084e3,South Korea,drifting_longlines,50.105,383,25
+44109e4,South Korea,drifting_longlines,52.374,411,25
+441098e3,South Korea,drifting_longlines,52.374,411,25
+441166e3,South Korea,purse_seines,78.32,1014,29
+441201181,South Korea,drifting_longlines,33.74,223,15
+441201183,South Korea,drifting_longlines,33.74,223,15
+441201562,South Korea,drifting_longlines,47.99,486,30
+441201727,South Korea,drifting_longlines,26.8666666667,157,11
+441201728,South Korea,drifting_longlines,26.8666666667,157,11
+441201729,South Korea,drifting_longlines,25.8,157,11
+441201730,South Korea,drifting_longlines,26.8666666667,157,11
+441201731,South Korea,drifting_longlines,26.8666666667,157,11
+441201732,South Korea,drifting_longlines,26.8666666667,157,11
+441219253,South Korea,drifting_longlines,33.76,199,12
+441219875,South Korea,drifting_longlines,35.5,255,13
+441219878,South Korea,drifting_longlines,35.5,255,12
+441220243,South Korea,drifting_longlines,36.52,270,12
+441220316,South Korea,drifting_longlines,48.023333333325006,577,30
+441225815,South Korea,drifting_longlines,23.9866666667,119,9
+441225915,South Korea,drifting_longlines,23.9866666667,119,9
+441226015,South Korea,drifting_longlines,23.9866666667,119,9
+441226315,South Korea,drifting_longlines,23.9866666667,119,10
+441233e3,South Korea,drifting_longlines,50.98,380,25
+441241e3,South Korea,drifting_longlines,49.16,379,25
+441242e3,South Korea,drifting_longlines,52.7625,441,24
+441247715,South Korea,drifting_longlines,22.85,119,9
+441251e3,South Korea,drifting_longlines,50.834,442,26
+441374e3,South Korea,drifting_longlines,52.446,419,25
+441446e3,South Korea,purse_seines,74.51,2071,30
+441483e3,South Korea,drifting_longlines,50.15,387,25
+441493e3,South Korea,purse_seines,74.51,2023,30
+441536e3,South Korea,drifting_longlines,47.37,570,25
+441584e3,South Korea,drifting_longlines,52.152,394,24
+441600589,South Korea,drifting_longlines,48.64,657,32
+441644e3,South Korea,drifting_longlines,52.034,408,25
+441645e3,South Korea,drifting_longlines,52.718,419,25
+44165e4,South Korea,drifting_longlines,50.93,398,24
+44166e4,South Korea,drifting_longlines,50.9445,446.8333333333333,25
+441675e3,South Korea,purse_seines,70.63,1061,32
+44168e4,South Korea,drifting_longlines,52.204,412.75,25
+441699e3,South Korea,trawlers,110.22,7765,120
+441807e3,South Korea,purse_seines,79.9,2359,25
+441811e3,South Korea,drifting_longlines,54.9413333333,483,25
+441812e3,South Korea,drifting_longlines,54.9413333333,488,25
+441825e3,South Korea,drifting_longlines,51.405,376,25
+441837e3,South Korea,purse_seines,79.9,1971,29
+441853e3,South Korea,purse_seines,78.47,1014,29
+441864e3,South Korea,drifting_longlines,51.91,628,40
+441868e3,South Korea,drifting_longlines,47.11,862,43
+441869e3,South Korea,drifting_longlines,33.5775,173,20
+44193e4,South Korea,purse_seines,79.56,1016,29
+443200156,Japan,purse_seines,64.8732535485,1073.75196579,23
+444080710,South Korea,purse_seines,79.9,2035.6666666666667,25
+451004112,Federated States of Micronesia	,purse_seines,61.51,999,20
+452005511,Federated States of Micronesia,purse_seines,63.24,1096,21
+503000087,Australia,drifting_longlines,54.58,1155,30
+503042740,Australia,drifting_longlines,22.9,130,6
+503057e3,Australia,trawlers,87.19,1696,33
+503337100,Australia,drifting_longlines,20.73,70,6
+503449e3,Australia,drifting_longlines,46.5,1079,20
+503552e3,Australia,trawlers,68.1,1906,30
+503555500,Australia,drifting_longlines,22.45,47,4
+503556e3,Australia,drifting_longlines,59.8,1045,30
+503595e3,Australia,drifting_longlines,62.8,1136,24
+503597400,Australia,drifting_longlines,25.4666666666,162.777777778,6
+50377e4,Australia,drifting_longlines,49.9,1362,30
+503798700,Australia,drifting_longlines,21.1,140,4
+503798800,Australia,drifting_longlines,21.1,140,4
+503798900,Australia,drifting_longlines,23.78,160,5
+50877e4,Australia,drifting_longlines,49.9,1362,30
+510012e3,Federated States of Micronesia,drifting_longlines,29,113,10
+510013e3,Federated States of Micronesia,drifting_longlines,29,113,10
+510014e3,Federated States of Micronesia,drifting_longlines,29,113,10
+510032e3,Federated States of Micronesia,drifting_longlines,27.615000000000002,112,10
+510033e3,Federated States of Micronesia,drifting_longlines,26.26,112,10
+510034e3,Federated States of Micronesia,drifting_longlines,26.82,139,10
+510035e3,Federated States of Micronesia,drifting_longlines,26.82,139,10
+510038e3,Federated States of Micronesia,drifting_longlines,22.44,136,10
+510041e3,Federated States of Micronesia,drifting_longlines,28.6,98,15
+510046e3,Federated States of Micronesia,purse_seines,64.895,1555,19
+510051e3,Federated States of Micronesia,drifting_longlines,29.7322740301,165.304894504,16
+510053e3,Federated States of Micronesia,drifting_longlines,29.7,96,13
+510054e3,Federated States of Micronesia,purse_seines,79.155,1788,30
+510056e3,Federated States of Micronesia,purse_seines,68.77,1487,22
+510057e3,Federated States of Micronesia,purse_seines,79.61,1788,34
+51006e4,Federated States of Micronesia,purse_seines,65.02,349,28
+510061e3,Federated States of Micronesia,purse_seines,75.97,744,30
+510062e3,Federated States of Micronesia,purse_seines,62.4,1200,23
+510065e3,Federated States of Micronesia,purse_seines,77.16,1678,25
+510067e3,Federated States of Micronesia,purse_seines,66.4633333333,1985.04941546,30
+510068e3,Federated States of Micronesia,purse_seines,66.4633333333,1548.9731431,30
+510069e3,Federated States of Micronesia,purse_seines,70.59,1562,40
+51007e4,Federated States of Micronesia,purse_seines,70.59,1398.68634089,30
+510073e3,Federated States of Micronesia,purse_seines,79.5,2007.32438961,47
+510076e3,Federated States of Micronesia,purse_seines,46.02,509.27,16
+510078e3,Federated States of Micronesia,purse_seines,46.02,509.33,16
+512000061,New Zealand,purse_seines,63.3134198845,1231.73783176,19
+512000089,New Zealand,purse_seines,76.44999999999999,1678,20
+512006e3,New Zealand,drifting_longlines,46.5,1079,20
+512008e3,New Zealand,drifting_longlines,46.5,1079,25
+512012e3,New Zealand,purse_seines,68.13,1475.37695408,19
+512027e3,New Zealand,drifting_longlines,51.2,1508,25
+512116e3,New Zealand,drifting_longlines,16,73.6061391047,4
+512189e3,New Zealand,drifting_longlines,62.8,1136,22
+514295e3,Cambodia,trawlers,73.3763848027,1773.23399908,25
+518072e3,Cook Islands,drifting_longlines,32,122,10
+518107e3,Cook Islands,drifting_longlines,27.245,179.5,6
+518156e3,Cook Islands,drifting_longlines,24,55,9
+518402e3,Cook Islands,drifting_longlines,33.3,138,9
+518676e3,Cook Islands,drifting_longlines,22,70,10
+51877e4,Cook Islands,drifting_longlines,56.5,705,30
+520019e3,Fiji,drifting_longlines,32,136.363926948,12
+52002e4,Fiji,drifting_longlines,32,180,13
+520033e3,Fiji,drifting_longlines,26,113,11
+52005e4,Fiji,drifting_longlines,29.3,225,13
+520065e3,Fiji,drifting_longlines,30.96,136,14
+520074e3,Fiji,drifting_longlines,30.45,136,13
+520075e3,Fiji,drifting_longlines,31,144.729025476,13
+520076e3,Fiji,drifting_longlines,34,136,15
+520077e3,Fiji,drifting_longlines,30.45,176.421260133,13
+520083e3,Fiji,drifting_longlines,29.43,120,12
+520116e3,Fiji,drifting_longlines,25.63,121,12
+52013e4,Fiji,drifting_longlines,36.6,191,13
+520137e3,Fiji,drifting_longlines,36.6,251.341009302,13
+520145e3,Fiji,drifting_longlines,36.6,193,13
+520146e3,Fiji,drifting_longlines,27.15,230.604765479,12
+520151e3,Fiji,drifting_longlines,40,198,15
+520153e3,Fiji,drifting_longlines,29.8366666667,79.8634607914,15
+520171e3,Fiji,drifting_longlines,36.6,193,14
+520173e3,Fiji,drifting_longlines,39.6,198,14
+520174e3,Fiji,drifting_longlines,36.6,204.929258311,14
+520176e3,Fiji,drifting_longlines,39.6,299.463523701,14
+520177e3,Fiji,drifting_longlines,36.6,170.617352457,15
+520179e3,Fiji,drifting_longlines,36.6,193,14
+520183e3,Fiji,drifting_longlines,29.43,120,12
+520187e3,Fiji,drifting_longlines,29.5666666667,108,12
+520188e3,Fiji,drifting_longlines,28.95,114,13
+520189e3,Fiji,drifting_longlines,27.5,114,13
+52019e4,Fiji,drifting_longlines,25.8,135,13
+520204e3,Fiji,drifting_longlines,36.6,224.45464196719774,14
+520217e3,Fiji,drifting_longlines,32,289.171307191,20
+520218e3,Fiji,drifting_longlines,32,179,20
+520222e3,Fiji,drifting_longlines,39.6,264,15
+520223e3,Fiji,drifting_longlines,39.6,193.248218672,11
+520225e3,Fiji,drifting_longlines,29.7,98,15
+520231e3,Fiji,drifting_longlines,42.6,199,15
+520234e3,Fiji,drifting_longlines,42.6,199,15
+520241e3,Fiji,drifting_longlines,41.5,268,18
+520243e3,Fiji,drifting_longlines,40.5,252.78,16
+520271e3,Fiji,drifting_longlines,30.03,191,16
+529004e3,Kiribati,purse_seines,56.3675,1015,25
+529223e3,Kiribati,purse_seines,61.2,1166,21
+529278e3,Kiribati,drifting_longlines,23.79,124.730183178,15
+529413e3,Kiribati,drifting_longlines,49.1666666667,535.44422097,30
+529414e3,Kiribati,drifting_longlines,49.1666666667,508,30
+529415e3,Kiribati,drifting_longlines,49.1666666667,496.944039598,30
+529417e3,Kiribati,purse_seines,76.06,702,25
+529435e3,Kiribati,purse_seines,68.075,1106.04,25
+52944e4,Kiribati,purse_seines,66.365,1526,25
+529469e3,Kiribati,purse_seines,76.275,1803,24
+529676e3,Kiribati,purse_seines,68.06,1207.855,25
+529686e3,Kiribati,purse_seines,67.005,1350,24
+529687e3,Kiribati,purse_seines,65.6633333333,1102,25
+529695e3,Kiribati,purse_seines,64.625,1442.44615999,25
+529729e3,Kiribati,purse_seines,68.1,978,24
+529783e3,Kiribati,purse_seines,89.1110199191,2338,29
+533111749,Malaysia,purse_seines,71.23,1099,40
+538060004,Marshall Islands,purse_seines,63.09,1096,28
+538060005,Marshall Islands,purse_seines,65.97,1099,28
+538060006,Marshall Islands,purse_seines,64.48,1152,28
+538060007,Marshall Islands,purse_seines,67.11,1152,29
+538060008,Marshall Islands,purse_seines,67.11,1152,29
+538060011,Marshall Islands,drifting_longlines,26,129,10
+538060012,Marshall Islands,drifting_longlines,26,129,10
+538060013,Marshall Islands,drifting_longlines,29.29,129,10
+538060014,Marshall Islands,drifting_longlines,29.29,129,10
+538060015,Marshall Islands,purse_seines,75.23,2109,32
+538060016,Marshall Islands,purse_seines,71.79,1344,32
+538060017,Marshall Islands,purse_seines,70.59,1517,30
+538060018,Marshall Islands,purse_seines,70.59,1517,30
+538060019,Marshall Islands,purse_seines,71.79,1344,32
+540000670,New Caledonia,drifting_longlines,21,69,6
+540001900,New Caledonia,drifting_longlines,21,93,6
+540002100,New Caledonia,drifting_longlines,21,93,6
+540002200,New Caledonia,drifting_longlines,21,92.6666666667,6
+540002300,New Caledonia,drifting_longlines,21,92.6666666667,6
+540003800,New Caledonia,drifting_longlines,21,95.6666666667,6
+540003900,New Caledonia,drifting_longlines,21,95.6666666667,6
+540004e3,New Caledonia,drifting_longlines,29,136,6
+540004100,New Caledonia,drifting_longlines,20,95.6666666667,6
+540004200,New Caledonia,drifting_longlines,21,95.6666666667,6
+540005e3,New Caledonia,drifting_longlines,29,136,6
+540010700,New Caledonia,drifting_longlines,19,69.6666666667,6
+540010800,New Caledonia,drifting_longlines,18,69.6666666667,6
+540011500,New Caledonia,drifting_longlines,24,120,5
+546012900,French Polynesia,drifting_longlines,20.5,97.97,12
+548051500,Philippines,purse_seines,66.82,1100,36
+548057500,Philippines,purse_seines,58.9182963846,1081,27
+548058500,Philippines,purse_seines,60.67,995,28
+548225100,Philippines,purse_seines,56.25,498.67,25
+548227100,Philippines,purse_seines,66.78,1534,26
+548428100,Philippines,purse_seines,51.64,844,26
+548487100,Philippines,purse_seines,71.79,1100,36
+548687200,Philippines,purse_seines,56.76,1088,29
+548831e3,Philippines,purse_seines,69.305,1100,37
+548895e3,Philippines,purse_seines,71.79,1100,37
+548905e3,Philippines,purse_seines,65.1633333333,1100,36
+548924e3,Philippines,purse_seines,71.79,1100,37
+548927e3,Philippines,purse_seines,71.79,1100,37
+548938e3,Philippines,purse_seines,71.79,1100,37
+553111643,Papua New Guinea,purse_seines,61.75,1034,24
+553111690,Papua New Guinea,purse_seines,79.5,1893,39
+553111698,Papua New Guinea,purse_seines,71.79,1349,29
+553111712,Papua New Guinea,purse_seines,70.5925,1557,40
+553111733,Papua New Guinea,purse_seines,70.8,1408,37
+553111734,Papua New Guinea,purse_seines,70.8,1408,37
+553111735,Papua New Guinea,purse_seines,71.79,1350,40
+553111736,Papua New Guinea,purse_seines,70.59,1562,40
+553111738,Papua New Guinea,purse_seines,71.79,1350,38
+553111740,Papua New Guinea,purse_seines,67.34625,1280,30
+553111743,Papua New Guinea,purse_seines,76.72,2338,28
+553111744,Papua New Guinea,purse_seines,79.9,2338,28
+553111750,Papua New Guinea,purse_seines,71.23,1099,40
+553111751,Papua New Guinea,purse_seines,66.44624999999999,1060,35
+553111754,Papua New Guinea,purse_seines,81.1933333333,2175,37
+553111755,Papua New Guinea,purse_seines,70.59,1280,38
+553111756,Papua New Guinea,purse_seines,89.21,2386,40
+553111759,Papua New Guinea,purse_seines,71.79,1350,40
+553111761,Papua New Guinea,purse_seines,70.59,1562,40
+553111764,Papua New Guinea,purse_seines,70.8,1408,42
+553111765,Papua New Guinea,purse_seines,70.8,1408,42
+553111771,Papua New Guinea,purse_seines,71.79,1350,40
+553111777,Papua New Guinea,purse_seines,69.45,1116.14523453,34
+553111788,Papua New Guinea,purse_seines,64.7,995,24
+553111790,Papua New Guinea,purse_seines,61.43,349,24
+557005500,Solomon Islands,purse_seines,70.8,1408,35
+557005700,Solomon Islands,purse_seines,70.8,1585.832915,35
+572138210,Tuvalu,drifting_longlines,20.8,120,15
+576093e3,Vanuatu,drifting_longlines,23.8,86,12
+576122e3,Vanuatu,drifting_longlines,23.8,86,12
+576237e3,Vanuatu,drifting_longlines,23.8,86,12
+576375e3,Vanuatu,pole_and_line,42.7,491,13
+576394e3,Vanuatu,drifting_longlines,23.9,91.74,12
+576574e3,Vanuatu,purse_seines,82.4625,2234,28
+576574500,Vanuatu,purse_seines,72.94,3266.94288367,28
+576594e3,Vanuatu,drifting_longlines,53.45,554.550999525,30
+576595e3,Vanuatu,drifting_longlines,53.45,605.788849283,30
+576596e3,Vanuatu,drifting_longlines,46.55,544.8333333334999,30
+576633e3,Vanuatu,drifting_longlines,46.5,681.041208325,30
+576634e3,Vanuatu,drifting_longlines,46.5,480.66666666649996,24
+576638e3,Vanuatu,drifting_longlines,48.2375,499,25
+57666e4,Vanuatu,drifting_longlines,23.32,93.18,12
+576664e3,Vanuatu,drifting_longlines,23.8,93.18,14
+576679e3,Vanuatu,drifting_longlines,53.45,498.333333333,30
+576682e3,Vanuatu,drifting_longlines,54.7333333333,637,25
+57669e4,Vanuatu,drifting_longlines,57.06,637,28
+576694e3,Vanuatu,drifting_longlines,23.8,93.18,12
+576695e3,Vanuatu,drifting_longlines,23.8,93.18,12
+576696e3,Vanuatu,drifting_longlines,23.8,93.18,12
+576699e3,Vanuatu,drifting_longlines,55.1,582,30
+576736e3,Vanuatu,drifting_longlines,50.08,637,29
+576737e3,Vanuatu,drifting_longlines,58.7,638,29
+576753e3,Vanuatu,drifting_longlines,23.8,93.18,12
+576754e3,Vanuatu,drifting_longlines,23.8,93.18,12
+576765e3,Vanuatu,drifting_longlines,23.8,93.18,12
+576811e3,Vanuatu,drifting_longlines,46,547,24
+576843e3,Vanuatu,drifting_longlines,50.8,625,27
+576847e3,Vanuatu,drifting_longlines,48.6625,526.5,30
+576848e3,Vanuatu,drifting_longlines,45.6,470,25
+57685e4,Vanuatu,drifting_longlines,50.3875,498,26
+576877e3,Vanuatu,drifting_longlines,44.99,492,27
+57689e4,Vanuatu,drifting_longlines,46.77,558,22
+576901e3,Vanuatu,purse_seines,89.21,1634.24949811,25
+576905e3,Vanuatu,purse_seines,85.41499999999999,2386,51
+576975e3,Vanuatu,drifting_longlines,57.06,637,30
+576987e3,Vanuatu,drifting_longlines,23.8,93.18,12
+577145e3,Vanuatu,drifting_longlines,52.8408,589.1333333333333,30
+577146e3,Vanuatu,drifting_longlines,55.46199999999999,641.5833333333334,30
+577205e3,Vanuatu,drifting_longlines,26.5,85.2,12
+577257e3,Vanuatu,drifting_longlines,48.97,485,28
+577258e3,Vanuatu,drifting_longlines,53.8502259354,628.010166502,23
+577259e3,Vanuatu,drifting_longlines,48.97,485,28
+577289e3,Vanuatu,drifting_longlines,50.15,547,30
+57729e4,Vanuatu,drifting_longlines,54.60733333334,574.2222222223332,35
+577308e3,Vanuatu,drifting_longlines,52.3834961478,604.074258381,28
+577309e3,Vanuatu,drifting_longlines,57.59,490,28
+577322e3,Vanuatu,drifting_longlines,57.75,618,25
+577326e3,Vanuatu,drifting_longlines,56.5,404.784570161,30
+601971e3,South Africa,drifting_longlines,60.75666666666667,1119.9,37
+618000500,French Southern and Antarctic Lands,drifting_longlines,56.4,1387,28
+632001e3,Guinea,purse_seines,23.1954114225,317,12
+635019400,French Southern and Antarctic Lands,drifting_longlines,54.58,1155,24
+663128e3,Senegal,trawlers,32.2144768986,148.76,20
+663129e3,Senegal,trawlers,32.9600355283,148.76,20
+664589e3,Seychelles,purse_seines,44.425,393,13
+665111117,Saint Helena,drifting_longlines,46.58,897,25
+665111119,Saint Helena,drifting_longlines,52.55,1352,25
+701000509,Argentina,trawlers,37.2955565374,225,11
+701000511,Argentina,trawlers,39.3222183025,403,26
+701000512,Argentina,drifting_longlines,46.4387415097,948,36
+701000515,Argentina,trawlers,44.377175312,449,29
+701000516,Argentina,trawlers,42.9268135106,437,29
+701000517,Argentina,trawlers,49.9444039491,655,28
+701000525,Argentina,trawlers,23.5771586142,76,7
+701000528,Argentina,trawlers,34.1318224488,213,25
+701000529,Argentina,trawlers,55.3050491343,506,28
+701000535,Argentina,trawlers,45.7388810203,573,29
+701000537,Argentina,trawlers,38.4901437427,215,26
+701000539,Argentina,trawlers,48.2929077095,262,28
+701000542,Argentina,trawlers,52.754340748,518,28
+701000543,Argentina,trawlers,37.4514280184,190,15
+701000545,Argentina,trawlers,42.721663173,427,28
+701000546,Argentina,trawlers,46.5870585838,439,26
+701000547,Argentina,drifting_longlines,50.6586105818,520,28
+701000549,Argentina,trawlers,53.1196967082,337,28
+701000550,Argentina,trawlers,41.518469283500004,337,28
+701000553,Argentina,trawlers,42.0595457109,340,29
+701000558,Argentina,drifting_longlines,45.8199568432,328,29
+701000561,Argentina,trawlers,37.2645651258,198,26
+701000564,Argentina,trawlers,63.5634360585,538,29
+701000571,Argentina,trawlers,26.3590869488,101,10
+701000577,Argentina,trawlers,39.3858896428,774,26
+701000578,Argentina,trawlers,43.1775082253,190,11
+701000580,Argentina,trawlers,23.0312523791,92,9
+701000583,Argentina,trawlers,30.9743034474,154,12
+701000584,Argentina,drifting_longlines,19.0596627959,47,7
+701000585,Argentina,trawlers,25.8790934754,81,10
+701000587,Argentina,drifting_longlines,35.8741677659,474,28
+701000588,Argentina,fixed_gear,37.9989004852,421,26
+701000591,Argentina,trawlers,45.3591346817,694,29
+701000596,Argentina,trawlers,60.1767972701,1016,26
+701000597,Argentina,squid_jigger,46.9408244259,397,29
+701000607,Argentina,trawlers,48.7359567731,300,28
+701000612,Argentina,trawlers,41.4709449621,262,28
+701000615,Argentina,trawlers,42.8557049892,219,11
+701000619,Argentina,trawlers,42.3165850798,221,26
+701000620,Argentina,trawlers,41.1117841068,603,33
+701000623,Argentina,trawlers,56.7212121398,409.72,29
+701000626,Argentina,purse_seines,54.3086144171,300,28
+701000627,Argentina,trawlers,70.633774605,3061,72
+701000628,Argentina,trawlers,54.7613988117,728,43
+701000629,Argentina,trawlers,54.6901612518,688,29
+701000631,Argentina,trawlers,58.0562430924,563,30
+701000632,Argentina,trawlers,55.8876476607,572,30
+701000636,Argentina,trawlers,38.5645356911,393,26
+701000639,Argentina,trawlers,30.3457948631,241,28
+701000642,Argentina,trawlers,43.096475568,184,26
+701000646,Argentina,trawlers,42.2225141779,314,29
+701000649,Argentina,trawlers,41.3247086689,343,28
+701000651,Argentina,trawlers,50.2643117129,343,28
+701000652,Argentina,trawlers,42.0617561201,280,27
+701000658,Argentina,trawlers,47.2407790914,331,30
+701000660,Argentina,trawlers,45.2053276977,200,25
+701000662,Argentina,trawlers,53.0032154759,300,28
+701000663,Argentina,trawlers,52.8403394561,406,29
+701000667,Argentina,trawlers,49.604709832,868,29
+701000668,Argentina,fixed_gear,36.6983643148,217,29
+701000672,Argentina,squid_jigger,48.902840438,369,29
+701000673,Argentina,trawlers,52.0194274477,369,29
+701000674,Argentina,trawlers,56.6630744095,509,30
+701000675,Argentina,trawlers,62.2006816309,666,29
+701000677,Argentina,trawlers,47.550544009,868,29
+701000686,Argentina,trawlers,42.0541611209,351,28
+701000687,Argentina,trawlers,46.103872466,351,29
+701000689,Argentina,trawlers,57.7502589119,877,28
+701000691,Argentina,trawlers,54.6966666924,716,29
+701000696,Argentina,trawlers,36.4358338414,358,26
+701000708,Argentina,trawlers,48.222550429,300,28
+701000710,Argentina,trawlers,35.8127101932,191,11
+701000713,Argentina,drifting_longlines,38.0552138628,384,29
+701000717,Argentina,drifting_longlines,50.9679448243,1300,28
+701000720,Argentina,drifting_longlines,44.197112733,343,26
+701000725,Argentina,trawlers,27.7763231337,87,9
+701000728,Argentina,trawlers,25.8735041974,102,11
+701000729,Argentina,trawlers,36.8462062276,140,11
+701000731,Argentina,trawlers,27.8156094448,104,10
+701000732,Argentina,trawlers,65.2650886775,729,26
+701000735,Argentina,trawlers,67.2824641271,1009,26
+701000742,Argentina,trawlers,52.8665857078,805,29
+701000743,Argentina,trawlers,51.635931567,365,29
+701000745,Argentina,trawlers,35.7795984369,164,26
+701000753,Argentina,trawlers,26.6361557975,116,13
+701000755,Argentina,trawlers,44.276388669,550,29
+701000756,Argentina,trawlers,39.4787600113,656,28
+701000757,Argentina,trawlers,52.9275114486,518,25
+701000765,Argentina,trawlers,48.4091906141,506,28
+701000768,Argentina,trawlers,58.639007381,439,29
+701000771,Argentina,trawlers,53.1620666428,469,30
+701000772,Argentina,trawlers,49.7008023801,900,29
+701000778,Argentina,trawlers,27.1882728638,220,30
+701000785,Argentina,trawlers,43.6500318089,339,26
+701000786,Argentina,drifting_longlines,42.7132204716,1007,26
+701000791,Argentina,trawlers,44.5056006267,301,28
+701000793,Argentina,trawlers,38.2366676542,337,26
+701000794,Argentina,trawlers,53.7960842345,318,28
+701000800,Argentina,fixed_gear,34.774535011,277,28
+701000803,Argentina,drifting_longlines,37.7935536352,137,26
+701000805,Argentina,trawlers,36.7321051147,343,19
+701000814,Argentina,trawlers,48.4973735654,343,19
+701000816,Argentina,trawlers,31.4241645405,107,12
+701000818,Argentina,trawlers,34.5468313906,149,12
+701000819,Argentina,drifting_longlines,31.9040543725,119,11
+701000820,Argentina,trawlers,33.2721575789,116,11
+701000822,Argentina,trawlers,36.9986312774,83,16
+701000823,Argentina,trawlers,51.9861948581,728,28
+701000834,Argentina,trawlers,51.2957918681,428,23
+701000835,Argentina,trawlers,51.3745393774,485,22
+701000837,Argentina,trawlers,33.2525567299,117,19
+701000840,Argentina,trawlers,43.1561341001,203,28
+701000842,Argentina,pole_and_line,25.0450810632,173,26
+701000844,Argentina,trawlers,28.8060844637,95,8
+701000849,Argentina,trawlers,43.3629556197,628,26
+701000850,Argentina,trawlers,46.9711930334,355,19
+701000852,Argentina,squid_jigger,56.3952875852,542,26
+701000857,Argentina,trawlers,51.3105014935,411,29
+701000860,Argentina,squid_jigger,48.0789768454,383,29
+701000865,Argentina,drifting_longlines,33.949163092,355,19
+701000867,Argentina,trawlers,54.3187122854,410,28
+701000869,Argentina,trawlers,32.7744608109,116,25
+701000872,Argentina,fixed_gear,36.4526242881,294,7
+701000875,Argentina,trawlers,53.4392042466,434,29
+701000876,Argentina,trawlers,66.2478641431,1955,29
+701000878,Argentina,trawlers,51.3443064637,812,28
+701000882,Argentina,trawlers,32.3396774601,121,21
+701000884,Argentina,trawlers,47.3899050697,685,29
+701000885,Argentina,trawlers,49.9106715806,545,29
+701000892,Argentina,trawlers,55.9193632432,950,30
+701000894,Argentina,trawlers,46.1711475061,428,23
+701000895,Argentina,trawlers,26.5404809114,198,26
+701000899,Argentina,trawlers,26.4300845922,110,19
+701000900,Argentina,trawlers,47.0746755707,546,29
+701000901,Argentina,trawlers,47.4149923559,1383,56
+701000902,Argentina,trawlers,33.3648094781,224,28
+701000907,Argentina,trawlers,51.0275527625,370,29
+701000908,Argentina,squid_jigger,54.1512632902,478,28
+701000916,Argentina,trawlers,41.8255820904,184,26
+701000919,Argentina,trawlers,40.785742245,184,28
+701000924,Argentina,trawlers,29.8936480501,99,11
+701000925,Argentina,trawlers,41.2291388161,236,26
+701000927,Argentina,trawlers,52.3088041972,920,28
+701000928,Argentina,trawlers,37.4560449298,215,21
+701000929,Argentina,purse_seines,46.0455804951,898,28
+701000932,Argentina,trawlers,46.1080622561,307,30
+701000934,Argentina,trawlers,56.5430917227,518,29
+701000938,Argentina,trawlers,29.7464169983,114,11
+701000940,Argentina,trawlers,61.2249141384,1001,28
+701000941,Argentina,trawlers,35.8540358734,83,8
+701000942,Argentina,trawlers,50.4897256847,383,26
+701000945,Argentina,squid_jigger,60.0052634826,695,26
+701000947,Argentina,fixed_gear,31.3024280742,650,29
+701000948,Argentina,trawlers,50.840146204,369,29
+701000949,Argentina,trawlers,39.7784722987,358,28
+701000950,Argentina,trawlers,38.9916932617,358,28
+701000960,Argentina,trawlers,38.7739431524,333,25
+701000962,Argentina,squid_jigger,50.9385528146,472,29
+701000965,Argentina,purse_seines,52.1163708568,889,28
+701006001,Argentina,trawlers,20.2252391339,240,10
+701006003,Argentina,trawlers,35.0515985117,251,27
+701006005,Argentina,trawlers,47.2181680426,282,25
+701006007,Argentina,trawlers,38.6151873894,125,12
+701006020,Argentina,trawlers,34.7820227113,196,15
+701006026,Argentina,trawlers,35.1533792336,119,11
+701006028,Argentina,trawlers,37.3061007378,151,11
+701006037,Argentina,trawlers,53.6334302516,891,28
+701006038,Argentina,trawlers,44.7746189611,410,28
+701006040,Argentina,trawlers,38.6310698121,219,11
+701006042,Argentina,trawlers,56.4555825427,891,45
+701006043,Argentina,drifting_longlines,48.2100374585,1195,28
+701006044,Argentina,trawlers,68.8096384715,1207,29
+701006046,Argentina,trawlers,55.7455094942,1002,29
+701006049,Argentina,trawlers,33.5808558311,119,26
+701006055,Argentina,trawlers,28.4766293979,123,26
+701006056,Argentina,trawlers,55.8499353609,636,28
+701006058,Argentina,trawlers,42.1202506862,307,29
+701006059,Argentina,trawlers,37.9064841143,307,26
+701006060,Argentina,drifting_longlines,41.0844280278,449,28
+701006061,Argentina,trawlers,42.828947576,318,28
+701006063,Argentina,trawlers,33.6240586037,507,28
+701006066,Argentina,trawlers,51.3870665642,607,29
+701006068,Argentina,trawlers,31.7649083493,123,26
+701006069,Argentina,squid_jigger,60.0322539502,379,29
+701006071,Argentina,trawlers,56.6629974263,444,32
+701006073,Argentina,drifting_longlines,57.4654200712,1361,29
+701006074,Argentina,trawlers,52.4256134964,300,26
+701006080,Argentina,trawlers,37.0522993006,182,26
+701006083,Argentina,trawlers,51.1778817935,642,29
+701006084,Argentina,trawlers,53.8004490476,300,28
+701006085,Argentina,trawlers,62.1114564362,1003,29
+701006094,Argentina,trawlers,48.7607058885,418,30
+701006119,Argentina,trawlers,65.5000986629,579,28
+701006131,Argentina,squid_jigger,47.2424956204,746,29
+701006133,Argentina,trawlers,59.0519584107,584,26
+701006135,Argentina,trawlers,56.8248524646,893,28
+701006138,Argentina,squid_jigger,55.3160544941,1131,28
+701006139,Argentina,trawlers,60.305074253,871,30
+701006140,Argentina,trawlers,50.7999213778,1122,26
+701006143,Argentina,squid_jigger,56.8388337333,589,29
+701006144,Argentina,squid_jigger,55.9900339026,564,29
+701006145,Argentina,trawlers,60.3364728313,1020,30
+701006147,Argentina,trawlers,59.8298851761,968,29
+701006149,Argentina,trawlers,60.4554003505,995,28
+701006151,Argentina,trawlers,57.0621529604,902,30
+701006168,Argentina,trawlers,59.9179055178,1179,28
+701006182,Argentina,trawlers,45.8950559771,689,29
+701006183,Argentina,squid_jigger,61.8014031431,588,29
+701006201,Argentina,trawlers,25.6754100845,81,9
+701006204,Argentina,trawlers,30.7792131755,281,26
+701006214,Argentina,squid_jigger,61.1578632212,905,30
+701006215,Argentina,purse_seines,24.6647305093,81,10
+701006300,Argentina,trawlers,57.1309720445,648,26
+701006341,Argentina,trawlers,35.6121916283,177,13
+701006360,Argentina,trawlers,41.1034387563,507,28
+701006377,Argentina,trawlers,43.8189969416,395,29
+701006385,Argentina,fixed_gear,32.1847042876,635,28
+701006427,Argentina,trawlers,35.8741854121,802,29
+701006445,Argentina,trawlers,53.0672330001,1670,69
+701006450,Argentina,fixed_gear,33.1592172301,876,10
+701006471,Argentina,trawlers,52.3456024216,9,29
+701006529,Argentina,trawlers,47.8759425855,506,28
+701006582,Argentina,trawlers,25.404461957,89,9
+701006614,Argentina,trawlers,67.873053379,1010,29
+701006615,Argentina,trawlers,59.7328384049,1010,29
+701007011,Argentina,trawlers,27.8532435811,98,26
+701007021,Argentina,trawlers,43.9574389481,232,11
+701007022,Argentina,trawlers,28.7747267196,140,29
+701007026,Argentina,squid_jigger,46.5992301317,280,28
+701007028,Argentina,trawlers,18.9286791514,229,8
+701007029,Argentina,drifting_longlines,29.2897989005,110,11
+701007036,Argentina,trawlers,27.2941990559,137,26
+701007038,Argentina,trawlers,28.2477749414,97,24
+701007039,Argentina,trawlers,43.660572471,425,12
+701007040,Argentina,trawlers,53.7096681228,720,26
+701007044,Argentina,trawlers,45.4247115737,419,30
+701015e3,Argentina,trawlers,28.7396214425,137,26
+701018e3,Argentina,drifting_longlines,48.5605081556,711,29
+701019e3,Argentina,trawlers,51.6769503096,274,15
+701023e3,Argentina,drifting_longlines,47.9094317006,1369,29
+701024e3,Argentina,trawlers,53.9692267636,978,26
+701027e3,Argentina,trawlers,86.076548353,3250,26
+70103e4,Argentina,trawlers,28.0908538483,181,26
+701033e3,Argentina,trawlers,46.6485366479,850,26
+701037e3,Argentina,trawlers,56.4164353135,1112,29
+701038e3,Argentina,trawlers,30.0904702042,151,7
+701041e3,Argentina,drifting_longlines,40.2438990525,287,29
+701042e3,Argentina,trawlers,79.5328553896,1255,29
+701045e3,Argentina,drifting_longlines,49.4540349128,1371,49
+701054e3,Argentina,trawlers,43.4909020936,316,27
+701056e3,Argentina,trawlers,29.9321597217,100,10
+701066e3,Argentina,trawlers,31.3538823017,207,25
+701068e3,Argentina,trawlers,70.3821007022,1877,64
+70107e4,Argentina,trawlers,34.8432904968,122,26
+701078e3,Argentina,trawlers,39.9835151631,275,26
+701079e3,Argentina,trawlers,35.1463249039,275,26
+701094e3,Argentina,trawlers,45.1036521015,424,29
+701096e3,Argentina,trawlers,47.4847425522,451,29
+7011e5,Argentina,trawlers,51.5164185372,395,29
+710000959,Brazil,drifting_longlines,21.0703891397,98.3641289132,12
+710013180,Brazil,trawlers,30.1137727801,138.07859341100001,7
+725000591,Chile,drifting_longlines,48.45,653.47,36
+725002360,Chile,trawlers,80,2140,82
+725004140,Chile,drifting_longlines,51,985,44
+725015600,Chile,trawlers,72.84,1758,80
+735057564,Ecuador,purse_seines,84.075,2384,27
+735057565,Ecuador,purse_seines,75.081,2193,27
+735057587,Ecuador,purse_seines,79.098,1997,26
+735057638,Ecuador,purse_seines,77.37,2165,30
+735058003,Ecuador,purse_seines,115.706,4401,29
+735059088,Ecuador,purse_seines,77.3,2165,32
+735059089,Ecuador,purse_seines,77.3,2165,32
+740356e3,Falkland Islands,trawlers,78.5,2156,60
+740382e3,Falkland Islands,drifting_longlines,55,1058,40
+770576047,Uruguay,trawlers,30.3306486367,146,15
+770576096,Uruguay,trawlers,29.7332341315,118,15
+770576104,Uruguay,trawlers,34.8603407735,175,14
+770576112,Uruguay,trawlers,27.8892355679,38,10
+770576113,Uruguay,trawlers,31.0961432648,119,10
+770576117,Uruguay,trawlers,29.798792039,120,16
+770576118,Uruguay,trawlers,31.6106073583,67,16
+770576121,Uruguay,trawlers,25.5263905089,62,10
+770576122,Uruguay,trawlers,30.5665888199,118,15
+770576124,Uruguay,trawlers,29.4635539996,108,16
+770576130,Uruguay,trawlers,35.6246116829,773,42
+770576146,Uruguay,trawlers,30.6021300327,190,9
+770576305,Uruguay,trawlers,42.19,577,20
+770576321,Uruguay,drifting_longlines,50,852,38
+900200029,China,drifting_longlines,37,317,16

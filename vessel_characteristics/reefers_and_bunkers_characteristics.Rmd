@@ -1,0 +1,1657 @@
+---
+title: "Vessel Characteristics for Bunkers and Reefers "
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(sp)
+library(rgdal)
+library(rgeos)
+library(tidyverse)
+library(bigrquery)
+library(lubridate)
+library(sf)
+library(party)
+library(partykit)
+library(rpart)
+library(doMC)
+library(AER)
+library(caret)
+set.seed(123)
+
+world_map <- rnaturalearth::ne_coastline(scale = 'small', returnclass = c("sf"))
+
+extrafont::loadfonts()
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "", project  = "high-seas", billing = "world-fishing-827")
+
+world_eez <- st_read("../general_project_files/world_eez_with_land/", "EEZ_land_v2_201410")
+
+indo_eez <- st_read("../general_project_files/indo_eez_shp/", "indonesia_shp_with_land")
+
+fishing_vessel_characteristics <- read_csv(
+  "saved_files/complete_ais_vessel_characteristics.csv")
+
+all_indo_vms_fleet <- read_csv("saved_files/all_indo_vms_fleet.csv")
+
+indo_high_seas_vessel_characteristics <- read_csv(
+  "saved_files/complete_high_seas_indo_vms_characteristics.csv")
+
+source("../general_project_files/functions.R")
+```
+
+### Reefers encounters 
+
+#### Get all reefers encounters
+
+This query gets all transhipment encounters with fishing vessels and incorporates the Indonesia VMS fleet in addition to GFW AIS fleet. 
+
+```{sql, connection = BQ_connection, output.var = "all_reefer_encounters_with_fishing_vessels"}
+SELECT
+  *
+FROM (
+  SELECT
+    vessel1_mmsi AS fishing_vessel_mmsi,
+    vessel2_mmsi AS transhipment_vessel_mmsi,
+    mean_lon,
+    mean_lat,
+    start_timestamp,
+    end_timestamp,
+    event_duration_hr,
+    mean_median_speed,
+    mean_median_distance,
+    vessel1_flag_state AS fishing_vessel_flag,
+    vessel2_flag_state AS transhipment_vessel_flag_state,
+  FROM (
+    SELECT
+      vessel1_mmsi,
+      vessel2_mmsi,
+      mean_lon,
+      mean_lat,
+      start_timestamp,
+      end_timestamp,
+      event_duration_hr,
+      mean_median_speed,
+      mean_median_distance,
+      vessel1_flag_state,
+      vessel2_flag_state,
+    FROM
+      [world-fishing-827:scratch_nate.all_encounters_deduped_20170812]
+    WHERE
+      vessel1_mmsi IN (
+      SELECT
+        mmsi
+      FROM (
+        SELECT
+          mmsi
+        FROM
+          [world-fishing-827:gfw_research.vessel_info_20170717]
+        WHERE
+          on_fishing_list_nn = TRUE
+        GROUP BY
+          mmsi ),
+        (
+        SELECT
+          mmsi
+        FROM
+          [high-seas:Indonesia.indo_vms_nn]
+          where raw_registered_gear_type != "Transporter"
+        GROUP BY
+          mmsi ))),
+    (
+    SELECT
+      vessel2_mmsi AS vessel1_mmsi,
+      vessel1_mmsi AS vessel2_mmsi,
+      mean_lon,
+      mean_lat,
+      start_timestamp,
+      end_timestamp,
+      event_duration_hr,
+      mean_median_speed,
+      mean_median_distance,
+      vessel2_flag_state AS vessel1_flag_state,
+      vessel1_flag_state AS vessel2_flag_state,
+    FROM
+      [world-fishing-827:scratch_nate.all_encounters_deduped_20170812]
+    WHERE
+      vessel2_mmsi IN (
+      SELECT
+        mmsi
+      FROM (
+        SELECT
+          mmsi
+        FROM
+          [world-fishing-827:gfw_research.vessel_info_20170717]
+        WHERE
+          on_fishing_list_nn = TRUE
+        GROUP BY
+          mmsi ),
+        (
+        SELECT
+          mmsi
+        FROM
+          [high-seas:Indonesia.indo_vms_nn]
+          where raw_registered_gear_type != "Transporter"
+        GROUP BY
+          mmsi )))
+  GROUP BY
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11)
+WHERE
+  transhipment_vessel_mmsi IN (
+  SELECT
+    mmsi
+  FROM (
+    SELECT
+      mmsi
+    FROM
+      [world-fishing-827:gfw_raw.transshipment_vessels_20170801]),
+    (
+    SELECT
+      mmsi
+    FROM
+      [high-seas:Indonesia.indo_vms_nn]
+    WHERE
+      raw_registered_gear_type == "Transporter"
+    GROUP BY
+      mmsi ))
+```
+
+##### Filter out those in Indonesia's ports
+
+```{sql, connection = BQ_connection, output.var = "indo_ports"}
+SELECT
+  port_id,
+  lat port_lat,
+  lon port_lon,
+FROM
+  [world-fishing-827:KKP_Indonesia.indonesia_ports_KKP]
+```
+
+```{r}
+indo_ports <- bind_rows(indo_ports,
+                        data_frame(port_id = 999999,
+                                   port_lat = 1.28,
+                                   port_lon = 103.75))
+```
+
+
+```{r}
+indo_ports_sf <- st_as_sf(indo_ports, coords = c("port_lon", "port_lat"), 
+                 crs = st_crs(world_eez))
+
+ports_buffers <- indo_ports_sf %>% 
+  st_transform(23845) %>%
+  st_buffer(dist = 20000) %>% 
+  st_transform(4326)  
+
+is_inside_port_buffer <- st_as_sf(all_reefer_encounters_with_fishing_vessels %>% 
+                                    mutate(lon = mean_lon, lat = mean_lat),
+                                  coords = c("lon", "lat"), 
+                                  crs = 4326) %>% 
+  st_within(ports_buffers)
+
+all_reefer_encounters_with_fishing_vessels <- all_reefer_encounters_with_fishing_vessels[!as.logical(lengths(is_inside_port_buffer)),]
+```
+
+```{sql, connection = BQ_connection, output.var = "indo_fish_carriers"}
+SELECT
+  year(timestamp) year, 
+  mmsi
+FROM
+  [high-seas:Indonesia.indo_vms_nn]
+WHERE
+  raw_registered_gear_type == "Transporter"
+GROUP BY
+  year, mmsi
+```
+
+
+
+```{r}
+t <- all_reefer_encounters_with_fishing_vessels %>% 
+  filter(transhipment_vessel_mmsi %in% c(pull(indo_fish_carriers, mmsi))) 
+
+get_density <- function(x, y, n = 100) {
+  dens <- MASS::kde2d(x = x, y = y, n = n)
+  ix <- findInterval(x, dens$x)
+  iy <- findInterval(y, dens$y)
+  ii <- cbind(ix, iy)
+  return(dens$z[ii])
+}
+
+
+t$density <- get_density(t$mean_lon, t$mean_lat)
+
+ggmap::ggmap(ggmap::get_map(location = "Indonesia", zoom = 4))+
+  geom_point(data = t, aes(mean_lon, mean_lat, color = density), size = .5)+
+  viridis::scale_color_viridis()
+```
+
+##### Assign flags
+
+```{r}
+countries_normalized <- fishing_vessel_characteristics %>% 
+  distinct(flag_country_name, flag_iso3) %>% 
+  na.omit() %>% 
+  mutate(flag_iso2 = countrycode::countrycode(flag_iso3, origin = 'iso3c', destination = 'iso2c'))
+
+all_reefer_encounters_with_fishing_vessels <- all_reefer_encounters_with_fishing_vessels %>% 
+  left_join(countries_normalized %>% 
+              rename(fishing_vessel_flag = flag_iso2, fishing_vessel_flag_country_name = flag_country_name,  fishing_vessel_flag_iso3 = flag_iso3)) %>% 
+  left_join(countries_normalized %>% 
+              rename(transhipment_vessel_flag_state = flag_iso2, transhipment_vessel_flag_country_name = flag_country_name, transhipment_vessel_flag_iso3 = flag_iso3)) %>% 
+  mutate(year = year(start_timestamp)) %>% 
+  select(year, fishing_vessel_mmsi, fishing_vessel_flag_country_name, fishing_vessel_flag_iso3, transhipment_vessel_flag_country_name, transhipment_vessel_mmsi, transhipment_vessel_flag_iso3, everything(), -fishing_vessel_flag, -transhipment_vessel_flag_state,-mean_median_speed,-mean_median_distance)
+```
+
+```{r}
+all_reefer_encounters_with_fishing_vessels$transhipment_vessel_flag_country_name[all_reefer_encounters_with_fishing_vessels$transhipment_vessel_mmsi %in% c(306872000, 306497000)] <- "Curacao"
+all_reefer_encounters_with_fishing_vessels$transhipment_vessel_flag_iso3[all_reefer_encounters_with_fishing_vessels$transhipment_vessel_mmsi  %in% c(306872000, 306497000)] <- "CUW"
+```
+
+
+```{r Assign_indo_flags}
+all_reefer_encounters_with_fishing_vessels <- all_reefer_encounters_with_fishing_vessels %>% 
+  mutate(fishing_vessel_flag_country_name = ifelse(fishing_vessel_mmsi %in% c(pull(all_indo_vms_fleet, mmsi)) , "Indonesia", fishing_vessel_flag_country_name),
+         fishing_vessel_flag_iso3 = ifelse(fishing_vessel_mmsi %in% c(pull(all_indo_vms_fleet, mmsi)) , "IDN", fishing_vessel_flag_iso3),
+         transhipment_vessel_flag_country_name = ifelse(transhipment_vessel_mmsi %in% c(pull(indo_fish_carriers, mmsi)) , "Indonesia", transhipment_vessel_flag_country_name),
+         transhipment_vessel_flag_iso3 = ifelse(transhipment_vessel_mmsi %in% c(pull(indo_fish_carriers, mmsi)) , "IDN", transhipment_vessel_flag_iso3))
+```
+
+
+```{r}
+indo_mmsi_not_reefers_by_year <- all_reefer_encounters_with_fishing_vessels %>% 
+  filter(transhipment_vessel_flag_country_name == "Indonesia") %>% 
+  anti_join(indo_fish_carriers %>% 
+              select(transhipment_vessel_mmsi = mmsi, year)) %>% 
+  distinct(year, transhipment_vessel_mmsi)
+
+all_reefer_encounters_with_fishing_vessels <- all_reefer_encounters_with_fishing_vessels %>% 
+  anti_join(indo_mmsi_not_reefers_by_year)
+```
+ 
+
+#### Where do encounters take place? How many in the high seas?
+
+```{r}
+all_reefer_encounters_with_fishing_vessels_sf <- st_as_sf(all_reefer_encounters_with_fishing_vessels, coords = c("mean_lon", "mean_lat"), 
+                 crs = st_crs(world_eez))
+
+all_reefer_encounters_with_fishing_vessels_sf <- st_join(all_reefer_encounters_with_fishing_vessels_sf, world_eez)
+```
+
+```{r}
+all_reefer_encounters_with_fishing_vessels_sf <- all_reefer_encounters_with_fishing_vessels_sf %>% 
+  mutate(encounter_country = Country) %>% 
+  select(-Country, -OBJECTID,-ISO_3digit, -Changes,-Shape_Leng,-Shape_Area)
+
+all_reefer_encounters_with_fishing_vessels_sf %>% 
+  filter(year == 2016) %>% 
+  #filter(!transhipment_vessel_flag_country_name %in% c("Indonesia")) %>% 
+  group_by(encounter_country) %>% 
+  summarize(encounters = n()) %>% 
+  ungroup() %>% 
+  st_set_geometry(NULL) %>% 
+  arrange(desc(encounters)) %>% 
+  mutate(fraction = encounters/sum(encounters)) %>% 
+  top_n(30,encounters)
+```
+
+```{r}
+all_reefer_encounters_with_fishing_vessels_sf %>% 
+  filter(year == 2016, is.na(encounter_country)) %>% 
+  ggplot()+
+  geom_sf(data = world_map)+
+  geom_sf()
+```
+
+35% of all encounters take place in the high seas. Excluding Indonesian transporters, this fraction increases to 47%
+
+#### Which involve high seas vessels?
+
+```{r}
+all_reefer_encounters_with_fishing_vessels_sf <- all_reefer_encounters_with_fishing_vessels_sf %>% 
+  left_join(bind_rows(fishing_vessel_characteristics %>% 
+                        select(year, fishing_vessel_mmsi = mmsi,flag_country_name,  is_high_seas_vessel = is_high_seas),
+                      indo_high_seas_vessel_characteristics %>% 
+                        mutate(is_high_seas = TRUE,
+                               flag_country_name = "Indonesia",
+                               fishing_vessel_mmsi = mmsi) %>% 
+                        select(year, fishing_vessel_mmsi, flag_country_name,  is_high_seas_vessel = is_high_seas)),
+            by = c("year", "fishing_vessel_mmsi"))
+
+all_reefer_encounters_with_fishing_vessels_sf <- all_reefer_encounters_with_fishing_vessels_sf %>% 
+  mutate(with_high_seas_vessel = ifelse(is_high_seas_vessel == FALSE | is.na(is_high_seas_vessel), FALSE, TRUE),
+         fishing_vessel_flag_country_name = ifelse(!is.na(flag_country_name), flag_country_name, fishing_vessel_flag_country_name)) %>% 
+  select(year, fishing_vessel_mmsi, fishing_vessel_flag_country_name, fishing_vessel_flag_iso3, transhipment_vessel_mmsi,everything())
+```
+
+```{r}
+sfc_as_cols <- function(x, names = c("lon","lat")) {
+  stopifnot(inherits(x,"sf") && inherits(sf::st_geometry(x),"sfc_POINT"))
+  ret <- sf::st_coordinates(x)
+  ret <- tibble::as_tibble(ret)
+  stopifnot(length(names) == ncol(ret))
+  x <- x[ , !names(x) %in% names]
+  ret <- setNames(ret,names)
+  dplyr::bind_cols(x,ret)
+}
+
+all_reefer_encounters_with_fishing_vessels <- sfc_as_cols(all_reefer_encounters_with_fishing_vessels_sf) %>% 
+  st_set_geometry(NULL) %>% 
+  select(-flag_country_name, -is_high_seas_vessel)
+
+all_reefer_encounters_with_fishing_vessels %>% 
+  filter(year == 2016, is.na(encounter_country)) %>% 
+  ggplot()+
+  geom_sf(data = world_map)+
+  geom_point(aes(lon, lat))
+```
+
+
+```{r}
+all_reefer_encounters_with_fishing_vessels <- all_reefer_encounters_with_fishing_vessels %>% 
+  left_join(all_reefer_encounters_with_fishing_vessels_sf) %>% # this gets me back the coordinates and makes it a sf object
+  select(-flag_country_name, -is_high_seas_vessel)
+
+all_reefer_encounters_with_fishing_vessels %>% 
+  filter(year == 2016) %>% 
+  group_by(with_high_seas_vessel) %>% 
+  summarize(encounters = n()) %>% 
+  mutate(fraction = 100*encounters/sum(encounters))
+```
+
+37% of all encounters involve high seas vessels. 
+
+```{r}
+all_reefer_encounters_with_fishing_vessels %>% 
+  filter(year == 2016) %>% 
+  #filter(!fishing_vessel_flag_country_name %in% c("Indonesia")) %>% 
+  filter(is.na(encounter_country)) %>% 
+  group_by(with_high_seas_vessel) %>% 
+  summarize(encounters = n()) %>% 
+  mutate(fraction = 100*encounters/sum(encounters))
+```
+
+and 95% of encounters in the high seas in 2016 involve high seas vessels. 
+
+The number of reefers mmsi that interact with high seas vessels are
+
+```{r}
+all_reefer_encounters_with_fishing_vessels %>% 
+  filter(with_high_seas_vessel) %>% 
+  group_by(year) %>% 
+  summarize(transhipment_vessels = n_distinct(transhipment_vessel_mmsi))
+```
+
+
+```{r}
+all_reefers <- all_reefer_encounters_with_fishing_vessels %>% 
+  #filter(with_high_seas_vessel) %>% 
+  replace_na(list(fishing_vessel_flag_country_name = "unknown")) %>% 
+  group_by(year, transhipment_vessel_mmsi, transhipment_vessel_flag_country_name) %>% 
+  summarise(all_encounters = n(),
+            encounters_with_high_seas_vessels = sum(with_high_seas_vessel),
+            encounters_in_the_high_seas = sum(is.na(encounter_country)),
+            encounters_with_high_seas_vessels_in_the_high_seas = sum(with_high_seas_vessel & (is.na(encounter_country))),
+            distinct_fishing_flags = n_distinct(fishing_vessel_flag_country_name),
+            most_common_flag = names(table(fishing_vessel_flag_country_name))[which.max(table(fishing_vessel_flag_country_name))]) %>% 
+  arrange(desc(all_encounters), desc(encounters_with_high_seas_vessels))
+```
+
+```{r}
+write_csv(all_reefer_encounters_with_fishing_vessels,
+          "../effort_and_coverage/saved_files/all_encounters_reefer_with_fishing_vessel.csv")
+
+write_csv(all_reefers, "saved_files/all_reefers.csv")
+```
+
+#### High Seas Reefers Characteristics
+
+```{sql, connection = BQ_connection, output.var = "all_transhipment_vessels_info"}
+SELECT * FROM [world-fishing-827:gfw_raw.transshipment_vessels_20170801] 
+```
+
+```{r}
+all_transhipment_vessels_info$flag_state[all_transhipment_vessels_info$mmsi == 200001140] <- "China"
+```
+
+```{r flags}
+high_seas_reefers <- all_reefers %>% 
+  filter(encounters_with_high_seas_vessels > 0) %>% 
+  ungroup()
+
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(all_transhipment_vessels_info %>% 
+              group_by(mmsi) %>% 
+              filter(n() == 1) %>% 
+              rename(transhipment_vessel_mmsi = mmsi) %>% 
+              mutate(engine_power = ifelse(power_units == 'HP', engine_power*0.7457, 
+                               ifelse(power_units == 'PS', engine_power*0.735499, engine_power))) %>% 
+              select(-power_units)
+            ) %>% 
+  mutate(transhipment_vessel_flag_country_name = ifelse(is.na(transhipment_vessel_flag_country_name), flag_state, transhipment_vessel_flag_country_name)) %>% 
+  select(-flag_state)
+```
+
+
+```{r}
+duplicated_mmsi <- all_transhipment_vessels_info %>% 
+  filter(!is.na(mmsi)) %>% 
+  group_by(mmsi) %>% 
+  filter(n() > 1) %>% 
+  ungroup() %>% 
+  mutate(engine_power = ifelse(power_units == 'HP', engine_power*0.7457, 
+                               ifelse(power_units == 'PS', engine_power*0.735499, engine_power))) %>%
+  group_by(mmsi) %>% 
+  summarise(mean_loa = mean(length_overall, na.rm = T),
+            sd_loa = sd(length_overall, na.rm = T),
+            mean_gt = mean(gross_tonnage, na.rm = T),
+            sd_gt = sd(gross_tonnage, na.rm = T),
+            mean_kw = mean(engine_power, na.rm = T),
+            sd_kw = sd(engine_power, na.rm = T)) 
+```
+
+
+```{r}
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(duplicated_mmsi %>% 
+              filter(sd_loa/mean_loa < .1) %>% 
+              select(transhipment_vessel_mmsi = mmsi, mean_loa)) %>% 
+  mutate(length_overall = ifelse(is.na(length_overall), mean_loa, length_overall)) %>% 
+  select(-mean_loa) %>% 
+  left_join(duplicated_mmsi %>% 
+              filter(sd_gt/mean_gt < .1) %>% 
+              select(transhipment_vessel_mmsi = mmsi, mean_gt)) %>% 
+  mutate(gross_tonnage = ifelse(is.na(gross_tonnage), mean_gt, gross_tonnage)) %>% 
+  select(-mean_gt) %>% 
+  left_join(duplicated_mmsi %>% 
+              filter(sd_kw/mean_kw < .1) %>% 
+              select(transhipment_vessel_mmsi = mmsi, mean_kw)) %>% 
+  mutate(engine_power = ifelse(is.na(engine_power), mean_kw, engine_power)) %>% 
+  select(-mean_kw)
+
+high_seas_reefers$engine_power[high_seas_reefers$imo == 8800236] <- 4702 #http://www.mtelegraph.com/en/hai-feng-668-imo-8800236-2.html
+```
+
+
+```{r}
+high_seas_reefers %>% 
+  group_by(year) %>% 
+  summarise(n_distinct(imo),
+            sum(!is.na(engine_power)),
+            mean(engine_power, na.rm = T))
+```
+
+
+```{r}
+high_seas_reefers %>% 
+  ungroup() %>% 
+  filter(year == 2016, !is.na(engine_power)) %>% 
+  select(transhipment_vessel_mmsi, imo, transhipment_vessel_flag_country_name, call_sign,vessel_name, engine_power) %>% 
+arrange(desc(engine_power))
+```
+
+
+#### Data gaps
+
+```{r}
+high_seas_reefers %>% 
+  group_by(year) %>% 
+  summarize_at(vars(transhipment_vessel_flag_country_name,length_overall, gross_tonnage,  engine_power), funs(sum(is.na(.))))
+```
+
+
+```{r}
+high_seas_reefers %>% 
+  filter(year == 2016, is.na(gross_tonnage))
+
+high_seas_reefers$length_overall[high_seas_reefers$transhipment_vessel_mmsi == 412440493] <- 98
+high_seas_reefers$gross_tonnage[high_seas_reefers$transhipment_vessel_mmsi == 412440493] <- 3026
+```
+
+We have very good coverage on length and tonnage. Let's improve on engine power and add crew size using the wcpfc registry and other available source
+
+##### WCPFC Registry
+
+```{sql connection = BQ_connection, output.var = "WCPFC_vessel_registry"}
+SELECT
+  IMO_LR AS imo,
+  Flag,
+  Engine_Power,
+  Power_Units,
+  Crew
+FROM
+  [ucsb-gfw::transhipment_high_seas.WCPFC_vessel_registry_20170630]
+```
+
+```{r}
+high_seas_reefers %>% 
+  filter(is.na(engine_power)) %>% 
+  left_join(WCPFC_vessel_registry %>% 
+              filter(!is.na(imo)) %>% 
+              distinct(imo,Engine_Power), by = "imo")
+```
+
+###### Match on imo
+
+```{r}
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(WCPFC_vessel_registry %>% 
+              mutate(Engine_Power = ifelse(Power_Units == 'HP', Engine_Power*0.7457, 
+                                           ifelse(Power_Units == 'PS', Engine_Power*0.735499, Engine_Power))) %>%
+              select(-Power_Units) %>% 
+              filter(!is.na(imo)) %>% 
+              ungroup() %>% 
+              group_by(imo) %>% 
+              summarize(mean_kw = mean(Engine_Power),
+                        sd_kw = sd(Engine_Power),
+                        cv_kw = sd_kw/mean_kw,
+                        n_kw = n_distinct(Engine_Power))) %>% 
+  mutate(engine_power = ifelse(is.na(engine_power), mean_kw,engine_power)) %>% 
+  select(-mean_kw, -sd_kw, -cv_kw, -n_kw)
+
+
+high_seas_reefers %>% 
+  group_by(year) %>% 
+  summarize_at(vars(transhipment_vessel_flag_country_name,length_overall, gross_tonnage,  engine_power), funs(sum(is.na(.))))
+```
+
+
+```{r}
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(WCPFC_vessel_registry %>% 
+              filter(!is.na(imo)) %>% 
+              select(imo, Crew) %>% 
+              group_by(imo) %>% 
+              summarize(mean_crew = mean(Crew),
+                        sd_crew = sd(Crew),
+                        cv_crew = sd_crew/mean_crew,
+                        n_crew = n_distinct(Crew)) %>% 
+              filter(n_crew <= 1 | cv_crew <= .11)) %>% 
+  rename(crew_size = mean_crew) %>% 
+  select(-sd_crew, -cv_crew, -n_crew)
+
+high_seas_reefers %>% 
+  group_by(year) %>% 
+  summarize_at(vars(engine_power, crew_size), funs(sum(is.na(.))))
+```
+
+
+###### Match on call sign
+
+```{r}
+wcpfc_081517 <- read_csv("source_info/wcpfc_081517.csv")
+
+wcpfc_081517 %>% 
+  filter(!is.na(IRCS), !is.na(Crew), IRCS != "UNKNOWN") %>% 
+  distinct(IRCS, Crew)
+```
+
+
+```{r}
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(wcpfc_081517 %>% 
+              rename(call_sign = IRCS) %>% 
+              filter(!is.na(call_sign), !is.na(Crew)) %>% 
+              group_by(call_sign) %>% 
+              summarize(mean_crew = mean(Crew),
+                        sd_crew = sd(Crew),
+                        cv_crew = sd_crew/mean_crew,
+                        n_crew = n_distinct(Crew)) %>% 
+              filter(n_crew <= 1 | cv_crew <= .11)
+            ) %>% 
+  mutate(crew_size = ifelse(is.na(crew_size), mean_crew, crew_size)) %>% 
+  select(-mean_crew, -sd_crew,-cv_crew, n_crew)
+```
+
+
+```{r}
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(wcpfc_081517 %>% 
+              rename(call_sign = IRCS, power = `Engine Power`, power_units = `Power Units`) %>% 
+              filter(!is.na(call_sign), !is.na(power)) %>% 
+              mutate(power = ifelse(power_units == 'HP', power*0.7457, 
+                                           ifelse(power_units == 'PS', power*0.735499, power))) %>%
+              group_by(call_sign) %>% 
+              summarize(mean_power = mean(power),
+                        sd_power = sd(power),
+                        cv_power = sd_power/mean_power,
+                        n_power = n_distinct(power)) %>% 
+              filter(n_power <= 1 | cv_power <= .11)
+            ) %>% 
+  mutate(engine_power = ifelse(is.na(engine_power), mean_power, engine_power)) %>% 
+  select(-mean_power, -sd_power,-cv_power, n_power)
+```
+
+```{r}
+high_seas_reefers %>% 
+  group_by(year) %>% 
+  summarize_at(vars(length_overall,gross_tonnage,engine_power, crew_size), funs(sum(is.na(.))))
+```
+
+
+```{r}
+high_seas_reefers %>% 
+  filter(is.na(engine_power), year == 2016) %>%
+  select(transhipment_vessel_mmsi, call_sign, imo, transhipment_vessel_flag_country_name,vessel_name) %>% 
+  group_by(transhipment_vessel_flag_country_name) %>% 
+  summarise(n())
+```
+
+##### Russian registry
+
+```{r}
+russia_vessels_normalized <- read_csv("source_info/russia_vessels_normalized.csv")
+
+russia_vessels_normalized <- russia_vessels_normalized %>% 
+  select(list_uvi, imo_registry, call_sign, flag, ship_name, previous_name, engine_power)
+```
+
+```{r}
+missing_vessel_info <-  high_seas_reefers %>% 
+  ungroup() %>% 
+  filter(year == 2016) %>% 
+  filter(is.na(engine_power) | is.na(crew_size)) %>%
+  select(transhipment_vessel_mmsi, call_sign, imo, transhipment_vessel_flag_country_name,vessel_name, engine_power, crew_size)
+```
+
+```{r}
+missing_vessel_info <- missing_vessel_info %>% 
+  left_join(russia_vessels_normalized %>% 
+              filter(!is.na(engine_power)) %>% 
+              select(vessel_name = ship_name, reg_power = engine_power),
+            by = "vessel_name") %>% 
+  left_join(russia_vessels_normalized %>% 
+              filter(!is.na(engine_power)) %>% 
+              select(imo = imo_registry, reg_power_2 = engine_power),
+            by = "imo") %>% 
+  left_join(russia_vessels_normalized %>% 
+              filter(!is.na(engine_power), !is.na(call_sign)) %>% 
+              select(call_sign, reg_power_3 = engine_power),
+            by = "call_sign") %>% 
+  mutate(engine_power = ifelse(is.na(engine_power),reg_power, engine_power )) %>% 
+  select(-reg_power, -reg_power_2,-reg_power_3)
+```
+
+##### FFA
+
+```{r}
+# Load FFA vessel characteristic table
+ffa_vessels_info_2016 <- read_csv("source_info/ffa_vessels_info_2016.csv")
+
+missing_vessel_info <- missing_vessel_info %>% 
+  left_join(ffa_vessels_info_2016 %>% 
+              filter(!is.na(mmsi)) %>% 
+              select(transhipment_vessel_mmsi = mmsi, ffa_power = engine_power, ffa_crew = crew)) %>% 
+  mutate(engine_power = ifelse(is.na(engine_power), ffa_power, engine_power),
+         crew_size = ifelse(is.na(crew_size), ffa_crew, crew_size)) %>% 
+  select(-ffa_crew, -ffa_power)
+
+write_csv(missing_vessel_info, "saved_files/missing_vessel_info.csv")
+
+```
+
+
+```{r}
+found_info <- read_csv("source_info/found_reefers_info.csv")
+
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(found_info %>% 
+              filter(!is.na(engine_power)) %>% 
+              select(transhipment_vessel_mmsi,imo, p = engine_power)) %>% 
+  mutate(engine_power = ifelse(is.na(engine_power), p, engine_power)) %>% 
+  select(-p,-n_crew,-n_power) 
+
+high_seas_reefers %>% 
+  group_by(year) %>% 
+  summarize_at(vars(length_overall,gross_tonnage,engine_power, crew_size), funs(sum(is.na(.))))
+```
+
+##### Indonesia lists
+
+```{r}
+indo_vessel_list <- read_csv("source_info/Indo_vessel_list.csv")
+
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(indo_vessel_list %>% 
+              mutate(transhipment_vessel_mmsi = transmitter_no + 1000000000) %>% 
+              select(transhipment_vessel_mmsi, length) %>% 
+              distinct(transhipment_vessel_mmsi, length)) %>% 
+  mutate(length_overall = ifelse(is.na(length_overall), length,length_overall )) %>% 
+  select(-length)
+```
+
+```{sql, connection = BQ_connection, output.var = "raw_tonnages"}
+SELECT
+  YEAR(timestamp) year,
+  mmsi transmitter_no,
+  raw_gross_tonnage,
+FROM
+  [world-fishing-827:KKP_Indonesia.indonesia_vms_classify]
+WHERE
+  timestamp BETWEEN TIMESTAMP('2013-01-01')
+  AND TIMESTAMP('2017-06-01')
+GROUP BY
+  year,
+  transmitter_no,
+  raw_gross_tonnage,
+```
+
+```{r}
+clean_tonnage <- raw_tonnages %>% 
+  mutate(raw_gross_tonnage = as.numeric(raw_gross_tonnage)) %>% 
+  filter(!is.na(transmitter_no), !is.na(raw_gross_tonnage)) %>% 
+  group_by(year, transmitter_no) %>% 
+  summarize(avg_gt = mean(raw_gross_tonnage),
+            sd_gt = sd(raw_gross_tonnage),
+            cv_gt = sd_gt/avg_gt,
+            n = n(),
+            n_gt = n_distinct(raw_gross_tonnage),
+            min_gt = min(raw_gross_tonnage),
+            max_gt = max(raw_gross_tonnage)) %>% 
+  mutate(tonnage = ifelse(n_gt == 1 | cv_gt < .3, avg_gt, max_gt),
+         mmsi = transmitter_no + 1000000000) %>% 
+  select(year, mmsi, transmitter_no, tonnage)
+
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(clean_tonnage %>% 
+              select(transhipment_vessel_mmsi = mmsi,tonnage)) %>% 
+  mutate(gross_tonnage = ifelse(is.na(gross_tonnage), tonnage, gross_tonnage)) %>% 
+  select(-tonnage)
+
+
+high_seas_reefers$gross_tonnage[high_seas_reefers$transhipment_vessel_mmsi == 412692990] <- 1195.00
+```
+
+```{r}
+indo_engine_powers <- read_csv("source_info/Indo_engine_powers.csv")
+
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(indo_engine_powers %>% 
+              mutate(transhipment_vessel_mmsi = transmitter_no + 1000000000) %>% 
+              select(transhipment_vessel_mmsi, engine_power = `Engine Power`) %>% 
+              mutate(engine_power_indo = ifelse(!stringr::str_detect(engine_power, "#"), engine_power, NA),
+                     engine_power_indo = as.numeric(engine_power_indo)*.7457) %>% 
+              filter(!is.na(engine_power_indo)) %>%
+              group_by(transhipment_vessel_mmsi) %>% 
+              summarise(engine_power_indo = round(mean(engine_power_indo), 1))) %>% 
+    mutate(engine_power = ifelse(is.na(engine_power), engine_power_indo, engine_power)) %>% 
+  select(-engine_power_indo) 
+```
+
+##### New regitries
+
+```{r}
+registry_matches <- read_csv("source_info/registry_matches.csv")
+
+deduped_matches <- registry_matches %>%
+  mutate(year_first = lubridate::year(first_timestamp),
+         year_last = lubridate::year(last_timestamp)) %>% 
+  distinct(mmsi, shipname_matched, flag, length, tonnage, engine_power, crew, geartype,year_first, year_last, owner) %>% 
+  group_by(mmsi) %>% 
+  filter(n() > 1) %>% 
+  arrange(desc(mmsi)) %>% 
+  filter(flag %in% c("FRA", "REU", "NOR", "SJM")) %>% 
+  mutate(geartype = ifelse(geartype == "other_fishing", NA, geartype)) %>% 
+  group_by(mmsi) %>% 
+  summarise(length = mean(length,na.rm = T),
+            tonnage = mean(tonnage, na.rm = T),
+            engine_power = mean(engine_power, na.rm = T),
+            geartype = first(geartype[!is.na(geartype)]),
+            crew = mean(crew, na.rm = T)) %>% 
+  arrange(desc(mmsi)) %>% 
+  replace_na(list(crew = NA, engine_power = NA, length = NA, tonnage = NA, engine_power = NA, geartype = NA))
+
+good_registry_matches <- bind_rows(deduped_matches,registry_matches %>% 
+  filter(!mmsi %in% deduped_matches$mmsi) %>% 
+  group_by(mmsi) %>% 
+  filter(!n() > 1) %>% 
+  arrange(desc(mmsi)) %>% 
+  select(mmsi, length, tonnage, engine_power, geartype, crew)) %>% 
+  mutate(sub_geartype = ifelse(stringr::str_detect(geartype,"\\|") | geartype == "other_fishing", NA, geartype)) %>% 
+  filter(crew >= 2 & crew <= 135) %>% 
+  select(-geartype)
+
+good_registry_matches$length[good_registry_matches$mmsi == 576811000] <- 46
+
+good_registry_matches$length[good_registry_matches$mmsi == 316011760] <- 60.2
+good_registry_matches$length[good_registry_matches$mmsi == 316019447] <- 23.7
+good_registry_matches$length[good_registry_matches$mmsi == 316021176] <- 15
+good_registry_matches$crew[good_registry_matches$mmsi == 316018234] <- NA
+good_registry_matches$crew[good_registry_matches$mmsi == 316011179] <- NA
+
+high_seas_reefers <- high_seas_reefers %>% 
+  left_join(good_registry_matches %>% 
+              rename(transhipment_vessel_mmsi = mmsi, engine_power_2 = engine_power) %>% 
+              select(transhipment_vessel_mmsi, engine_power_2, crew), by = "transhipment_vessel_mmsi") %>% 
+  mutate(engine_power = ifelse(!is.na(engine_power_2), engine_power_2, engine_power),
+         crew_size = ifelse(!is.na(crew), crew, crew_size)) %>% 
+  select(-engine_power_2, -crew)
+
+high_seas_reefers %>% 
+  group_by(year) %>% 
+  summarize_at(vars(length_overall,gross_tonnage,engine_power, crew_size), funs(sum(is.na(.))))
+```
+
+### Refueling encounters 
+
+#### Get all Refueling encounters
+
+```{sql, connection = BQ_connection, output.var = "all_refueling_encounters_with_fishing_vessels"}
+SELECT
+  year(start_timestamp) year,
+  *
+FROM (
+  SELECT
+    vessel1_mmsi AS fishing_vessel_mmsi,
+    vessel2_mmsi AS bunker_vessel_mmsi,
+    mean_lon,
+    mean_lat,
+    start_timestamp,
+    end_timestamp,
+    event_duration_hr,
+    mean_median_speed,
+    mean_median_distance,
+    vessel1_flag_state AS fishing_vessel_flag,
+    vessel2_flag_state AS bunker_vessel_flag,
+  FROM (
+    SELECT
+      vessel1_mmsi,
+      vessel2_mmsi,
+      mean_lon,
+      mean_lat,
+      start_timestamp,
+      end_timestamp,
+      event_duration_hr,
+      mean_median_speed,
+      mean_median_distance,
+      vessel1_flag_state,
+      vessel2_flag_state,
+    FROM
+      [world-fishing-827:scratch_nate.all_encounters_deduped_20170812]
+    WHERE
+      vessel1_mmsi IN (
+      SELECT
+        mmsi
+      FROM (
+        SELECT
+          mmsi
+        FROM
+          [world-fishing-827:gfw_research.vessel_info_20170717]
+        WHERE
+          on_fishing_list_nn = TRUE
+        GROUP BY
+          mmsi ),
+        (
+        SELECT
+          mmsi + 1000000000 mmsi
+        FROM
+          [high-seas:Indonesia.indo_vms_nn]
+        WHERE
+          raw_registered_gear_type != "Transporter"
+        GROUP BY
+          mmsi))),
+    (
+    SELECT
+      vessel2_mmsi AS vessel1_mmsi,
+      vessel1_mmsi AS vessel2_mmsi,
+      mean_lon,
+      mean_lat,
+      start_timestamp,
+      end_timestamp,
+      event_duration_hr,
+      mean_median_speed,
+      mean_median_distance,
+      vessel2_flag_state AS vessel1_flag_state,
+      vessel1_flag_state AS vessel2_flag_state,
+    FROM
+      [world-fishing-827:scratch_nate.all_encounters_deduped_20170812]
+    WHERE
+      vessel2_mmsi IN (
+      SELECT
+        mmsi
+      FROM (
+        SELECT
+          mmsi
+        FROM
+          [world-fishing-827:gfw_research.vessel_info_20170717]
+        WHERE
+          on_fishing_list_nn = TRUE
+        GROUP BY
+          mmsi ),
+        (
+        SELECT
+          mmsi + 1000000000 mmsi
+        FROM
+          [high-seas:Indonesia.indo_vms_nn]
+        WHERE
+          raw_registered_gear_type != "Transporter"
+        GROUP BY
+          mmsi)))
+  GROUP BY
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11)
+WHERE
+  bunker_vessel_mmsi IN (
+  SELECT
+    mmsi
+  FROM
+    [world-fishing-827:scratch_nate.fish_bunker_vessels_20170703]) having year < 2017
+```
+
+```{r}
+is_refueling_inside_port_buffer <- st_as_sf(all_refueling_encounters_with_fishing_vessels %>% 
+                                    mutate(lon = mean_lon, lat = mean_lat),
+                                  coords = c("lon", "lat"), 
+                                  crs = 4326) %>% 
+  st_within(ports_buffers)
+
+all_refueling_encounters_with_fishing_vessels <- all_refueling_encounters_with_fishing_vessels[!as.logical(lengths(is_refueling_inside_port_buffer)),]
+```
+
+##### Assign flags
+
+```{r}
+all_refueling_encounters_with_fishing_vessels <- all_refueling_encounters_with_fishing_vessels %>% 
+  left_join(countries_normalized %>% 
+              rename(fishing_vessel_flag = flag_iso2, fishing_vessel_flag_country_name = flag_country_name,  fishing_vessel_flag_iso3 = flag_iso3)) %>% 
+  left_join(countries_normalized %>% 
+              rename(bunker_vessel_flag = flag_iso2, bunker_vessel_flag_country_name = flag_country_name, bunker_vessel_flag_iso3 = flag_iso3)) %>% 
+  select(year, fishing_vessel_mmsi, fishing_vessel_flag_country_name, fishing_vessel_flag_iso3, bunker_vessel_flag_country_name, bunker_vessel_mmsi, bunker_vessel_flag_iso3, everything(), -fishing_vessel_flag, -bunker_vessel_flag,-mean_median_speed,-mean_median_distance)
+```
+
+```{r assign_indo_flags}
+all_refueling_encounters_with_fishing_vessels <- all_refueling_encounters_with_fishing_vessels %>% 
+  mutate(fishing_vessel_flag_country_name = ifelse(fishing_vessel_mmsi %in% c(pull(all_indo_vms_fleet, mmsi)) , "Indonesia", fishing_vessel_flag_country_name),
+         fishing_vessel_flag_iso3 = ifelse(fishing_vessel_mmsi %in% c(pull(all_indo_vms_fleet, mmsi)) , "IDN", fishing_vessel_flag_iso3)) 
+```
+
+
+#### Where does refueling takes place? How many in the high seas?
+
+```{r}
+all_refueling_encounters_with_fishing_vessels_sf <- st_as_sf(all_refueling_encounters_with_fishing_vessels, coords = c("mean_lon", "mean_lat"), 
+                 crs = st_crs(world_eez))
+
+all_refueling_encounters_with_fishing_vessels_sf <- st_join(all_refueling_encounters_with_fishing_vessels_sf, world_eez)
+```
+
+```{r}
+all_refueling_encounters_with_fishing_vessels_sf <- all_refueling_encounters_with_fishing_vessels_sf %>% 
+  mutate(encounter_country = Country) %>% 
+  select(-Country, -OBJECTID,-ISO_3digit, -Changes,-Shape_Leng,-Shape_Area)
+
+all_refueling_encounters_with_fishing_vessels_sf %>% 
+  filter(year == 2016) %>% 
+  #filter(!transhipment_vessel_flag_country_name %in% c("Indonesia")) %>% 
+  group_by(encounter_country) %>% 
+  summarize(encounters = n()) %>% 
+  ungroup() %>% 
+  st_set_geometry(NULL) %>% 
+  arrange(desc(encounters)) %>% 
+  mutate(fraction = encounters/sum(encounters)) %>% 
+  top_n(30,encounters)
+```
+
+#### Which involve high seas vessels?
+
+```{r}
+all_refueling_encounters_with_fishing_vessels_sf <- all_refueling_encounters_with_fishing_vessels_sf %>% 
+  left_join(bind_rows(fishing_vessel_characteristics %>% 
+                        select(year, fishing_vessel_mmsi = mmsi,flag_country_name,  is_high_seas_vessel = is_high_seas),
+                      indo_high_seas_vessel_characteristics %>% 
+                        mutate(is_high_seas = TRUE,
+                               flag_country_name = "Indonesia",
+                               fishing_vessel_mmsi = mmsi) %>% 
+                        select(year, fishing_vessel_mmsi, flag_country_name,  is_high_seas_vessel = is_high_seas)),
+            by = c("year", "fishing_vessel_mmsi"))
+
+all_refueling_encounters_with_fishing_vessels_sf <- all_refueling_encounters_with_fishing_vessels_sf %>% 
+  mutate(with_high_seas_vessel = ifelse(is_high_seas_vessel == FALSE | is.na(is_high_seas_vessel), FALSE, TRUE),
+         fishing_vessel_flag_country_name = ifelse(!is.na(flag_country_name), flag_country_name, fishing_vessel_flag_country_name)) %>% 
+  select(year, fishing_vessel_mmsi, fishing_vessel_flag_country_name, fishing_vessel_flag_iso3, bunker_vessel_mmsi,everything())
+```
+
+```{r}
+all_refueling_encounters_with_fishing_vessels <- sfc_as_cols(all_refueling_encounters_with_fishing_vessels_sf) %>% 
+  st_set_geometry(NULL) %>% 
+  select(-flag_country_name, -is_high_seas_vessel)
+
+all_refueling_encounters_with_fishing_vessels %>% 
+  filter(year == 2016, is.na(encounter_country)) %>% 
+  ggplot()+
+  geom_sf(data = world_map)+
+  geom_point(aes(lon, lat))
+
+all_refueling_encounters_with_fishing_vessels %>% 
+  filter(year == 2016) %>% 
+  group_by(with_high_seas_vessel) %>% 
+  summarize(encounters = n()) %>% 
+  mutate(fraction = 100*encounters/sum(encounters))
+
+```
+
+
+76 % of all bunker encounters involve high seas vessels.
+
+```{r}
+all_refueling_encounters_with_fishing_vessels %>% 
+  filter(year == 2016) %>% 
+  filter(is.na(encounter_country)) %>% 
+  group_by(with_high_seas_vessel) %>% 
+  summarize(encounters = n()) %>% 
+  mutate(fraction = 100*encounters/sum(encounters))
+```
+
+and 95% of bunker encounters in the high seas involve high seas vessels. 
+
+The number of bunker mmsi that interact with high seas vessels are
+
+```{r}
+all_refueling_encounters_with_fishing_vessels %>% 
+  filter(with_high_seas_vessel) %>% 
+  group_by(year) %>% 
+  summarize(buner_vessels = n_distinct(bunker_vessel_mmsi))
+```
+
+```{r}
+all_bunker_vessels <- all_refueling_encounters_with_fishing_vessels %>% 
+  #filter(with_high_seas_vessel) %>% 
+  replace_na(list(fishing_vessel_flag_country_name = "unknown")) %>% 
+  group_by(year, bunker_vessel_mmsi, bunker_vessel_flag_country_name) %>% 
+  summarise(all_encounters = n(),
+            encounters_with_high_seas_vessels = sum(with_high_seas_vessel),
+            encounters_in_the_high_seas = sum(is.na(encounter_country)),
+             encounters_with_high_seas_vessels_in_the_high_seas = sum(with_high_seas_vessel & (is.na(encounter_country))),
+            distinct_fishing_flags = n_distinct(fishing_vessel_flag_country_name),
+            most_common_flag = names(table(fishing_vessel_flag_country_name))[which.max(table(fishing_vessel_flag_country_name))]) %>% 
+  arrange(desc(all_encounters), desc(encounters_with_high_seas_vessels))
+```
+
+
+```{r}
+write_csv(all_bunker_vessels, "saved_files/all_bunkers.csv")
+write_csv(all_refueling_encounters_with_fishing_vessels, "../effort_and_coverage/saved_files/all_encounters_bunker_with_fishing_vessel.csv")
+```
+
+#### High Seas Bunker vessel characteristics
+
+```{sql, connection = BQ_connection, output.var = "all_bunker_vessels_info"}
+SELECT * FROM [world-fishing-827:scratch_nate.fish_bunker_vessels_20170703]
+```
+
+```{r}
+all_bunker_vessels_info <- all_bunker_vessels_info %>% 
+              select(imo, mmsi, ship_name = Vessel_Name, Flag, call_sign, Previous_Names, crew = Crew_WCPFC, 
+                     length = Length_WCPFC, length_type = Length_Type_WCPFC, length_units = Length_Units_WCPFC, tonnage = Tonnage_WCPFC, tonnage_type = Tonnage_Type_WCPFC,
+                     engine_power = Engine_Power_WCPFC, power_units = Power_Units_WCPFC) %>% 
+   mutate(engine_power = ifelse(power_units == 'HP', engine_power*0.7457, 
+                                           ifelse(power_units == 'PS', engine_power*0.735499, engine_power))) %>%
+  select(-power_units)
+```
+
+```{r}
+high_seas_bunker_vessels <- all_bunker_vessels %>% 
+  filter(encounters_with_high_seas_vessels > 0) %>% 
+  left_join(all_bunker_vessels_info %>% 
+              rename(bunker_vessel_mmsi = mmsi), by = "bunker_vessel_mmsi") %>% 
+  mutate(bunker_vessel_flag_country_name = ifelse(bunker_vessel_flag_country_name == "Invalid MMSI", Flag, bunker_vessel_flag_country_name)) %>% 
+  select(-Flag)
+```
+
+
+#### Data gaps
+
+```{r}
+high_seas_bunker_vessels %>% 
+  group_by(year) %>% 
+  summarize_at(vars(length, crew,  tonnage,engine_power), funs(sum(is.na(.))))
+```
+
+
+```{r}
+high_seas_bunker_vessels %>% 
+  filter(is.na(engine_power), year == 2016)
+```
+
+
+
+```{r}
+high_seas_bunker_vessels$length[high_seas_bunker_vessels$imo == 9382190] <- 102.7
+high_seas_bunker_vessels$tonnage[high_seas_bunker_vessels$imo == 9382190] <- 3900
+high_seas_bunker_vessels$length[high_seas_bunker_vessels$imo == 9058593] <- 90
+high_seas_bunker_vessels$tonnage[high_seas_bunker_vessels$imo == 9058593] <- 2030
+high_seas_bunker_vessels$length[high_seas_bunker_vessels$imo == 9697296] <- 101.39
+high_seas_bunker_vessels$tonnage[high_seas_bunker_vessels$imo == 9697296] <- 5689
+high_seas_bunker_vessels$length[high_seas_bunker_vessels$imo == 9114828] <- 110
+high_seas_bunker_vessels$tonnage[high_seas_bunker_vessels$imo == 9114828] <- 5537
+high_seas_bunker_vessels$length[high_seas_bunker_vessels$imo == 9132612] <- 114
+high_seas_bunker_vessels$tonnage[high_seas_bunker_vessels$imo == 9132612] <- 5738
+high_seas_bunker_vessels$length[high_seas_bunker_vessels$imo == 9393656] <- 101
+high_seas_bunker_vessels$tonnage[high_seas_bunker_vessels$imo == 9393656] <- 5581
+high_seas_bunker_vessels$length[high_seas_bunker_vessels$imo == 9078751] <- 101
+high_seas_bunker_vessels$tonnage[high_seas_bunker_vessels$imo == 9078751] <- 3243
+high_seas_bunker_vessels$length[high_seas_bunker_vessels$imo == 9377834] <- 105
+high_seas_bunker_vessels$tonnage[high_seas_bunker_vessels$imo == 9377834] <- 3978
+```
+
+```{r}
+high_seas_bunker_vessels <- high_seas_bunker_vessels %>% 
+  left_join(good_registry_matches %>% 
+              select(bunker_vessel_mmsi = mmsi, engine_power_2 = engine_power, crew_2 = crew), by = "bunker_vessel_mmsi") %>% 
+  mutate(engine_power = ifelse(!is.na(engine_power_2), engine_power_2, engine_power),
+         crew = ifelse(!is.na(crew_2), crew_2, crew)) %>% 
+  select(-engine_power_2, -crew_2)
+
+high_seas_bunker_vessels %>% 
+  group_by(year) %>% 
+  summarize_at(vars(length,tonnage,engine_power, crew), funs(sum(is.na(.))))
+```
+
+### Join high seas reefers and bunker
+
+```{r}
+all_high_seas_reefer_and_bunkers <- bind_rows(high_seas_bunker_vessels %>% 
+        ungroup() %>% 
+        mutate(type = "bunker",
+               sub_type = "bunker",
+               fraction_with_high_seas_vessels = encounters_with_high_seas_vessels/all_encounters) %>% 
+        select(year, type, mmsi = bunker_vessel_mmsi, imo, call_sign, ship_name, sub_type, flag_state = bunker_vessel_flag_country_name, length, tonnage, engine_power, crew,
+               all_encounters,encounters_with_high_seas_vessels, encounters_in_the_high_seas, distinct_fishing_flags, fraction_with_high_seas_vessels, most_common_flag),
+      high_seas_reefers %>% 
+        ungroup() %>% 
+        mutate(type = "reefer",
+               fraction_with_high_seas_vessels = encounters_with_high_seas_vessels/all_encounters) %>% 
+        select(year, type, mmsi = transhipment_vessel_mmsi,imo, call_sign, ship_name = vessel_name ,sub_type = ship_type,flag_state = transhipment_vessel_flag_country_name, length = length_overall, tonnage  = gross_tonnage,
+               engine_power, crew = crew_size, all_encounters,encounters_with_high_seas_vessels, encounters_in_the_high_seas, distinct_fishing_flags, fraction_with_high_seas_vessels, most_common_flag,fraction_with_high_seas_vessels))
+```
+
+
+```{r}
+all_high_seas_reefer_and_bunkers$flag_state[all_high_seas_reefer_and_bunkers$imo == 9101455] <- "Kiribati"
+all_high_seas_reefer_and_bunkers$engine_power[all_high_seas_reefer_and_bunkers$mmsi == 273379740] <- 5100
+```
+
+```{r}
+(vessels_by_flag_plot <- all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016) %>% 
+  ggplot()+
+  geom_bar(aes(x = fct_reorder(flag_state, mmsi, n_distinct), fill = type))+
+  coord_flip()+
+  theme_minimal()+
+  xlab("")+
+  ylab("Vessels")+
+  scale_fill_manual(values = ggpubr::get_palette(palette = "npg", 7), name = " ")+
+  theme(legend.text = element_text(size = 8, hjust = 3, vjust = 3),
+          legend.key.size = unit(.5, "cm"))+
+  hrbrthemes::theme_ipsum())
+
+save_high_res_plot(vessels_by_flag_plot, "saved_plots/reefers_and_bunkers/reefers_and_bunkers_by_flag")
+```
+
+#### Filling data gaps
+
+##### Additional registries
+
+```{r}
+ffa_vessels_info_2016 %>% 
+  filter(vessel_type %in% c("Fish Carrier", "Bunker", "Mothership"), !is.na(crew)) %>% 
+  arrange(vessel_name)
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016, is.na(crew)) %>% 
+  filter(flag_state == "Panama") %>% 
+  arrange(ship_name)
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  #filter(is.na(crew), !is.na(call_sign)) %>% 
+  left_join(ffa_vessels_info_2016 %>% 
+               select(call_sign = ircs, ffa_crew = crew) %>% 
+               filter(!is.na(call_sign), !is.na(ffa_crew)), by = c("call_sign")) %>% 
+  mutate(crew = ifelse(is.na(crew), ffa_crew, crew)) %>% 
+  select(-ffa_crew)
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016, is.na(crew)) %>% 
+  arrange(ship_name)
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  left_join(ffa_vessels_info_2016 %>% 
+               select(ship_name = vessel_name, ffa_crew = crew) %>% 
+               filter(!is.na(ship_name), !is.na(ffa_crew)), by = c("ship_name")) %>% 
+  mutate(crew = ifelse(is.na(crew), ffa_crew, crew)) %>% 
+  select(-ffa_crew)
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers$crew[all_high_seas_reefer_and_bunkers$imo == 9697296] <- 18
+all_high_seas_reefer_and_bunkers$crew[all_high_seas_reefer_and_bunkers$mmsi == 412440493] <- 20
+```
+
+
+```{r}
+table(wcpfc_081517$`Vessel Type`)
+
+wcpfc_081517 %>% 
+  select(flag = Flag, ship_name = `Vessel Name`,call_sign =  IRCS,imo = `IMO-LR`,  wcpfc_crew = Crew, ship_type = `Vessel Type`) %>% 
+  filter(ship_type %in% c("BUNKER","FISH CARRIER","Tuna mothership", "Freezer Longliner", "Support Vessel"), !is.na(wcpfc_crew)) %>% 
+  arrange(ship_name)
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% filter(year == 2016, is.na(crew)) %>% 
+  arrange(ship_name)
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers$crew[all_high_seas_reefer_and_bunkers$imo == 7927453] <- 27
+```
+
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  group_by(year) %>% 
+  summarize(sum(is.na(crew)))
+```
+
+```{r fig.height=5}
+all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016) %>% 
+  ggplot()+
+  geom_point(aes(x = length, y =  crew, col = flag_state, shape = type, size = all_encounters)) +
+  theme_minimal()
+```
+
+```{r}
+write_csv(all_high_seas_reefer_and_bunkers, "saved_files/all_high_seas_reefers_and_bunkers_unfilled.csv")
+```
+
+##### Engine power from the neural net
+
+```{sql connection = BQ_connection, output.var = "inferred_info"}
+SELECT
+  *
+FROM (
+  SELECT
+    year,
+    mmsi,
+    inferred_length,
+    inferred_tonnage,
+    inferred_engine_power
+  FROM
+    [world-fishing-827:gfw_research.vessel_info_20170717]
+  WHERE
+    mmsi IN (
+    SELECT
+      INTEGER(transhipment_vessel_mmsi) mmsi
+    FROM
+      [high-seas:transhipment.all_transhipment_encounters_with_fishing_vessels])),
+  (
+  SELECT
+    year,
+    mmsi,
+    inferred_length,
+    inferred_tonnage,
+    inferred_engine_power
+  FROM
+    [world-fishing-827:gfw_research.vessel_info_20170717]
+  WHERE
+    mmsi IN (
+    SELECT
+      INTEGER(bunker_vessel_mmsi) mmsi
+    FROM
+      [high-seas:transhipment.all_bunker_encounters_with_fishing_vessels]))
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  group_by(year) %>% 
+  summarise_at(vars(flag_state, length, tonnage, engine_power, crew),funs(sum(is.na(.))) )
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  left_join(inferred_info)
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016) %>% 
+  ggplot(aes(x = engine_power, inferred_engine_power))+
+  geom_point()
+
+all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016) %>% 
+  ggplot(aes(x = tonnage, inferred_tonnage))+
+  geom_point()
+
+all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016) %>% 
+  ggplot(aes(x = length, inferred_length))+
+  geom_point()
+```
+
+
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  group_by(year) %>% 
+  summarise(sum(is.na(engine_power) & is.na(inferred_engine_power)))
+```
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>%
+  filter(mmsi != 533000333)
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  mutate(length = ifelse(is.na(length), inferred_length, length),
+         tonnage = ifelse(is.na(tonnage), inferred_tonnage, tonnage),
+         engine_power = ifelse(is.na(engine_power), inferred_engine_power, engine_power)) %>% 
+  select(-inferred_length, -inferred_tonnage, -inferred_engine_power) 
+
+all_high_seas_reefer_and_bunkers %>% 
+  group_by(year) %>% 
+  summarise_at(vars(flag_state, length, tonnage, engine_power, crew),funs(sum(is.na(.))) )
+
+all_high_seas_reefer_and_bunkers %>% 
+  filter(is.na(engine_power), year == 2016)
+```
+
+For indonesia fish carriers for which we do not have engine power use the average engine power of the fleet.
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  filter(flag_state == "Indonesia", !is.na(length), !is.na(tonnage), !is.na(engine_power)) %>% 
+  distinct(mmsi, length, tonnage, engine_power) %>% 
+  summarise(mean(engine_power),
+            median(engine_power))
+
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  replace_na(list(engine_power = 350))
+```
+
+##### Filling crew size with Random forests 
+
+###### With flag state
+
+```{r eval = F}
+unique_mmsi_for_reefers_crew_rf <- filter(all_high_seas_reefer_and_bunkers, !is.na(length), !is.na(tonnage), !is.na(engine_power), !is.na(crew)) %>%
+  distinct(mmsi, flag_state,  type, length, tonnage,engine_power, crew) %>% 
+  ungroup() %>% 
+  mutate_at(vars(flag_state, type), factor) %>% 
+  select(mmsi, everything())
+
+reefers_crew_trainIndex <- createDataPartition(unique_mmsi_for_reefers_crew_rf$crew, p = .7, 
+                                  list = FALSE, 
+                                  times = 1)
+
+reefers_crew_training_set <- unique_mmsi_for_reefers_crew_rf[ reefers_crew_trainIndex,]
+reefers_crew_testing_set  <- unique_mmsi_for_reefers_crew_rf[-reefers_crew_trainIndex,]
+
+saveRDS(reefers_crew_testing_set, "saved_files/random_forests/reefers_crew_testing_set")
+saveRDS(reefers_crew_training_set, "saved_files/random_forests/reefers_crew_training_set")
+```
+
+```{r}
+reefers_crew_testing_set <- readRDS("saved_files/random_forests/reefers_crew_testing_set")
+reefers_crew_training_set <- readRDS("saved_files/random_forests/reefers_crew_training_set")
+
+reefers_crew_cforest <- train(x = reefers_crew_training_set[,c(2,3,4,5,6)],
+                                       y = reefers_crew_training_set$crew,
+                                       method = 'cforest',
+                                       trControl = fitControl,
+                                       controls = cforest_unbiased(ntree = 500))
+
+reefers_crew_cforest
+
+(reefers_crew_rf_rmse <- sqrt(sum((predict(reefers_crew_cforest,reefers_crew_testing_set) - reefers_crew_testing_set$crew)^2) / nrow(reefers_crew_testing_set)))
+
+saveRDS(reefers_crew_cforest, "saved_files/reefers_crew_cforest")
+```
+
+###### Without flag state
+
+```{r}
+reefers_crew_cforest_no_flag <- train(x = reefers_crew_training_set[,c(2,4,5,6)],
+                              y = reefers_crew_training_set$crew,
+                              method = 'cforest',
+                              trControl = fitControl,
+                              controls = cforest_unbiased(ntree = 500))
+
+
+reefers_crew_cforest_no_flag
+
+(reefers_crew__no_flag_rf_rmse <- sqrt(sum((predict(reefers_crew_cforest_no_flag,reefers_crew_testing_set) - reefers_crew_testing_set$crew)^2) / nrow(reefers_crew_testing_set)))
+
+saveRDS(reefers_crew_cforest_no_flag, "saved_files/reefers_crew_cforest_no_flag")
+```
+
+###### Predict
+
+```{r}
+pred_rf_crew <- all_high_seas_reefer_and_bunkers %>%
+  filter(flag_state %in% unique_mmsi_for_reefers_crew_rf$flag_state) %>% 
+  select(mmsi, type,flag_state, length, tonnage,engine_power, crew) %>% 
+  distinct(mmsi,  type, flag_state,  length, tonnage,engine_power, crew) %>% 
+  mutate_at(vars(flag_state, type), factor) 
+
+levels(pred_rf_crew$flag_state) <- levels(unique_mmsi_for_reefers_crew_rf$flag_state)
+levels(pred_rf_crew$type) <- levels(unique_mmsi_for_reefers_crew_rf$type)
+
+pred_rf_crew <- pred_rf_crew %>% 
+  modelr::add_predictions(reefers_crew_cforest) %>% 
+  mutate(pred_with_flag = round(pred)) %>% 
+  select(-pred)
+```
+
+```{r}
+pred_rf_crew_no_flag <- all_high_seas_reefer_and_bunkers %>%
+  select(mmsi, type,flag_state, length, tonnage,engine_power, crew) %>% 
+  distinct(mmsi,  type, flag_state,  length, tonnage,engine_power, crew) %>% 
+  mutate_at(vars(flag_state, type), factor)  
+
+pred_rf_crew_no_flag <- pred_rf_crew_no_flag %>% 
+  modelr::add_predictions(reefers_crew_cforest_no_flag) %>% 
+  mutate(pred_no_flag = round(pred)) %>% 
+  select(-pred)
+```
+
+and join...
+
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  left_join(pred_rf_crew %>% 
+              select(mmsi, pred_with_flag), by = "mmsi") %>% 
+  mutate(crew = ifelse(is.na(crew), pred_with_flag, crew)) %>% 
+  select(-pred_with_flag) %>% 
+  left_join(pred_rf_crew_no_flag %>% 
+              distinct(mmsi, pred_no_flag), by = "mmsi") %>% 
+  mutate(crew = ifelse(is.na(crew), pred_no_flag, crew)) %>% 
+  select(-pred_no_flag)
+
+all_high_seas_reefer_and_bunkers %>% 
+  group_by(year) %>% 
+  summarize_at(vars(length, tonnage, engine_power, crew), funs(sum(is.na(.))))
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  group_by(flag_state, type) %>% 
+  summarise(mean(crew))
+```
+
+
+#### Aux power
+
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  mutate(aux_engine_power = 0.25*engine_power)
+```
+
+#### Design speed 
+
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  mutate(design_speed_old = 3.30*10^(-4)*engine_power+2.151*10^(-5)*tonnage-2.742*10^(-9)*engine_power*tonnage+12.93,
+         design_speed_ihs = 10.4818 + 0.0012*engine_power -3.84710*10^(-8)*engine_power^2)
+```
+
+#### SFC
+
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  mutate(
+    main_sfc = case_when(
+      flag_state == "China" ~ 280,
+      flag_state %in% c("Austria", "Belgium", "Denmark", "Finland", "France",
+                                       "Germany", "Greece", "Ireland", "Italy", "Luxembourg",
+                                       "Netherlands", "Portugal", "Spain", "Sweden", "United Kingdom") ~ 270,
+      flag_state == "Iceland" ~ 250,
+      flag_state == "Norway" ~ 250,
+      flag_state == "South Korea" ~ 260,
+      flag_state == "Russia" ~ 250,
+      TRUE ~ 203),
+    main_sfc_low = 203,
+    aux_sfc = 217
+  )
+```
+
+#### Gaps
+
+```{sql connection = BQ_connection, output.var = "gap_days", eval = F}
+SELECT
+  year(timestamp) year,
+  year(next_timestamp) year_end,
+  mmsi,
+  sum(gap_hours) gap_hours,
+  SUM(INTEGER((gap_hours-24)/24 - .5)) gap_days,
+FROM
+  [world-fishing-827:gfw_research.24hr_gaps_less_noise]
+WHERE
+  distance_from_shore_meters > 1852*50
+  AND next_distance_from_shore_meters > 1852*50
+  AND gap_hours > 24
+GROUP BY
+ year,
+ year_end,
+ mmsi
+having year = year_end
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  left_join(gap_days, by = c("year", "mmsi"))
+
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  replace_na(list(gap_hours = 0, gap_days = 0)) %>% 
+  select(-year_end)
+```
+
+
+### Summary
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  group_by(year, type) %>% 
+  summarise(vessels = n_distinct(mmsi),
+            avg_length =mean(length),
+            avg_tonnage = mean(tonnage),
+            avg_engine_power = mean(engine_power),
+            avg_crew = round(mean(crew)))
+```
+
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016) %>% 
+  group_by(flag_state) %>% 
+  filter(n()>3) %>% 
+  ungroup() %>% 
+  ggplot()+
+  geom_boxplot(aes(x = flag_state, y = fraction_with_high_seas_vessels))+
+  hrbrthemes::theme_ipsum()+
+  labs(y = "Encounters with high seas vessels as a fraction of total encounters", x = "")+
+  coord_flip()
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016) %>% 
+  group_by(flag_state) %>% 
+  filter(n()>3) %>% 
+  ungroup() %>% 
+  ggplot()+
+  geom_boxplot(aes(x = flag_state, y = encounters_with_high_seas_vessels))+
+  hrbrthemes::theme_ipsum()+
+  labs(y = "Encounters with high seas vessels", x = "")+
+  coord_flip()
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016) %>% 
+  select(mmsi, fraction_with_high_seas_vessels, encounters_with_high_seas_vessels) %>% 
+  gather(variable, value, -mmsi) %>% 
+  ggplot()+
+  geom_histogram(aes(value))+
+  facet_wrap("variable", scales = 'free', strip.position = 'top')+
+  hrbrthemes::theme_ipsum()+
+  labs(x = "")
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers %>% 
+  filter(year == 2016) %>%
+  ggplot()+
+  ggjoy::geom_joy(aes(crew, flag_state))+
+  facet_wrap("type")
+```
+
+```{r}
+all_high_seas_reefer_and_bunkers <- all_high_seas_reefer_and_bunkers %>% 
+  mutate(mmsi = as.integer(mmsi),
+         year = as.integer(year))
+
+write_csv(all_high_seas_reefer_and_bunkers, "saved_files/complete_high_seas_reefers_and_bunkers_characteristics.csv")
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "vessel_characteristics", project = "high-seas", billing = "world-fishing-827")
+
+if(dbExistsTable(BQ_connection, "complete_high_seas_reefers_and_bunkers_characteristics")) {
+  dbRemoveTable(BQ_connection, "complete_high_seas_reefers_and_bunkers_characteristics") 
+  dbWriteTable(BQ_connection, "complete_high_seas_reefers_and_bunkers_characteristics", all_high_seas_reefer_and_bunkers)
+} else {dbWriteTable(BQ_connection, "complete_high_seas_reefers_and_bunkers_characteristics", all_high_seas_reefer_and_bunkers)}
+```
+

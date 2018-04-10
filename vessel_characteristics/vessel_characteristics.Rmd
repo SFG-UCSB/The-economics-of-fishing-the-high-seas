@@ -1,0 +1,2499 @@
+---
+title: "Analysis of High Seas Vessel Characteristics"
+output:
+  html_notebook:
+    fig_caption: yes
+    toc: yes
+    toc_depth: 6
+---
+
+```{r setup, echo = F}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, comment = FALSE, prompt = FALSE, verbose = FALSE)
+
+knitr::knit_hooks$set(inline = function(x) {
+  prettyNum(round(x,2), big.mark = ",")
+})
+
+knitr::opts_knit$set(progress = FALSE)
+
+library(plotly)
+library(tidyverse)
+library(bigrquery)
+library(DBI)
+library(forcats)
+library(knitr)
+library(caret)
+library(party)
+library(partykit)
+library(rpart)
+library(doMC)
+library(AER)
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "", project  = "high-seas", billing = "world-fishing-827")
+
+source("../general_project_files/gfw_themes.R")
+source("../general_project_files/functions.R")
+
+set.seed(123)
+```
+
+This script looks at the available data to characterize fishing vessels. The SQL queries here will not work for people without high-level access to Global Fishing Watch raw data.
+
+## Getting raw data from GFW
+
+```{r parameters}
+ais_length_sd_treshold <- .1 # acceptable coef. of variation for ais lengths
+high_seas_vessel_treshold <- 0.05  # minimum proportion of fishing time in the high seas for a vessel to be considered high seas. 
+ais_max_length_threshold <- 150 #this is based on the max registry length
+ais_min_length_threshold <- 5 #this is based on the max registry length
+```
+
+### Raw vessel characteristics
+
+```{sql connection = BQ_connection, output.var = "ais_fishing_vessels_raw", eval = F}
+SELECT
+  year,
+  mmsi,  
+  on_fishing_list_nn,
+  on_fishing_list,
+  country_name flag_country_name,
+  iso3 flag_iso3,
+  shipname,
+  shipname_norm,
+  callsign,
+  imo,
+  IF(known_label LIKE "%|%" OR known_label IN ("unknown_fishing", "unknown_not_fishing", "unknown","unknown_longline", "other_not_fishing", "other_fishing"), NULL, known_label) known_sublabel,
+  inferred_label,
+  inferred_label_allyears,
+  inferred_sublabel, 
+  inferred_sublabel_allyears,
+  IF(known_length IS NOT NULL AND IS_NAN(known_length) == FALSE, known_length, NULL) known_length,
+  IF(stddev_length/average_length <= ?ais_length_sd_treshold
+    AND average_length > ?ais_min_length_threshold
+    AND average_length <= ?ais_max_length_threshold
+    AND avg_width/average_length <= .44
+    AND avg_width/average_length >= .12, average_length, NULL) ais_length,
+  inferred_length,
+  IF(known_tonnage IS NOT NULL AND IS_NAN(known_tonnage) == FALSE, known_tonnage, NULL) known_tonnage,
+  IF(inferred_tonnage >= 0.45 AND inferred_tonnage < 50000, inferred_tonnage, NULL) inferred_tonnage,
+  IF(known_engine_power IS NOT NULL AND IS_NAN(known_engine_power) == FALSE, known_engine_power, NULL) known_engine_power,
+  inferred_engine_power,
+  eez_first,
+  frac_in_eez_first,
+  eez_second,
+  frac_in_eez_second 
+FROM
+  [world-fishing-827:gfw_research.vessel_info]
+WHERE
+  (on_fishing_list_nn or on_fishing_list)
+  AND offsetting IS NULL
+  AND spoofing_factor < 1.01
+  and year > 2012
+  and mmsi not in (select mmsi from [gfw_raw.transshipment_vessels_20171215]) // exclude reefers
+  and mmsi not in (select mmsi from [world-fishing-827:scratch_nate.bunker_vessels_11072017]) // exclude Bunkers
+```
+
+```{r save_raw_file, eval = F}
+write_csv(ais_fishing_vessels_raw, "saved_files/ais_fishing_vessels_raw.csv")
+```
+
+### AIS gaps
+
+```{sql connection = BQ_connection, output.var = "gap_days", eval = F}
+SELECT
+  year(timestamp) year,
+  year(next_timestamp) year_end,
+  mmsi,
+  sum(gap_hours) gap_hours,
+  SUM(INTEGER((gap_hours-24)/24 - .5)) gap_days,
+FROM
+  [world-fishing-827:gfw_research.24hr_gaps_less_noise]
+WHERE
+  distance_from_shore_meters > 1852*50
+  AND next_distance_from_shore_meters > 1852*50
+  AND gap_hours > 24
+GROUP BY
+ year,
+ year_end,
+ mmsi
+having year = year_end
+```
+
+```{r save_raw_gaps, eval = F}
+write_csv(gap_days, "saved_files/gap_days.csv")
+```
+
+### Fraction of total fishing effort in the high seas
+
+```{sql connection = BQ_connection, output.var = "fractions_in_high_seas", eval = F}
+SELECT
+  year,
+  mmsi,
+  count(*) positions,
+  exact_count_distinct(date(timestamp)) days,
+  exact_count_distinct(IF((eez_name IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48,58))) OR (FAO_region is null and eez_name is null and distance_from_shore > 1*1852), date(timestamp), null)) days_hs,
+  SUM(hours) hours,
+  SUM(IF((eez_name IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48,58))) OR (FAO_region is null and eez_name is null and distance_from_shore > 1*1852) ,hours, 0)) hours_hs,
+  SUM(IF(nnet_score == 1, hours, 0 )) fishing_hours,
+  SUM(IF((nnet_score == 1 AND eez_name IS NULL AND (distance_from_shore >= 10*1852 OR FAO_region IN (88, 48,58))) OR (nnet_score == 1 and FAO_region is null and eez_name is null and distance_from_shore > 1*1852) , hours, 0 )) fishing_hours_hs
+FROM (
+  SELECT
+    *,
+    YEAR(timestamp) year,
+    INTEGER(REGEXP_REPLACE( IF(REGEXP_EXTRACT(regions,'\"(fao:.*?)\"') CONTAINS ".", LEFT(REGEXP_EXTRACT(regions,'\"(fao:.*?)\"'),INSTR(REGEXP_EXTRACT(regions,'\"(fao:.*?)\"'),".")-1),REGEXP_EXTRACT(regions,'\"(fao:.*?)\"')), '[^0-9 ]','')) FAO_region,
+  FROM
+    [gfw_research.nn]
+  WHERE
+    _PARTITIONTIME BETWEEN TIMESTAMP('2013-01-01')
+    AND TIMESTAMP('2016-12-31')
+    AND lat < 90
+    AND lat > -90
+    AND lon < 180
+    AND lon > -180
+    AND (distance_from_shore > 1852
+      OR (implied_speed > .1
+        AND implied_speed < 30))
+    AND seg_id IN (
+      SELECT
+        seg_id
+      FROM
+        [world-fishing-827:gfw_research.good_segments])
+        )
+GROUP BY
+year, 
+mmsi
+```
+
+```{r, save_raw_fractions, eval = F}
+write_csv(fractions_in_high_seas, "saved_files/fractions_in_high_seas.csv")
+```
+
+```{r, read_saved_files, eval = T}
+ais_fishing_vessels_raw <- read_csv("saved_files/ais_fishing_vessels_raw.csv", progress = F, col_types =  cols(imo = col_integer(),
+                                                                                                           known_length = col_double(),
+                                                                                                           known_tonnage = col_double(),
+                                                                                                           known_engine_power = col_double()))
+
+fractions_in_high_seas <- read_csv("saved_files/fractions_in_high_seas.csv", progress = F)
+
+gap_days <- read_csv("saved_files/gap_days.csv")
+```
+
+```{r finish_and_save_all_vessel_data, eval = T}
+fractions_in_high_seas <- fractions_in_high_seas %>% 
+  mutate(fraction_hours_hs = hours_hs/hours,
+         fraction_fishing_hours_hs =  fishing_hours_hs/fishing_hours)
+
+ais_fishing_vessels <- ais_fishing_vessels_raw %>% 
+  left_join(fractions_in_high_seas, by = c('mmsi', 'year')) %>% 
+  left_join(gap_days, by = c("year", "mmsi")) %>%
+  filter(!is.na(positions)) %>% 
+  mutate(is_high_seas  = fraction_fishing_hours_hs > high_seas_vessel_treshold) %>%
+  replace_na(list(is_high_seas = FALSE, gap_hours = 0, gap_days = 0)) %>% 
+  filter(on_fishing_list_nn | fraction_fishing_hours_hs > .05) %>% 
+  mutate_at(vars(imo), as.integer) %>% 
+  mutate_at(vars(inferred_length, inferred_tonnage, inferred_engine_power), as.double) %>% 
+  select(-year_end) 
+```
+
+```{r eval = T}
+normalized_known_label_lookup <- read_csv("source_info/normalized_label_lookup.csv")
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(normalized_known_label_lookup) %>% 
+  select(year, mmsi, on_fishing_list_nn, on_fishing_list, flag_country_name, flag_iso3, shipname, shipname_norm, callsign, imo, known_sublabel, known_label, everything())
+
+ais_fishing_vessels$flag_country_name[ais_fishing_vessels$flag_country_name == "Invalid MMSI"] <- NA
+```
+
+## Complementing vessel info with registries and manually curated lists
+
+```{r}
+registry_matches <- read_csv("source_info/registry_matches.csv")
+
+deduped_matches <- registry_matches %>%
+  mutate(year_first = lubridate::year(first_timestamp),
+         year_last = lubridate::year(last_timestamp)) %>% 
+  distinct(mmsi, shipname_matched, flag, length, tonnage, engine_power, crew, geartype,year_first, year_last, owner) %>% 
+  group_by(mmsi) %>% 
+  filter(n() > 1) %>% 
+  arrange(desc(mmsi)) %>% 
+  filter(flag %in% c("FRA", "REU", "NOR", "SJM")) %>% 
+  mutate(geartype = ifelse(geartype == "other_fishing", NA, geartype)) %>% 
+  group_by(mmsi) %>% 
+  summarise(length = mean(length,na.rm = T),
+            tonnage = mean(tonnage, na.rm = T),
+            engine_power = mean(engine_power, na.rm = T),
+            geartype = first(geartype[!is.na(geartype)]),
+            crew = mean(crew, na.rm = T)) %>% 
+  arrange(desc(mmsi)) %>% 
+  replace_na(list(crew = NA, engine_power = NA, length = NA, tonnage = NA, engine_power = NA, geartype = NA))
+
+good_registry_matches <- bind_rows(deduped_matches,registry_matches %>% 
+  filter(!mmsi %in% deduped_matches$mmsi) %>% 
+  group_by(mmsi) %>% 
+  filter(!n() > 1) %>% 
+  arrange(desc(mmsi)) %>% 
+  select(mmsi, length, tonnage, engine_power, geartype, crew)) %>% 
+  mutate(sub_geartype = ifelse(stringr::str_detect(geartype,"\\|") | geartype == "other_fishing", NA, geartype)) %>% 
+  filter(crew >= 2 & crew <= 135) %>% 
+  select(-geartype)
+
+good_registry_matches$length[good_registry_matches$mmsi == 576811000] <- 46
+good_registry_matches$length[good_registry_matches$mmsi == 316011760] <- 60.2
+good_registry_matches$length[good_registry_matches$mmsi == 316019447] <- 23.7
+good_registry_matches$length[good_registry_matches$mmsi == 316021176] <- 15
+good_registry_matches$crew[good_registry_matches$mmsi == 316018234] <- NA
+good_registry_matches$crew[good_registry_matches$mmsi == 316011179] <- NA
+good_registry_matches$crew[good_registry_matches$mmsi == 211101000] <- NA
+good_registry_matches$crew[good_registry_matches$mmsi == 701000870] <- NA
+good_registry_matches$crew[good_registry_matches$mmsi == 205076000] <- NA
+good_registry_matches$crew[good_registry_matches$mmsi == 701006468] <- NA
+```
+
+```{r}
+normalized_known_label_lookup <- read_csv("source_info/normalized_label_lookup.csv")
+
+good_registry_matches <- good_registry_matches %>% 
+  left_join(normalized_known_label_lookup %>% select(sub_geartype = known_sublabel, geartype = known_label))
+
+good_registry_matches <- good_registry_matches %>% 
+  mutate(geartype = ifelse(sub_geartype == "cargo", "cargo", 
+                           ifelse(sub_geartype == "other_not_fishing", "other_not_fishing", geartype))) 
+```
+
+```{r}
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(good_registry_matches) %>% 
+  mutate(known_length = ifelse(!is.na(length), length, known_length),
+         known_tonnage = ifelse(!is.na(tonnage), tonnage, known_tonnage),
+         known_engine_power = ifelse(!is.na(engine_power), engine_power, known_engine_power),
+         known_crew = crew,
+         known_label = ifelse(!is.na(geartype), geartype, known_label),
+         known_sublabel = ifelse(!is.na(sub_geartype), sub_geartype, known_sublabel)) %>% 
+  select(-length, -tonnage, -crew, -engine_power,-geartype-sub_geartype)
+```
+
+
+```{r import_IOCT_data_to_complement, message = FALSE}
+iotc <- read_csv("source_info/IOTC_positive_list_2017-04-08.csv", progress = F)
+
+iotc_clean <- iotc %>% 
+  mutate(auth_date = lubridate::mdy(`AutFrom/AutDes`)) %>% 
+  filter(auth_date > lubridate::ymd("2013-01-01")) %>% 
+  mutate(year = lubridate::year(auth_date)) %>% 
+  select(flag_country_name = FLAG, iotc_known_label = GEAR, callsign = `RCS/SAR`, iotc_known_tonnage = `GT/UMS`, iotc_known_length = `LOA/LHT`) %>% 
+  filter(!is.na(callsign) & !callsign %in% c("Unknown", "UNKNOWN") & !is.na(iotc_known_tonnage) & !is.na(iotc_known_length)) %>% 
+  count(flag_country_name, iotc_known_label, callsign, iotc_known_tonnage,iotc_known_length) %>%
+  select(-n) %>%
+  group_by(flag_country_name, iotc_known_label, callsign) %>% 
+  summarize(iotc_known_tonnage = mean(iotc_known_tonnage),
+            iotc_known_length = mean(iotc_known_length)) %>% 
+  ungroup() %>% 
+  mutate(iotc_normalized_label = case_when(
+    iotc_known_label == "Bottom and/or midwater trawls" ~ "trawlers",
+    iotc_known_label %in% c("Gill nets") ~ "fixed_gear",
+    iotc_known_label %in% c("Drifting longline","Longline and Gill nets") ~ "drifting_longlines",
+    iotc_known_label %in% c("Purse seines") ~ "purse_seines",
+    iotc_known_label %in% c("Hand line", "Hand line and pole and line", "Pole and lines", "Longline and Troll line", "Pole and Line, Hand Line, Troll line") ~ "other_fishing",
+    TRUE ~ "unknown"),
+    iotc_normalized_sublabel = case_when(
+      iotc_known_label %in% c("Hand line", "Hand line and pole and line", "Pole and lines") ~ "pole_and_line",
+      iotc_known_label %in% c("Gill nets") ~ "set_gillnets",
+      iotc_known_label %in% c("Longline and Gill nets") ~ "drifting_longlines",
+      TRUE ~ iotc_normalized_label)
+    )
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(iotc_clean %>% 
+              select(-flag_country_name), 
+            by = c("callsign")) %>% 
+  mutate(known_length = ifelse(!is.na(known_length), known_length, iotc_known_length),
+         known_tonnage = ifelse(!is.na(known_tonnage), known_tonnage, iotc_known_tonnage),
+         known_sublabel = ifelse(!is.na(known_sublabel), known_sublabel, iotc_normalized_sublabel),
+         known_label = ifelse(!is.na(known_label), known_label, iotc_normalized_label)) %>% 
+  select(-iotc_known_length,-iotc_known_tonnage, -iotc_known_label, -iotc_normalized_label, -iotc_normalized_sublabel)
+
+
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 204212000] <- "drifting_longlines"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 204212000] <- "drifting_longlines"
+```
+
+```{r fill_in_russia, message=FALSE}
+russian_registry <- read_csv("source_info/Russia_vessels_normalized.csv", progress = F) %>% 
+  select(ship_name, callsign = call_sign, imo = imo_registry ,fishing_gear, length_overall, GT, engine_power) %>% 
+  mutate(normalized_gear = ifelse(fishing_gear == "[Longline]", "drifting_longlines",
+                                  ifelse(fishing_gear == "[Seiner]", "purse_seines",
+                                         ifelse(fishing_gear == "[Trawler]", "trawlers", "unknown"))))
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(russian_registry, by = c("callsign", "imo")) %>% 
+  mutate(known_length = ifelse(!is.na(known_length), known_length, length_overall),
+         known_tonnage = ifelse(!is.na(known_tonnage), known_tonnage, GT),
+         known_engine_power = ifelse(!is.na(known_engine_power), known_engine_power, engine_power),
+         known_sublabel = ifelse(!is.na(known_sublabel), known_sublabel, normalized_gear),
+         known_label = ifelse(!is.na(known_label), known_label, normalized_gear)) %>% 
+  select(-ship_name, -fishing_gear,-GT,-engine_power, -length_overall, -normalized_gear )
+
+russian_vessels_matched_by_name <- ais_fishing_vessels %>% 
+  filter(!is.na(shipname) & flag_country_name == "Russia") %>% 
+  inner_join(russian_registry %>% 
+               select(shipname = ship_name , length_overall, GT, engine_power, normalized_gear), by = c("shipname")) %>% 
+  select(year, mmsi, length_overall, GT, engine_power, normalized_gear) %>% 
+  arrange(mmsi, year)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(russian_vessels_matched_by_name %>% 
+              group_by(year, mmsi) %>% 
+              add_count() %>% 
+              filter(n == 1) %>% 
+              select(-n), by = c("year", "mmsi")) %>% 
+  mutate(known_length = ifelse(!is.na(known_length), known_length, length_overall),
+         known_tonnage = ifelse(!is.na(known_tonnage), known_tonnage, GT),
+         known_engine_power = ifelse(!is.na(known_engine_power), known_engine_power, engine_power),
+         known_sublabel = ifelse(!is.na(known_sublabel), known_sublabel, normalized_gear),
+         known_label = ifelse(!is.na(known_label), known_label, normalized_gear)) %>% 
+  select(-GT,-engine_power, -length_overall, -normalized_gear )
+
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 273378740] <- 58
+
+ais_fishing_vessels$known_label[ais_fishing_vessels$known_label == "unknown"] <-  NA
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$known_sublabel == "unknown"] <-  NA
+```
+
+```{r message=FALSE}
+ccamlr_registry_raw <- read_csv("source_info/ccamlr_vessels.csv")
+
+ccamlr_registry <- ccamlr_registry_raw %>% 
+  mutate(label_ccamlr = ifelse(class == "trawler", "trawlers",
+                               ifelse(class == "longline", "drifting_longlines", NA))) %>% 
+  separate(fishing_season, c("year1", "year2"), "-") %>% 
+  gather(var, year, 1:2) %>% 
+  mutate_at(vars(year, engine_power_kW), funs(as.integer)) %>% 
+  mutate(flag_iso3 = countrycode::countrycode(flag_country_name, 'country.name', 'iso3c'))
+
+ccamlr_registry$label_ccamlr[ccamlr_registry$callsign == "ZDLS2"] <- "drifting_longlines"
+
+unique_ccamlr_callsign <- ccamlr_registry %>% 
+  select(year, callsign, flag_iso3, label_ccamlr, length_m, gross_tonnage_t, engine_power_kW, crew_count) %>% 
+  group_by(year, callsign, flag_iso3, label_ccamlr) %>% 
+  summarise_all(funs(n_distinct, mean, sd), na.rm = TRUE) %>% 
+  mutate(length_ccamlr = ifelse(length_m_n_distinct == 1 | length_m_sd/length_m_mean < .1,  length_m_mean, NA),
+         tonnage_ccamlr = ifelse(gross_tonnage_t_n_distinct == 1 | gross_tonnage_t_sd/gross_tonnage_t_mean < .1,  gross_tonnage_t_mean, NA),
+         engine_power_ccamlr = ifelse(engine_power_kW_n_distinct == 1 | engine_power_kW_sd/engine_power_kW_mean < .1,  engine_power_kW_mean, NA),
+         crew_ccamlr = ifelse(crew_count_n_distinct == 1 | crew_count_sd/crew_count_mean < .1,  floor(crew_count_mean), NA)) %>% 
+  select(year, callsign, flag_iso3, label_ccamlr, length_ccamlr, tonnage_ccamlr, engine_power_ccamlr, crew_ccamlr)
+
+unique_ccamlr_imo <- ccamlr_registry %>% 
+  select(year, imo = imo_number, flag_iso3, label_ccamlr, length_m, gross_tonnage_t, engine_power_kW, crew_count) %>% 
+  group_by(year, imo, flag_iso3, label_ccamlr) %>% 
+  summarise_all(funs(n_distinct, mean, sd), na.rm = TRUE) %>% 
+  mutate(length_ccamlr = ifelse(length_m_n_distinct == 1 | length_m_sd/length_m_mean < .1,  length_m_mean, NA),
+         tonnage_ccamlr = ifelse(gross_tonnage_t_n_distinct == 1 | gross_tonnage_t_sd/gross_tonnage_t_mean < .1,  gross_tonnage_t_mean, NA),
+         engine_power_ccamlr = ifelse(engine_power_kW_n_distinct == 1 | engine_power_kW_sd/engine_power_kW_mean < .1,  engine_power_kW_mean, NA),
+         crew_ccamlr = ifelse(crew_count_n_distinct == 1 | crew_count_sd/crew_count_mean < .1,  floor(crew_count_mean), NA)) %>% 
+  select(year, imo, flag_iso3, label_ccamlr, length_ccamlr, tonnage_ccamlr, engine_power_ccamlr, crew_ccamlr)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  ungroup() %>% 
+  left_join(unique_ccamlr_callsign %>% 
+              ungroup()) %>% 
+  mutate(known_sublabel = if_else(!is.na(label_ccamlr), label_ccamlr, known_sublabel),
+         known_label = if_else(!is.na(label_ccamlr), label_ccamlr, known_label),
+         known_length = if_else(!is.na(length_ccamlr), length_ccamlr, known_length),
+         known_tonnage = if_else(!is.na(tonnage_ccamlr), tonnage_ccamlr, known_tonnage),
+         known_engine_power = if_else(!is.na(engine_power_ccamlr), engine_power_ccamlr, known_engine_power),
+         known_crew = if_else(!is.na(known_crew), known_crew, crew_ccamlr)
+         ) %>% 
+    select(-label_ccamlr, -length_ccamlr,-tonnage_ccamlr,-engine_power_ccamlr,-crew_ccamlr) %>% 
+  left_join(unique_ccamlr_imo) %>% 
+  mutate(known_sublabel = if_else(!is.na(label_ccamlr), label_ccamlr, known_sublabel),
+         known_label = if_else(!is.na(label_ccamlr), label_ccamlr, known_label),
+         known_length = if_else(!is.na(length_ccamlr), length_ccamlr, known_length),
+         known_tonnage = if_else(!is.na(tonnage_ccamlr), tonnage_ccamlr, known_tonnage),
+         known_engine_power = if_else(!is.na(engine_power_ccamlr), engine_power_ccamlr, known_engine_power),
+         known_crew = if_else(!is.na(known_crew), known_crew, crew_ccamlr)
+         ) %>% 
+    select(-label_ccamlr, -length_ccamlr,-tonnage_ccamlr,-engine_power_ccamlr,-crew_ccamlr)
+```
+
+```{r wcpfc}
+wcpfc_data <- read_csv("source_info/wcpfc_data_20170726.csv")
+
+wcpfc_data <- wcpfc_data %>% 
+  select(callsign = IRCS, shipname = `Vessel Name`, flag_country_name = Flag, gear = `Vessel Type`, Crew, fishing_methods = `Fishing Methods`, length = Length, length_type = `Length Type`, length_units = `Length Units`, tonnage = Tonnage, tonnage_type =  `Tonnage Type`, engine_power = `Engine Power`, power_unit = `Power Units` )
+
+wcpfc_data <- wcpfc_data %>% 
+  filter(gear %in% c("Handliner","Jigging Line","LIFT NETTER"," Liner nei", "Longliner", "GILLNETTER","Freezer Longliner", "SEINER", "Support Vessel","Purse seiner","Pole and line","Multipurpose vessel nei","MULTIPURPOSE VESSEL", "Troller","Tuna longliner", "Tuna mothership","Tuna purse seiner"))
+```
+
+```{r}
+wcpfc_gear_lookup <- read_csv("source_info/wcpfc_lookup_gear_with_gfw_labels.csv")
+
+wcpfc_data <- wcpfc_data %>% 
+  left_join(wcpfc_gear_lookup) %>% 
+  mutate(
+    length = case_when(
+      length_type %in% c("overall", "Overall", "OVERALL") & length_units == "Feet" ~ length*0.3048,
+      length_type %in% c("overall", "Overall", "OVERALL") & length_units == "Meters" ~ length,
+      TRUE ~ 0),
+    tonnage = case_when(
+      tonnage_type %in% c("gt","GT") ~ tonnage,
+      TRUE ~ 0
+    ),
+    engine_power = case_when(
+      power_unit == "PS" & !is.na(engine_power) & !is.na(power_unit) ~ engine_power*0.7354,
+      power_unit ==  "HP" & !is.na(engine_power) & !is.na(power_unit)~ engine_power*0.7457,
+      power_unit ==  "KW" & !is.na(engine_power) & !is.na(power_unit) ~ as.double(engine_power),
+      TRUE ~ 0
+    )
+  ) %>% 
+  select(callsign, shipname, flag_country_name, sublabel, label, length, tonnage, engine_power, crew = Crew) 
+
+wcpfc_data[wcpfc_data == 0] <- NA
+
+wcpfc_data$callsign[wcpfc_data$callsign %in% c("UNKNOWN", "NONE")] <- NA
+
+wcpfc_data <- wcpfc_data %>% 
+  filter(callsign != "EAHJ")
+```
+
+```{r}
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(wcpfc_data %>% 
+              filter(!is.na(callsign), callsign != "EAHJ") %>% 
+              distinct(callsign, length, tonnage, engine_power, crew, label, sublabel))
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  mutate(known_length = ifelse(is.na(known_length), length, known_length),
+         known_tonnage = ifelse(is.na(known_tonnage), tonnage, known_tonnage),
+         known_engine_power = ifelse(is.na(known_engine_power), engine_power, known_engine_power),
+         known_crew = ifelse(is.na(known_crew), crew, known_crew),
+         known_sublabel = ifelse(is.na(known_sublabel), sublabel, known_sublabel),
+         known_label = ifelse(is.na(known_label), label, known_label)) %>% 
+  select(-length, -tonnage, -engine_power, -crew, -label, -sublabel)
+
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 412205077] <- NA
+
+```
+
+```{r}
+manually_found_info <- read_csv("source_info/manually_found_info.csv")
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(manually_found_info) %>% 
+  mutate(known_sublabel = ifelse(!is.na(sub_label),sub_label, known_sublabel),
+         known_label = ifelse(!is.na(label),label, known_label),
+         known_length = ifelse(!is.na(length),length, known_length),
+         known_tonnage = ifelse(!is.na(tonnage),tonnage, known_tonnage),
+         known_engine_power = ifelse(!is.na(engine_power),engine_power, known_engine_power),
+         known_crew = ifelse(!is.na(crew_size),crew_size, known_crew)) %>% 
+  select(-sub_label, -label, -length, -tonnage, -engine_power, -crew_size, -source)
+
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 412329652] <- "drifting_longlines"
+
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 412329652] <- "drifting_longlines"
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  filter(mmsi != 431494000) %>% 
+  filter(!(known_label == "gear" & !is.na(known_label))) %>% 
+  filter(!(known_label == "passenger" & !is.na(known_label)))
+```
+
+## Summary of initial data availability
+
+The proportion of vessels, active days, and active positions for which we have vessel characteristics data from official registries is summarized in the following table:
+
+```{r initial_availability_summary}
+ais_fishing_vessels %>% 
+  group_by(year) %>% 
+  filter(is_high_seas) %>% 
+  summarize(n_vessels = n_distinct(mmsi),
+            n_flags = n_distinct(flag_iso3, na.rm = TRUE),
+            total_days = sum(days),
+            total_positions = sum(positions,  na.rm = TRUE),
+            vessel_with_flags = sum(!is.na(flag_country_name))/n_vessels,
+            days_with_flags = sum(days[!is.na(flag_country_name)], na.rm = TRUE)/total_days,
+            positions_with_flags = sum(positions[!is.na(flag_country_name)], na.rm = TRUE)/total_positions,
+            vessels_with_gear = sum(!is.na(known_label))/n_vessels,
+            days_with_gear = sum(days[!is.na(known_label)], na.rm = TRUE)/total_days,
+            positions_with_gear = sum(positions[!is.na(known_label)], na.rm = TRUE)/total_positions,
+            vessels_with_length = sum(!is.na(known_length))/n_vessels,
+            days_with_length = sum(days[!is.na(known_length)], na.rm = TRUE)/total_days,
+            positions_with_length = sum(positions[!is.na(known_length)], na.rm = TRUE)/total_positions,
+            vessels_with_tonnage = sum(!is.na(known_tonnage))/n_vessels,
+            days_with_tonnage = sum(days[!is.na(known_tonnage)], na.rm = TRUE)/total_days,
+            positions_with_tonnage = sum(positions[!is.na(known_tonnage)], na.rm = TRUE)/total_positions,
+            vessels_with_engine_power = sum(!is.na(known_engine_power))/n_vessels,
+            days_with_engine_power = sum(days[!is.na(known_engine_power)], na.rm = TRUE)/total_days,
+            positions_with_engine_power = sum(positions[!is.na(known_engine_power)], na.rm = TRUE)/total_positions,
+            vessels_with_crew = sum(!is.na(known_crew))/n_vessels,
+            days_with_crew = sum(days[!is.na(known_crew)], na.rm = TRUE)/total_days,
+            positions_with_crew = sum(positions[!is.na(known_crew)], na.rm = TRUE)/total_positions) %>% 
+  mutate_at(vars(total_days, total_positions), funs(./1000)) %>% 
+  mutate_all(funs(round(., digits = 2)))
+```
+
+## Examining data quality
+
+### Flags
+
+```{r vessel_wo_flags, message= FALSE}
+suspicious_flags <- c("invalid_MMSI","Burkina Faso",
+      "Botswana",
+      "Andorra",
+      "Burundi",
+      "Albania",
+      "State of Palestine (In accordance with Resolution 99 Rev. Guadalajara, 2010)",
+      "Hungary",
+      "The Former Yugoslav Republic of Macedonia",
+      "Liechtenstein (Principality of)",
+      "Nepal (Federal Democratic Republic of)",
+      "Paraguay",
+      "Ethiopia (Federal Democratic Republic of)",
+      "Andorra (Principality of)",
+      "Tajikistan",
+      "Lesotho (Kingdom of)",
+      "Mongolia",
+      "Kazakhstan",
+      "Slovakia",
+      "Slovenia",
+      "Central African Republic",
+      "Bhutan (Kingdom of)",
+      "Kyrgyz Republic",
+      "Somalia",
+      "Zambia",
+      "Uganda",
+      "Rwanda",
+      "Turkmenistan",
+      "Vatican City State",
+      "Bolivia (Plurinational State of)",
+      "Swaziland (Kingdom of)",
+      "Mali",
+      "Malawi",
+      "Afghanistan",
+      "Albania",
+      "Eritrea",
+      "Belarus","Brunei","Chad", "Cyprus", "Cuba", "Oman", "Sierra Leone", "Sudan", "Austria", "Belarus", "Antigua and Barbuda", "Guadeloupe", "Honduras", "Guatemala", "Greenland", "Grenada", "Saint Kitts and Nevis", "Saint Pierre and Miquelon", "Tonga", "United Arab Emirates")
+
+ais_fishing_vessels %>%
+  filter(is_high_seas & flag_country_name %in% suspicious_flags) %>%
+  arrange(flag_country_name)
+
+ais_fishing_vessels$flag_country_name[ais_fishing_vessels$mmsi == 436827810] <- "United States"
+ais_fishing_vessels$flag_iso3[ais_fishing_vessels$mmsi == 436827810] <- "USA"
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 436827810] <- 20.8
+
+ais_fishing_vessels$flag_country_name[ais_fishing_vessels$mmsi == 443200156] <- "Japan"
+ais_fishing_vessels$flag_iso3[ais_fishing_vessels$mmsi == 443200156] <- "JPN" 
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 436827810] <- 63.51
+  
+ais_fishing_vessels$flag_country_name[ais_fishing_vessels$mmsi == 508770000] <- "Australia" #https://www.ccamlr.org/en/node/78945
+ais_fishing_vessels$flag_iso3[ais_fishing_vessels$mmsi == 508770000] <- "AUS"
+
+ais_fishing_vessels$flag_country_name[ais_fishing_vessels$mmsi == 662409000] <- "United States"
+ais_fishing_vessels$flag_iso3[ais_fishing_vessels$mmsi == 662409000] <- "USA"
+
+#http://sero.nmfs.noaa.gov/operations_management_information_services/constituency_services_branch/freedom_of_information_act/common_foia/ATL.htm
+ais_fishing_vessels$flag_country_name[ais_fishing_vessels$mmsi == 203235000] <- "Portugal" # FVF macthes on callsign, name, length
+ais_fishing_vessels$flag_iso3[ais_fishing_vessels$mmsi == 203235000] <- "PRT"
+
+ais_fishing_vessels$flag_country_name[ais_fishing_vessels$mmsi == 255445555] <- "China"
+ais_fishing_vessels$flag_iso3[ais_fishing_vessels$mmsi == 255445555] <- "CHN"
+
+ais_fishing_vessels$flag_country_name[ais_fishing_vessels$mmsi == 44105000] <- "South Korea"
+ais_fishing_vessels$flag_iso3[ais_fishing_vessels$mmsi == 44105000] <- "KOR"
+
+ais_fishing_vessels$flag_country_name[ais_fishing_vessels$mmsi == 900028867] <- "China"
+ais_fishing_vessels$flag_iso3[ais_fishing_vessels$mmsi == 900028867] <- "CHN"
+
+ais_fishing_vessels$flag_country_name[ais_fishing_vessels$mmsi == 451004112] <- "Federated States of Micronesia	"
+ais_fishing_vessels$flag_iso3[ais_fishing_vessels$mmsi == 451004112] <- "FSM"
+
+ais_fishing_vessels <- ais_fishing_vessels %>%
+  filter(mmsi != 201605027) %>% 
+  filter(mmsi != 432753000) %>% # Remove a Japanese Trainign vessel%>% 
+  filter(mmsi != 720120000)
+
+corrected_suspicious_flags <- read_csv("source_info/corrected_suspicious_flags.csv") %>% 
+  mutate(real_iso3 = countrycode::countrycode(real_flag, "country.name", 'iso3c'))
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(corrected_suspicious_flags %>%  select(year, mmsi, real_flag, real_iso3)) %>% 
+  mutate(flag_country_name = ifelse(!is.na(real_flag), real_flag, flag_country_name),
+          flag_iso3 = ifelse(!is.na(real_iso3), real_iso3, flag_iso3)) %>% 
+  select(-real_flag, -real_iso3)
+```
+
+### Gear type
+
+```{r}
+mislabeled_mmsi <- read_csv("source_info/mislabeled_mmsi.csv")
+
+mislabeled_mmsi$known_type[mislabeled_mmsi$mmsi == 431005919] <- "research"
+mislabeled_mmsi$known_type[mislabeled_mmsi$mmsi == 212688000] <- "research"
+
+mislabeled_mmsi <- mislabeled_mmsi %>% 
+  distinct(mmsi, known_type) %>% 
+  mutate(known_label_missed = case_when(
+    known_type %in% c("cargo", "dive vessel","fish_carrier","fish_factory","dredge","gear/buoy", "passenger", "patrol vessel", "reefer", "research","Seismic Vessel", "submarine", "supply vessel", "tug", "tanker", "tug_tender", "unknown") ~ "not_fishing",
+    known_type %in% c("bottom_longlines", "drifting_longliner") ~ "drifting_longlines",
+    known_type == "pole and line" ~ "pole_and_line",
+    known_type == "purse_seines" ~ "purse_seines",
+    known_type %in% c("squid_jigger", "squid_jigger | lighting seine") ~ "squid_jigger",
+    known_type == "set_longlines" ~ "fixed_gear",
+    TRUE ~ "trawlers"
+  )) %>% 
+  mutate(known_sublabel_missed = ifelse(known_label_missed == "fixed_gear", "set_longlines", known_label_missed))
+```
+
+```{r}
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(mislabeled_mmsi) %>% 
+  mutate(known_label = ifelse(!is.na(known_label_missed), known_label_missed, known_label),
+         known_sublabel = ifelse(!is.na(known_sublabel_missed), known_sublabel_missed, known_sublabel)) %>% 
+  filter(!known_label %in% c("not_fishing")) %>% 
+  select(-known_label_missed,-known_sublabel_missed) %>% 
+  mutate(known_label = ifelse(known_sublabel %in% c("pole_and_line","trollers"), "other_fishing", known_label))
+```
+
+```{r}
+label_conflicts <- ais_fishing_vessels %>% 
+  filter((known_sublabel != inferred_sublabel_allyears & known_sublabel != inferred_sublabel) | 
+           ((known_label != inferred_label_allyears & known_label != inferred_label))) %>% 
+  filter(is_high_seas) %>% 
+  select(year, mmsi, flag_country_name, known_sublabel, inferred_sublabel, inferred_sublabel_allyears, known_label, inferred_label,inferred_label_allyears)
+```
+
+```{r}
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  filter(!known_sublabel %in% c("gear", "reefer","motor_passenger", "other_non_fishing")) %>% 
+  filter(!known_label %in% c("cargo"))
+```
+
+```{r}
+FUYUANYU_gear_mmsi <- c(
+  412591093,		
+412591095,
+412591096,    	
+412591103,    	
+412591107,
+412591068,    	
+412591071,    	
+412591072,    
+412591077,    	
+412591080,    	
+412591081,    	
+412591082,    
+412591083,    
+412591084,    	
+412591085,
+412591053,    
+412591054,    
+412591054,
+412591055,    
+412591058,
+412591058,    	
+412591061,    	
+412591065,    	
+412591066,    	
+412591067,    
+412591048)    
+
+fuyuanyu_dritnets <- c(200008124, 200008125, 412440373, 412440376, 412440372)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  filter(!mmsi %in% FUYUANYU_gear_mmsi)
+
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi %in% fuyuanyu_dritnets] <- "other_fishing"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi %in% fuyuanyu_dritnets] <- "drifnets"
+```
+
+### Length
+
+#### How does the distribution of lengths looks like?
+
+```{r}
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 540004100] <- 20 #https://www.fleetmon.com/vessels/f-v-lanesera_2097280_8469061/?language=en
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 272208000] <- 103.10
+```
+
+```{r}
+ggplotly(ais_fishing_vessels %>% 
+           filter(year == 2016) %>% 
+           ggplot(aes(x = known_length, fill = is_high_seas)) +
+           geom_density(alpha = .2) +
+           ggtitle('distribution of lengths') +
+           theme_minimal()) %>% 
+  layout(autosize = F, width = 800, height = 500)
+```
+
+We can see that high seas vessels have a wider bimodal distribution of lengths and that the global distribution peaks at around 30 meters.
+
+##### by gear type
+
+```{r}
+ggplotly(ais_fishing_vessels %>% 
+           filter(year == 2016) %>%
+           filter(is_high_seas) %>%
+           filter(!is.na(known_length)) %>%
+           filter(!is.na(known_label)) %>%
+           ggplot(aes(x = known_length, fill = known_label)) +
+           geom_density(alpha = .2) +
+           ggtitle('distribution of lengths') +
+           theme_minimal()) %>% 
+  layout(autosize = F, width = 800, height = 500)
+```
+
+### Tonnage
+
+#### How does the distribution of tonnages looks like?
+
+##### compared to non high seas vessels
+
+```{r}
+ggplotly(ais_fishing_vessels %>% 
+           filter(year == 2016) %>% 
+           ggplot(aes(x = log(known_tonnage), fill = is_high_seas)) +
+           geom_density(alpha = .2) +
+           ggtitle('distribution of tonnage') +
+           theme_minimal()) %>% 
+  layout(autosize = F, width = 700, height = 500)
+```
+
+##### by gear type
+
+```{r}
+ggplotly(ais_fishing_vessels %>% 
+           filter(year == 2016  & is_high_seas) %>% 
+           ggplot(aes(x = log(known_tonnage), fill = known_label)) +
+           geom_density(alpha = .2) +
+           ggtitle('distribution of tonnages') +
+           theme_minimal()) %>% 
+  layout(autosize = F, width = 800, height = 500)
+```
+
+### Engine power
+
+```{r}
+ais_fishing_vessels$known_engine_power[ais_fishing_vessels$mmsi == 224366000] <- 364.647
+ais_fishing_vessels$known_engine_power[ais_fishing_vessels$mmsi == 224189000] <- 582.392
+ais_fishing_vessels$known_engine_power[ais_fishing_vessels$mmsi == 224992000] <- NA
+```
+
+#### How does the distribution of engine power looks like?
+
+##### compared to non high seas vessels
+
+```{r}
+ggplotly(ais_fishing_vessels %>% 
+           filter(year == 2016 ) %>% 
+           ggplot(aes(x = log(known_engine_power), fill = is_high_seas)) +
+           geom_density(alpha = .2) +
+           ggtitle('distribution of engine power') +
+           theme_minimal()) %>% 
+  layout(autosize = F, width = 800, height = 500)
+```
+
+##### by gear type
+
+```{r}
+ggplotly(ais_fishing_vessels %>% 
+           filter(year == 2016 & known_label != "seismic_vessel" & is_high_seas) %>% 
+           ggplot(aes(x = log(known_engine_power), fill = known_label)) +
+           geom_density(alpha = .2) +
+           ggtitle('distribution of engine power') +
+           theme_minimal()) %>% 
+  layout(autosize = F, width = 800, height = 500)
+```
+
+### Auxiliary engine power
+
+```{r}
+eu_aux_power <- read_delim("source_info/eu_on_the_net_2016.csv",";", escape_double = FALSE, trim_ws = TRUE) %>% 
+  rename(gear_code = `Gear Main Code`, iso3 = `Country Code`, callsign = IRCS) %>% 
+  filter(!is.na(`Power Aux`) & `Power Aux` > 0) %>% 
+  filter(!is.na(`Power Main`) & `Power Main` > 0) 
+```
+
+
+```{r}
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(eu_aux_power %>%
+              select(flag_iso3 = iso3, shipname = `Vessel Name`, callsign, eu_engine_power = `Power Main`, eu_aux_engine_power = `Power Aux`), by = c("flag_iso3", "shipname", "callsign"))
+
+ais_fishing_vessels <- ais_fishing_vessels %>%
+  mutate(known_engine_power = ifelse(!is.na(eu_engine_power),eu_engine_power, known_engine_power),
+         known_aux_engine_power = eu_aux_engine_power) %>% 
+  select(-eu_engine_power, -eu_aux_engine_power)
+
+ais_fishing_vessels$inferred_label[ais_fishing_vessels$mmsi == 224005250] <- "drifting_longlines"
+ais_fishing_vessels$inferred_label_allyears[ais_fishing_vessels$mmsi == 224005250] <- "drifting_longlines"
+ais_fishing_vessels$inferred_sublabel[ais_fishing_vessels$mmsi == 224005250] <- "drifting_longlines"
+ais_fishing_vessels$inferred_sublabel_allyears[ais_fishing_vessels$mmsi == 224005250] <- "drifting_longlines"
+
+ais_fishing_vessels$inferred_label[ais_fishing_vessels$mmsi == 224755000] <- "purse_seines"
+ais_fishing_vessels$inferred_label_allyears[ais_fishing_vessels$mmsi == 224755000] <- "purse_seines"
+ais_fishing_vessels$inferred_sublabel[ais_fishing_vessels$mmsi == 224755000] <- "purse_seines"
+ais_fishing_vessels$inferred_sublabel_allyears[ais_fishing_vessels$mmsi == 224755000] <- "purse_seines"
+```
+### Crew size
+
+The FFA registry provides us valuable information on the crew size of about 1681 different vessesl between 2014-2016. This is valuable for 1) directly assigning crew size matching by mmsi and 2) understaing the relationship between crew and other variables.
+
+```{r}
+ffa_2014 <- read_csv("source_info/FFA_vessels_info_2014.csv", progress = F) %>% 
+  mutate(year = 2014)
+ffa_2015 <- read_csv("source_info/FFA_vessels_info_2015.csv", progress = F)%>% 
+  mutate(year = 2015)
+ffa_2016 <- read_csv("source_info/FFA_vessels_info_2016.csv", progress = F)%>% 
+  mutate(year = 2016) %>% 
+  select(-flag)
+
+ffa_info_raw <- rbind(ffa_2014, ffa_2015, ffa_2016) 
+
+ggplotly(ffa_info_raw %>% 
+  ggplot()+
+  geom_point(aes(x = length, y = crew, col = vessel_type))+
+  theme_minimal()) %>% 
+  layout(autosize = F, width = 800, height = 500)
+```
+
+```{r}
+unique_mmsi_crew <- ffa_info_raw %>%  
+  filter(!is.na(year), !is.na(mmsi), !is.na(crew)) %>% 
+  rename(crew_mmsi = crew) %>% 
+  select(year, mmsi, crew_mmsi) %>% 
+  group_by(year, mmsi, crew_mmsi) %>% 
+  add_count() %>% 
+  slice(which.max(n)) %>% 
+  slice(which.max(n)) %>% 
+  select(-n) %>% 
+  group_by(year,mmsi) %>% 
+  add_count() %>% 
+  filter(n == 1) %>% 
+  select(-n)
+
+
+unique_imo_crew <- ffa_info_raw %>%  
+  filter(!is.na(year), !is.na(uvi_imo_number), !is.na(crew)) %>% 
+  rename(crew_imo = crew,
+         imo = uvi_imo_number ) %>% 
+  select(year, imo, crew_imo) %>% 
+  group_by(year, imo, crew_imo) %>% 
+  add_count() %>% 
+  slice(which.max(n)) %>% 
+  select(-n) %>% 
+  group_by(year,imo) %>% 
+  add_count() %>% 
+  filter(n == 1) %>% 
+  select(-n)
+
+unique_callsign_crew <- ffa_info_raw %>%  
+  filter(!is.na(year), !is.na(ircs), !is.na(crew)) %>% 
+  rename(callsign = ircs,
+         crew_ircs = crew) %>% 
+  select(year, callsign, crew_ircs) %>% 
+  group_by(year, callsign, crew_ircs) %>% 
+  add_count() %>% 
+  slice(which.max(n)) %>% 
+  select(-n)
+
+ais_fishing_vessels <- ais_fishing_vessels %>%
+  left_join(unique_callsign_crew, by = c("year", "callsign")) %>% 
+  left_join(unique_imo_crew, by = c("year", "imo")) %>% 
+  left_join(unique_mmsi_crew, by = c("year", "mmsi")) %>% 
+  mutate(ffa_crew = ifelse(!is.na(crew_mmsi), crew_mmsi,
+                       ifelse(!is.na(crew_ircs), crew_ircs, crew_imo))) %>% 
+  select(-crew_ircs,-crew_imo, -crew_mmsi) %>% 
+  mutate(known_crew = ifelse(is.na(known_crew), ffa_crew, known_crew)) %>% 
+  select(-ffa_crew)
+```
+
+```{r}
+ggplotly(ais_fishing_vessels %>% 
+           filter(!is.na(known_crew)) %>% 
+           ggplot(aes(x = (known_crew))) +
+           geom_histogram(alpha = .5, binwidth = 2) +
+           ggtitle('distribution of crew size') +
+           theme_minimal()) %>% 
+  layout(autosize = F, width = 800, height = 500)
+```
+
+```{r}
+ais_fishing_vessels$inferred_label[ais_fishing_vessels$mmsi == 577257000] <- "drifting_longlines"
+ais_fishing_vessels$inferred_label_allyears[ais_fishing_vessels$mmsi == 577257000] <- "drifting_longlines"
+ais_fishing_vessels$inferred_sublabel[ais_fishing_vessels$mmsi == 577257000] <- "drifting_longlines"
+ais_fishing_vessels$inferred_sublabel_allyears[ais_fishing_vessels$mmsi == 577257000] <- "drifting_longlines"
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 577257000] <- "drifting_longlines"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 577257000] <- "drifting_longlines"
+```
+
+```{r}
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 331168000] <- 75.8
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 331168000] <- "trawlers"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 331168000] <- "trawlers"
+ais_fishing_vessels$known_crew[ais_fishing_vessels$mmsi == 331168000] <- 24
+
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 331549000] <- 50
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 331549000] <- "trawlers"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 331549000] <- "trawlers"
+ais_fishing_vessels$known_crew[ais_fishing_vessels$mmsi == 331549000] <- 11
+
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 331142000] <- 67.5
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 331142000] <- "trawlers"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 331142000] <- "trawlers"
+ais_fishing_vessels$known_crew[ais_fishing_vessels$mmsi == 331142000] <- 29
+
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 331072000] <- 66
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 331072000] <- "trawlers"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 331072000] <- "trawlers"
+ais_fishing_vessels$known_crew[ais_fishing_vessels$mmsi == 331072000] <- 27
+
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 331428000] <- 66.4
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 331428000] <- "trawlers"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 331428000] <- "trawlers"
+ais_fishing_vessels$known_crew[ais_fishing_vessels$mmsi == 331428000] <- 25
+
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 367570430] <- 56
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 367570430] <- "drifting_longlines"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 367570430] <- "drifting_longlines"
+ais_fishing_vessels$known_crew[ais_fishing_vessels$mmsi == 367570430] <- 31
+
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 303301000] <- 45.7
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 303301000] <- "drifting_longlines"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 303301000] <- "drifting_longlines"
+ais_fishing_vessels$known_crew[ais_fishing_vessels$mmsi == 303301000] <- 22
+
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 366820000] <- 50.9
+ais_fishing_vessels$known_label[ais_fishing_vessels$mmsi == 366820000] <- "drifting_longlines"
+ais_fishing_vessels$known_sublabel[ais_fishing_vessels$mmsi == 366820000] <- "drifting_longlines"
+ais_fishing_vessels$known_crew[ais_fishing_vessels$mmsi == 366820000] <- 22
+```
+
+```{r}
+ais_fishing_vessels %>% 
+  group_by(year) %>% 
+  filter(is_high_seas) %>% 
+  summarize(n_vessels = n_distinct(mmsi),
+            n_flags = n_distinct(flag_country_name, na.rm = TRUE),
+            total_days = sum(days),
+            total_positions = sum(positions,  na.rm = TRUE),
+            vessel_with_crew = sum(!is.na(known_crew))/n_vessels,
+            days_with_crew = sum(days[!is.na(known_crew)], na.rm = TRUE)/total_days,
+            positions_with_crew = sum(positions[!is.na(known_crew)], na.rm = TRUE)/total_positions)
+```
+
+## Relationships between variables
+
+### Length and Tonnage
+
+```{r remove_and_fix_outliers}
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  mutate(known_length = ifelse(mmsi %in% c(412413387, 412413539, 412413579,412417951,412419078,412413799, 412413531, 412417946, 412413392,412413375, 412413377,412413381), NA, known_length ))
+
+ais_fishing_vessels$known_engine_power[ais_fishing_vessels$known_engine_power < 20] <- NA
+ais_fishing_vessels$known_tonnage[ais_fishing_vessels$mmsi == 440662000] <- 733
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 529223000] <- 61.2
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 512000027] <- 29
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 710000375] <- 22 #Brazil FVF
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 710010009] <- 20
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 710000037] <- 24 #Brazil FVF
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 710004960] <- 25 #Brazil FVF
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 710000799] <- 24
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 412460089] <- 38.36
+ais_fishing_vessels$known_tonnage[ais_fishing_vessels$mmsi == 412460089] <- 334 # http://www.iotc.org/vessels/history/100587/15799
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 431680680] <- 18.26
+ais_fishing_vessels$known_tonnage[ais_fishing_vessels$mmsi == 431680680] <- 19
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 259236000] <- 46.58
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 412328748] <- 56.44
+
+ais_fishing_vessels$known_length[ais_fishing_vessels$mmsi == 576811000]
+```
+
+```{r}
+ggplotly(ais_fishing_vessels %>% 
+           filter(year == 2016 ) %>% 
+           ggplot()+
+           geom_point(aes(x = log(known_length), y = log(known_tonnage), color = is_high_seas,  key  = mmsi), alpha = .2) +
+           theme_minimal()) %>% 
+  layout(autosize = F, width = 800, height = 500)
+```
+
+```{r}
+ton_length_nls_data <- ais_fishing_vessels %>% 
+  filter(is_high_seas, !is.na(known_tonnage), !is.na(known_length)) %>%
+  distinct(mmsi, known_length, known_tonnage)
+
+ton_length_nls_data %>%
+  ggplot(aes(x = known_length, y = known_tonnage))+
+  geom_point()+
+  theme_minimal()
+
+ton_length_nls <- nls(known_tonnage ~ a*known_length^b, 
+    data = ton_length_nls_data, 
+    start = list(a = .1, b = 2.8))
+
+eq_ton_length <- substitute(italic(y) == a  ~italic(x)^b, 
+               list(a = format(coef(ton_length_nls)[1], digits = 2), 
+                    b = format(coef(ton_length_nls)[2], digits = 2)))
+
+eq_ton_length <- as.character(as.expression(eq_ton_length))
+
+ton_length_nls_data <- modelr::add_predictions(ton_length_nls_data,ton_length_nls)
+
+(ton_length_nls_plot <- ton_length_nls_data %>% 
+  gather(var, value, -mmsi, -known_length) %>% 
+  ggplot(aes(x = known_length, y = value, col = var)) +
+  geom_point() +
+  theme_minimal() +
+  annotate("text", x = 35, y = 12000, label = eq_ton_length, parse = TRUE, col = 'black')+
+  labs(x = "length (m)", y = "tonnage (GT)")+
+  scale_color_manual(values = ggpubr::get_palette(palette = "npg", 7), 
+                     name = " ", 
+                     labels = c("Known", "Predicted"))+
+  hrbrthemes::theme_ipsum())
+
+saveRDS(ton_length_nls_plot, "saved_plots/nls/ton_length_nls_plot")
+saveRDS(ton_length_nls, "saved_files/ton_length_nls")
+save_high_res_plot(ton_length_nls_plot, "saved_plots/nls/ton_length_nls_plot")
+```
+
+### Length and Engine Power
+
+```{r}
+ggplotly(ais_fishing_vessels %>% 
+  filter(year == 2016 ) %>% 
+  ggplot()+
+  geom_point(aes(x = log(known_length), y = log(known_engine_power), color = is_high_seas, key = mmsi), alpha = .2) +
+  theme_minimal()) %>% 
+  layout(autosize = F, width = 800, height = 500)
+```
+
+```{r}
+KW_length_nls_data <- ais_fishing_vessels %>% 
+  filter(is_high_seas, !is.na(known_engine_power), !is.na(known_length)) %>%
+  distinct(mmsi, known_length, known_engine_power, flag_iso3, inferred_label_allyears)
+
+plotly::ggplotly(KW_length_nls_data %>%
+  ggplot(aes(x = known_length, y = known_engine_power, col = flag_iso3 ,shape = inferred_label_allyears))+
+  geom_point()+
+  theme_minimal())
+
+KW_length_nls <- nls(known_engine_power ~ a*known_length^b, 
+    data = KW_length_nls_data,
+    start = list(a = .4, b = 2))
+
+eq_KW_length <- substitute(italic(y) == a  ~italic(x)^b, 
+               list(a = format(coef(KW_length_nls)[1], digits = 2), 
+                    b = format(coef(KW_length_nls)[2], digits = 2)))
+
+eq_KW_length <- as.character(as.expression(eq_KW_length))
+
+KW_length_nls_data <- modelr::add_predictions(KW_length_nls_data,KW_length_nls)
+
+(KW_length_nls_plot <- KW_length_nls_data %>% 
+  gather(var, value, -mmsi, -known_length, - inferred_label_allyears, -flag_iso3) %>% 
+  ggplot(aes(x = known_length, y = value, col = var)) +
+  geom_point() +
+  theme_minimal() +
+  annotate("text", x = 40, y = 9000, label = eq_KW_length, parse = TRUE, col = 'black')+
+  labs(x = "length (m)", y = "engine power (KW)")+
+  scale_color_manual(values = ggpubr::get_palette(palette = "npg", 7), 
+                     name = " ", 
+                     labels = c("Known", "Predicted"))+
+  hrbrthemes::theme_ipsum())
+
+saveRDS(KW_length_nls_plot,"saved_plots/nls/KW_length_nls_plot")
+saveRDS(KW_length_nls, "saved_files/KW_length_nls")
+save_high_res_plot(KW_length_nls_plot, "saved_plots/nls/KW_length_nls_plot")
+```
+
+### Length and crew size
+
+```{r eval = F}
+ffa_info_clean <- ffa_info_raw %>% 
+  mutate(gear_type = ifelse(vessel_type %in% c("Bunker", "Fish Carrier","Mothership"), "reefer", 
+                            ifelse(vessel_type %in% c("Light Seiner","Single Purse Seine"), "purse_seines",
+                                   ifelse(vessel_type == "Pole and Line", "pole_and_line",
+                                          ifelse(vessel_type == "Longline", "drifting_longlines",vessel_type )))))
+
+ggplotly(ais_fishing_vessels %>% 
+  ggplot()+
+  geom_point(aes(x = known_length, y = known_crew, col = known_label))+
+  theme_minimal()) %>% 
+  layout(autosize = F, width = 800, height = 500)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% filter(mmsi != 548056500)
+```
+
+```{r clean_Workspace}
+rm(ffa_2014, ffa_2015, ffa_2016, ffa_info_raw, unique_callsign_crew, unique_mmsi_crew, unique_imo_crew, iotc, ccamlr_registry, ccamlr_registry_unique_entries, russian_registry, russian_vessels_matched_by_name, manually_found_info, iotc_clean, eu_aux_power, ffa_info_clean, label_conflicts, corrected_suspicious_flags, wcpfc_data, wcpfc_gear_lookup, t, unique_ccamlr_callsign, unique_ccamlr_imo, ccamlr_registry_raw)
+```
+
+```{r}
+ais_fishing_vessels %>% 
+  group_by(year) %>% 
+  filter(is_high_seas) %>% 
+  summarize(n_vessels = n_distinct(mmsi),
+            n_flags = n_distinct(flag_country_name, na.rm = TRUE),
+            total_days = sum(days),
+            total_positions = sum(positions,  na.rm = TRUE),
+            vessel_with_flags = sum(!is.na(flag_country_name))/n_vessels,
+            days_with_flags = sum(days[!is.na(flag_country_name)], na.rm = TRUE)/total_days,
+            positions_with_flags = sum(positions[!is.na(flag_country_name)], na.rm = TRUE)/total_positions,
+            vessels_with_gear = sum(!is.na(known_label))/n_vessels,
+            days_with_gear = sum(days[!is.na(known_label)], na.rm = TRUE)/total_days,
+            positions_with_gear = sum(positions[!is.na(known_label)], na.rm = TRUE)/total_positions,
+            vessels_with_length = sum(!is.na(known_length))/n_vessels,
+            days_with_length = sum(days[!is.na(known_length)], na.rm = TRUE)/total_days,
+            positions_with_length = sum(positions[!is.na(known_length)], na.rm = TRUE)/total_positions,
+            vessels_with_tonnage = sum(!is.na(known_tonnage))/n_vessels,
+            days_with_tonnage = sum(days[!is.na(known_tonnage)], na.rm = TRUE)/total_days,
+            positions_with_tonnage = sum(positions[!is.na(known_tonnage)], na.rm = TRUE)/total_positions,
+            vessels_with_engine_power = sum(!is.na(known_engine_power))/n_vessels,
+            days_with_engine_power = sum(days[!is.na(known_engine_power)], na.rm = TRUE)/total_days,
+            positions_with_engine_power = sum(positions[!is.na(known_engine_power)], na.rm = TRUE)/total_positions,
+            vessels_with_aux_engine_power = sum(!is.na(known_aux_engine_power))/n_vessels,
+            days_with_aux_engine_power = sum(days[!is.na(known_aux_engine_power)], na.rm = TRUE)/total_days,
+            positions_with_aux_engine_power = sum(positions[!is.na(known_aux_engine_power)], na.rm = TRUE)/total_positions,
+            vessels_with_crew_size = sum(!is.na(known_crew))/n_vessels,
+            days_with_crew_size = sum(days[!is.na(known_crew)], na.rm = TRUE)/total_days,
+            positions_with_crew_size = sum(positions[!is.na(known_crew)], na.rm = TRUE)/total_positions
+            ) %>% 
+  mutate_at(vars(total_days, total_positions), funs(./1000)) %>% 
+  mutate_all(funs(round(., digits = 2)))
+```
+
+## Filling Data Gaps
+
+There are major data gaps in vessel gear, length, tonnage, engine power, and crew size that need to be filled. The following are our possibilities to do so:
+
+  - flag country: examine websites, registries etc. for a match of vessel name, imo number or callsign
+  - gear type: choose a confidence threshold and use inferred gear type from the neural net
+  - vessel length: fill in gaps with a combination of ais self-reported lengths, inferred lengths from the neural net, and predicted lengths from random forests
+  - tonnage: fill in gaps with a combination of inferred tonnage from the neural net, and predicted tonnage from random forests or linear regression
+  - engine power: fill in gaps with a combination of inferred engine power from the neural net, and predicted engine power from random forests or linear regression
+
+### Flags
+
+```{r add_missing_flags}
+found_flags <- read_csv("source_info/missing_flags_found.csv") %>% 
+  filter(!is.na(found_flag)) %>% 
+  distinct(mmsi,found_flag)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(found_flags) %>% 
+  mutate(flag_country_name = ifelse(is.na(flag_country_name), found_flag, flag_country_name),
+         flag_iso3 = ifelse(is.na(flag_iso3) & !is.na(flag_country_name), countrycode::countrycode(flag_country_name, origin = 'country.name', destination = 'iso3c'), flag_iso3)) %>% 
+  select(-found_flag)
+```
+
+```{r remove_likley_gear_or_buoys}
+gear_or_buoys <- read_csv("source_info/missing_flags_found.csv") %>% 
+  filter(substring(mmsi, first = 1, 3) == 815 | stringr::str_detect(shipname, "NET MARK")) %>% 
+  select(year, mmsi)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  anti_join(gear_or_buoys) %>% 
+  filter(!mmsi %in% c(367001603, 200000208, 98301634, 98307883, 200000208, 98310216, 98300885, 98311290, 98300960))
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  filter(!stringr::str_detect(shipname, "NET MARK")) 
+```
+
+
+Now lets add a field containting the flags of sovereing nations
+
+```{r}
+eez_metadata <- read_csv("source_info/eez_metadata.csv")
+
+sovereign_flags <- eez_metadata %>% 
+  select(GeoName, Territory1, Sovereign1, Sovereign2) %>% 
+  distinct() %>% 
+  filter(Territory1 != Sovereign1) %>% 
+  transmute(flag_country_name = Territory1,
+         flag_iso3 = countrycode::countrycode(Territory1, "country.name", "iso3c"),
+         sovereign_flag_country_name = Sovereign1,
+         sovereign_flag_iso3 = countrycode::countrycode(Sovereign1, "country.name", "iso3c")) %>% 
+  filter(!is.na(flag_iso3 )) %>% 
+  ungroup() %>% 
+  distinct(flag_country_name, flag_iso3, sovereign_flag_country_name, sovereign_flag_iso3) %>% 
+  arrange(flag_iso3)
+```
+
+```{r}
+matched_sovereign_flags <- ais_fishing_vessels %>% 
+  distinct(flag_country_name, flag_iso3) %>% 
+  arrange(flag_country_name) %>% 
+  left_join(sovereign_flags)
+
+matched_sovereign_flags$sovereign_flag_country_name[matched_sovereign_flags$flag_iso3 == 'ATF'] <- 'France'
+matched_sovereign_flags$sovereign_flag_iso3[matched_sovereign_flags$flag_iso3 == 'ATF'] <- 'FRA'
+matched_sovereign_flags$sovereign_flag_country_name[matched_sovereign_flags$flag_iso3 == 'REU'] <- 'France'
+matched_sovereign_flags$sovereign_flag_iso3[matched_sovereign_flags$flag_iso3 == 'REU'] <- 'FRA'
+matched_sovereign_flags$sovereign_flag_country_name[matched_sovereign_flags$flag_iso3 == 'SPM'] <- 'France'
+matched_sovereign_flags$sovereign_flag_iso3[matched_sovereign_flags$flag_iso3 == 'SPM'] <- 'FRA'
+```
+
+```{r}
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(matched_sovereign_flags) %>% 
+  select(year, mmsi, flag_country_name, flag_iso3, sovereign_flag_country_name,sovereign_flag_iso3, everything()) %>% 
+  mutate(sovereign_flag_country_name = ifelse(is.na(sovereign_flag_country_name), flag_country_name, sovereign_flag_country_name),
+         sovereign_flag_iso3 = ifelse(is.na(sovereign_flag_iso3), flag_iso3, sovereign_flag_iso3))
+```
+
+### Gear type 
+
+```{r}
+mmsi_with_gear_in_any_year <- ais_fishing_vessels %>% 
+  group_by(mmsi) %>% 
+  summarise(nas = sum(is.na(known_label)),
+            no_nas = sum(!is.na(known_label))) %>% 
+  filter(no_nas > 0 & nas > 0)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(ais_fishing_vessels %>% 
+              filter(mmsi %in% mmsi_with_gear_in_any_year$mmsi, !is.na(known_label)) %>% 
+              group_by(mmsi) %>% 
+              summarize(avg_label = names(table(known_label))[which.max(table(known_label))]) ) %>% 
+  mutate(known_label = ifelse(!is.na(avg_label), avg_label, known_label)) %>% 
+  select(-avg_label)
+```
+
+```{r}
+mmsi_with_sub_gear_in_any_year <- ais_fishing_vessels %>% 
+  group_by(mmsi) %>% 
+  summarise(nas = sum(is.na(known_sublabel)),
+            no_nas = sum(!is.na(known_sublabel))) %>% 
+  filter(no_nas > 0 & nas > 0)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(ais_fishing_vessels %>% 
+              filter(mmsi %in% mmsi_with_sub_gear_in_any_year$mmsi, !is.na(known_sublabel)) %>% 
+              group_by(mmsi) %>% 
+              summarize(avg_sub_label = names(table(known_sublabel))[which.max(table(known_sublabel))]) ) %>% 
+  mutate(known_sublabel = ifelse(!is.na(avg_sub_label), avg_sub_label, known_sublabel)) %>% 
+  select(-avg_sub_label)
+```
+
+We fill in the gaps with the classification results from the neural network. 
+
+```{r}
+complete_vessel_characteristics <- ais_fishing_vessels %>% 
+  select(year, mmsi, imo, callsign, on_fishing_list, on_fishing_list_nn, flag_country_name, flag_iso3, sovereign_flag_country_name, sovereign_flag_iso3, shipname, positions, days, hours, gap_days,  gap_hours, fishing_hours, hours_high_seas = hours_hs, fishing_hours_high_seas = fishing_hours_hs, fraction_fishing_high_seas = fraction_fishing_hours_hs, is_high_seas, known_sublabel, inferred_sublabel, inferred_sublabel_allyears, known_label, inferred_label, inferred_label_allyears) %>% 
+  mutate(sub_gear_type = if_else(!is.na(known_sublabel), known_sublabel, inferred_sublabel),
+         sub_gear_type_all_years = if_else(!is.na(known_sublabel), known_sublabel, inferred_sublabel_allyears),
+         gear_type = if_else(!is.na(known_label), known_label, inferred_label),
+         gear_type_all_years = if_else(!is.na(known_label), known_label, inferred_label_allyears)) %>% 
+  select(-known_label,-known_sublabel, -inferred_label, -inferred_label_allyears, -inferred_sublabel, -inferred_sublabel_allyears)
+```
+
+```{r, manually_corrected_gear}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  filter(!gear_type_all_years %in% c("cargo_or_tanker", "gear", "passenger","reefer","seismic_vessel","tug"))
+
+complete_vessel_characteristics$gear_type[complete_vessel_characteristics$mmsi == 316002231] <- "drifting_longlines"
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$mmsi == 316002231] <- "drifting_longlines"
+
+complete_vessel_characteristics$gear_type[complete_vessel_characteristics$mmsi == 431701330] <- "drifting_longlines"
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$mmsi == 431701330] <- "drifting_longlines"
+
+complete_vessel_characteristics$gear_type[complete_vessel_characteristics$mmsi == 416238600] <- "squid_jigger"
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$mmsi == 416238600] <- "squid_jigger"
+complete_vessel_characteristics$sub_gear_type[complete_vessel_characteristics$mmsi == 416238600] <- "squid_jigger"
+complete_vessel_characteristics$sub_gear_type_all_years[complete_vessel_characteristics$mmsi == 416238600] <- "squid_jigger"
+
+complete_vessel_characteristics$gear_type[complete_vessel_characteristics$mmsi == 416241700] <- "squid_jigger"
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$mmsi == 416241700] <- "squid_jigger"
+complete_vessel_characteristics$sub_gear_type[complete_vessel_characteristics$mmsi == 416241700] <- "squid_jigger"
+complete_vessel_characteristics$sub_gear_type_all_years[complete_vessel_characteristics$mmsi == 416241700] <- "squid_jigger"
+
+complete_vessel_characteristics$gear_type[complete_vessel_characteristics$mmsi == 412430456] <- "squid_jigger"
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$mmsi == 412430456] <- "squid_jigger"
+complete_vessel_characteristics$sub_gear_type[complete_vessel_characteristics$mmsi == 412430456] <- "squid_jigger"
+complete_vessel_characteristics$sub_gear_type_all_years[complete_vessel_characteristics$mmsi == 412430456] <- "squid_jigger"
+
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$sub_gear_type_all_years == "pole_and_line"] <- "pole_and_line"
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$sub_gear_type_all_years == "trollers"] <- "other_fishing"
+
+complete_vessel_characteristics$gear_type[complete_vessel_characteristics$mmsi == 440100510] <- "purse_seines"
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$mmsi == 440100510] <- "purse_seines"
+complete_vessel_characteristics$sub_gear_type[complete_vessel_characteristics$mmsi == 440951000] <- "purse_seines"
+complete_vessel_characteristics$sub_gear_type_all_years[complete_vessel_characteristics$mmsi == 440951000] <- "purse_seines"
+
+complete_vessel_characteristics$gear_type[complete_vessel_characteristics$mmsi == 224355430] <- 'fixed_gear'
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$mmsi == 224355430] <- "fixed_gear"
+complete_vessel_characteristics$sub_gear_type_all_years[complete_vessel_characteristics$mmsi == 224355430] <- 'set_longlines'
+complete_vessel_characteristics$sub_gear_type[complete_vessel_characteristics$mmsi == 224355430] <- "set_longlines"
+
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$mmsi == 316006095] <- "drifting_longlines"
+
+complete_vessel_characteristics$gear_type[complete_vessel_characteristics$mmsi == 251209000] <- "trawlers"
+complete_vessel_characteristics$gear_type_all_years[complete_vessel_characteristics$mmsi == 251209000] <- "trawlers"
+complete_vessel_characteristics$sub_gear_type[complete_vessel_characteristics$mmsi == 251209000] <- "trawlers"
+complete_vessel_characteristics$sub_gear_type_all_years[complete_vessel_characteristics$mmsi == 251209000] <- "trawlers" #http://reloadyoutube.com/inc/_related.php?id=4iBLvqYug-w
+```
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  filter(!mmsi == 432621000) # Remove a Japanese Whaler
+```
+
+### Filling length gaps
+
+```{r}
+mmsi_with_length_in_any_year <- ais_fishing_vessels %>% 
+  group_by(mmsi) %>% 
+  summarise(nas = sum(is.na(known_length)),
+            no_nas = sum(!is.na(known_length))) %>% 
+  filter(no_nas > 0 & nas > 0)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(ais_fishing_vessels %>% 
+              filter(mmsi %in% mmsi_with_length_in_any_year$mmsi) %>% 
+              group_by(mmsi) %>% 
+              summarize(mean_length = mean(known_length, na.rm = T))) %>% 
+  mutate(known_length = ifelse(!is.na(mean_length), mean_length, known_length)) %>% 
+  select(-mean_length, -known_type)
+```
+
+What data source are we most confident about? AIS self-reported length or inferred lengths from the net? how about simple linear regressions or more comple random forests?
+
+##### AIS vs registry lengths: do vessels lie about their size?
+
+```{r}
+(ais_vs_known_length_plot <- ais_fishing_vessels %>% 
+  filter(is_high_seas & year == 2016) %>% 
+  ggplot(aes(x = known_length, ais_length))+
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  geom_line(aes(x = known_length, y = known_length*(1.1)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_length, y = known_length*(0.9)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_length, y = known_length*(1.2)), col = "green", linetype = "dashed")+
+  geom_line(aes(x = known_length, y = known_length*(0.8)), col = "green", linetype = "dashed")+
+  theme_minimal()+
+  #facet_wrap("year")+
+  labs(x = "known length (m)", y = "AIS length (m)"))
+
+save_high_res_plot(ais_vs_known_length_plot, "saved_plots/ais_vs_known/ais_vs_known_length")
+```
+
+```{r}
+ais_fishing_vessels %>% 
+  filter(is_high_seas &  !is.na(known_length) & !is.na(ais_length)) %>%
+  mutate(within_10_percent = ais_length <= known_length*1.1 & ais_length >= known_length*.9,
+         within_20_percent = ais_length <= known_length*1.2 & ais_length >= known_length*.8) %>% 
+  summarize(within_10_percent = sum(within_10_percent)/n(),
+            within_20_percent = sum(within_20_percent)/n())
+```
+
+More than 93% of the AIS lengths are within 20% of the known length.
+
+```{r}
+ais_fishing_vessels %>% 
+  filter(is_high_seas) %>% 
+  ggplot() +
+  geom_density(aes(x = (known_length)), alpha = .2) +
+  geom_density(aes(x = (ais_length)), alpha = .2, fill = "lightblue", show.legend = T) +
+  labs(title = 'distribution of ais vs known lengths',
+       caption = "shaded blue is ais length") +
+  theme_minimal()+
+  facet_wrap("year")
+```
+
+##### neural net vs registry lengths: how good is the NN?
+
+```{r}
+(nn_vs_known_length_plot <- ais_fishing_vessels %>% 
+  filter(is_high_seas & year == 2016) %>% 
+  ggplot(aes(x = known_length, inferred_length))+
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  geom_line(aes(x = known_length, y = known_length*(1.1)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_length, y = known_length*(0.9)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_length, y = known_length*(1.2)), col = "green", linetype = "dashed")+
+  geom_line(aes(x = known_length, y = known_length*(0.8)), col = "green", linetype = "dashed")+
+  theme_minimal()+
+  labs(x = "known length (m)", y = "inferred length (m)"))
+
+save_high_res_plot(nn_vs_known_length_plot, "saved_plots/inferred_vs_known/nn_vs_known_length")
+```
+
+```{r}
+ais_fishing_vessels %>% 
+  filter(is_high_seas &  !is.na(known_length) & !is.na(inferred_length)) %>%
+  mutate(within_10_percent = inferred_length <= known_length*1.1 & inferred_length >= known_length*.9,
+         within_20_percent = inferred_length <= known_length*1.2 & inferred_length >= known_length*.8) %>% 
+  summarize(within_10_percent = sum(within_10_percent)/n(),
+            within_20_percent = sum(within_20_percent)/n())
+```
+
+```{r}
+ModelMetrics::rmse(ais_fishing_vessels$known_length[!is.na(ais_fishing_vessels$known_length) & !is.na(ais_fishing_vessels$inferred_length)],
+                   ais_fishing_vessels$inferred_length[!is.na(ais_fishing_vessels$known_length) & !is.na(ais_fishing_vessels$inferred_length)])
+```
+
+The Neural Net also performs very well and the distribution of lengths across all vessels is very similar (more so than the AIS lengths). 
+
+```{r}
+ais_fishing_vessels %>% 
+  filter(is_high_seas) %>% 
+  ggplot() +
+  geom_density(aes(x = (known_length)), alpha = .2) +
+  geom_density(aes(x = (inferred_length)), alpha = .2, fill = "lightblue", show.legend = T) +
+  labs(title = 'distribution of inferred vs known lengths',
+       caption = "shaded blue is inferred length") +
+  theme_minimal()
+```
+
+##### Options:
+
+  1. Trust known lengths and fill in with AIS and NN lengths in that orders.
+  2. Trust known lengths and fill in with NN lengths and ais lengths
+  3. Use NN only
+
+  
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  left_join(ais_fishing_vessels %>% 
+              select(year, mmsi, known_length, inferred_length, ais_length), by = c("mmsi", "year")) %>% 
+  mutate(length_1 = ifelse(!is.na(known_length), known_length,
+                          ifelse(is.na(known_length) & !is.na(ais_length), ais_length,  inferred_length)),
+         length_2 = ifelse(!is.na(known_length), known_length, 
+                           ifelse(is.na(known_length) & !is.na(inferred_length), inferred_length,  ais_length)),
+         length_3 = inferred_length)
+```
+
+```{r}
+complete_vessel_characteristics %>% 
+  filter(is_high_seas) %>% 
+  ggplot() +
+  geom_density(aes(x = length_1), alpha = .2, col = "red") +
+  geom_density(aes(x = length_2), alpha = .2, col = "lightblue", show.legend = T) +
+  geom_density(aes(x = length_3), alpha = .2, col = "orange", show.legend = T) +
+  labs(title = 'distribution of lengths by source',
+       caption = "red is using known, ais and inferred. blue doesn't use ais, orange uses only inferred") +
+  theme_minimal()
+```
+
+For consistency we choose to use known lengths when available and fill in gaps with inferred lengths only. This eliminates the issue of vessels potentially lying about their size
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  rename(length = length_2) %>% 
+  select(-known_length, -inferred_length, -ais_length,-length_1, -length_3)
+
+complete_vessel_characteristics$length[complete_vessel_characteristics$length > 150] <- NA
+```
+
+### Filling tonnage gaps
+
+```{r}
+mmsi_with_tonnage_in_any_year <- ais_fishing_vessels %>% 
+  group_by(mmsi) %>% 
+  summarise(nas = sum(is.na(known_tonnage)),
+            no_nas = sum(!is.na(known_tonnage))) %>% 
+  filter(no_nas > 0 & nas > 0)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(ais_fishing_vessels %>% 
+              filter(mmsi %in% mmsi_with_tonnage_in_any_year$mmsi) %>% 
+              group_by(mmsi) %>% 
+              summarize(mean_tonnage = mean(known_tonnage, na.rm = T))) %>% 
+  mutate(known_tonnage = ifelse(!is.na(mean_tonnage), mean_tonnage, known_tonnage)) %>% 
+  select(-mean_tonnage)
+```
+
+##### Neural net vs registry tonnages
+
+```{r}
+ais_fishing_vessels %>% 
+  #filter(is_high_seas) %>% 
+  #filter(flag_country_name != "China") %>% 
+  ggplot(aes(x = known_tonnage, inferred_tonnage, key = mmsi))+
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  geom_line(aes(x = known_tonnage, y = known_tonnage*(1.1)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_tonnage, y = known_tonnage*(0.9)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_tonnage, y = known_tonnage*(1.2)), col = "green", linetype = "dashed")+
+  geom_line(aes(x = known_tonnage, y = known_tonnage*(0.8)), col = "green", linetype = "dashed")+
+  theme_minimal()
+```
+
+```{r}
+ais_fishing_vessels %>% 
+  filter(is_high_seas &  !is.na(known_tonnage) & !is.na(inferred_tonnage)) %>%
+  mutate(within_10_percent = inferred_tonnage <= known_tonnage*1.1 & inferred_tonnage >= known_tonnage*.9,
+         within_20_percent = inferred_tonnage <= known_tonnage*1.2 & inferred_tonnage >= known_tonnage*.8) %>% 
+  summarize(within_10_percent = sum(within_10_percent)/n(),
+            within_20_percent = sum(within_20_percent)/n())
+```
+
+```{r}
+ModelMetrics::rmse(ais_fishing_vessels$known_tonnage[!is.na(ais_fishing_vessels$known_tonnage) & !is.na(ais_fishing_vessels$inferred_tonnage)],
+                   ais_fishing_vessels$inferred_tonnage[!is.na(ais_fishing_vessels$known_tonnage) & !is.na(ais_fishing_vessels$inferred_tonnage)])
+```
+
+```{r}
+ais_fishing_vessels %>% 
+  filter(is_high_seas) %>% 
+  ggplot() +
+  geom_density(aes(x = log(known_tonnage)), alpha = .2) +
+  geom_density(aes(x = log(inferred_tonnage)), alpha = .2, fill = "lightblue", show.legend = T) +
+  labs(title = 'distribution of inferred vs known tonnage',
+       caption = "shaded blue is inferred tonnage") +
+  theme_minimal()
+```
+
+##### Options 
+
+  1. Use known tonnage and fill in with NN tonnages
+  2. Use only NN tonnages
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  left_join(ais_fishing_vessels %>% 
+              select(year, mmsi, known_tonnage, inferred_tonnage), by = c("mmsi", "year")) %>% 
+  mutate(tonnage_1 = ifelse(!is.na(known_tonnage), known_tonnage,inferred_tonnage),
+         tonnage_2 = inferred_tonnage)
+```
+
+```{r}
+complete_vessel_characteristics %>% 
+  filter(is_high_seas) %>% 
+  ggplot() +
+  geom_density(aes(x = log(tonnage_1)), alpha = .2, col = "green") +
+  geom_density(aes(x = log(tonnage_2)), alpha = .2, col = "blue") +
+  geom_density(aes(x = log(known_tonnage)), alpha = .2, show.legend = T, data = ais_fishing_vessels %>% filter(is_high_seas) ) +
+  labs(title = 'distribution of tonnage by source',
+       caption = "green uses known and inferred. blue uses only inferred") +
+  theme_minimal()
+```
+
+The differences are small but to be consistent with length, lets use known tonnages when available and fill in with NN tonnages. 
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  rename(tonnage = tonnage_1) %>% 
+  select(-tonnage_2, -inferred_tonnage,  -known_tonnage)
+
+complete_vessel_characteristics$tonnage[complete_vessel_characteristics$tonnage < 1] <- NA
+
+sum(is.na(filter(complete_vessel_characteristics, is_high_seas & on_fishing_list_nn)$tonnage))
+sum(is.na(filter(complete_vessel_characteristics, is_high_seas, year == 2016)$tonnage))
+```
+
+### Filling Engine Power gaps
+
+```{r}
+mmsi_with_power_in_any_year <- ais_fishing_vessels %>% 
+  group_by(mmsi) %>% 
+  summarise(nas = sum(is.na(known_engine_power)),
+            no_nas = sum(!is.na(known_engine_power))) %>% 
+  filter(no_nas > 0 & nas > 0)
+
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(ais_fishing_vessels %>% 
+              filter(mmsi %in% mmsi_with_power_in_any_year$mmsi) %>% 
+              group_by(mmsi) %>% 
+              summarize(mean_power = mean(known_engine_power, na.rm = T))) %>% 
+  mutate(known_engine_power = ifelse(!is.na(mean_power), mean_power, known_engine_power)) %>% 
+  select(-mean_power)
+```
+
+##### Neural net vs registry engine power
+
+The neural net appears to have some issues with engine power. The any many cases when it predicts impossibly large engine powers. This coincides with very small inferred tonnages. This is important to recognize and is perhaps best to limit the outputs of the NN to the min and max of each variable. Despite this, the fit is decent. 
+
+For the ones with realistic values this is how they compare to the known engine powers. 
+
+```{r}
+ais_fishing_vessels %>% 
+  filter(is_high_seas & inferred_engine_power < 20000) %>% 
+  ggplot(aes(x = known_engine_power, inferred_engine_power))+
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  geom_line(aes(x = known_engine_power, y = known_engine_power*(1.1)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_engine_power, y = known_engine_power*(0.9)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_engine_power, y = known_engine_power*(1.2)), col = "green", linetype = "dashed")+
+  geom_line(aes(x = known_engine_power, y = known_engine_power*(0.8)), col = "green", linetype = "dashed")+
+  theme_minimal()
+```
+
+
+```{r}
+ais_fishing_vessels %>% 
+  filter(is_high_seas & inferred_engine_power < 20000 & !is.na(known_engine_power)) %>%
+  mutate(within_10_percent = inferred_engine_power <= known_engine_power*1.1 & inferred_engine_power >= known_engine_power*.9,
+         within_20_percent = inferred_engine_power <= known_engine_power*1.2 & inferred_engine_power >= known_engine_power*.8) %>% 
+  summarize(within_10_percent = sum(within_10_percent)/n(),
+            within_20_percent = sum(within_20_percent)/n())
+```
+
+```{r}
+ModelMetrics::rmse(ais_fishing_vessels$known_engine_power[!is.na(ais_fishing_vessels$known_engine_power) & !is.na(ais_fishing_vessels$inferred_engine_power) & ais_fishing_vessels$inferred_engine_power < 20000 ],
+                   ais_fishing_vessels$inferred_engine_power[!is.na(ais_fishing_vessels$known_engine_power) & !is.na(ais_fishing_vessels$inferred_engine_power) & ais_fishing_vessels$inferred_engine_power < 20000])
+```
+
+```{r}
+ais_fishing_vessels %>% 
+  #filter(!is.na(all_fishing_vessels$known_length) & !is.na(all_fishing_vessels$ais_length)) %>% 
+  #filter(flag_country_name != "China") %>% 
+  filter(inferred_engine_power < 20000) %>% 
+  filter(is_high_seas) %>% 
+  ggplot() +
+  geom_density(aes(x = log(known_tonnage)), alpha = .2) +
+  geom_density(aes(x = log(inferred_tonnage)), alpha = .2, fill = "lightblue", show.legend = T) +
+  labs(title = 'distribution of inferred vs known engine power',
+       caption = "shaded blue is inferred engine power") +
+  theme_minimal()
+```
+
+
+##### Options 
+
+  1. Use known engine power when available and fill in gaps with NN.
+  2. Use only NN
+
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  left_join(ais_fishing_vessels %>% 
+              select(year, mmsi, known_engine_power, inferred_engine_power), by = c("mmsi", "year")) %>% 
+  mutate(power_1 = ifelse(!is.na(known_engine_power), known_engine_power,inferred_engine_power),
+         power_2 = inferred_engine_power) %>%  
+  select(-inferred_engine_power)
+
+complete_vessel_characteristics %>% 
+  filter(is_high_seas) %>% 
+  ggplot() +
+  geom_density(aes(x = log(power_1)), alpha = .2, col = "lightblue") +
+  geom_density(aes(x = log(power_2)), alpha = .2, col = "green") +
+  geom_density(aes(x = log(known_engine_power)), alpha = .2, show.legend = T, data = ais_fishing_vessels %>% filter(is_high_seas) ) +
+  labs(title = 'distribution of engine powers by source',
+       caption = "Blue uses known engine power, green uses only inferred") +
+  theme_minimal()
+```
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  rename(engine_power = power_1) %>% 
+  select(-power_2, -known_engine_power)
+```
+
+```{r}
+complete_vessel_characteristics %>% 
+  filter(is_high_seas) %>% 
+  group_by(year) %>% 
+  summarise(v_wo_gear = n_distinct(mmsi[is.na(gear_type_all_years)]),
+            fraction_pos_wo_gear = 100*sum(positions[is.na(gear_type_all_years)])/sum(positions),
+            v_wo_length = n_distinct(mmsi[is.na(length)]),
+            fraction_pos_wo_length = 100*sum(positions[is.na(length)])/sum(positions),
+            v_wo_tonnage = n_distinct(mmsi[is.na(tonnage)]),
+            fraction_pos_wo_tonnage = 100*sum(positions[is.na(tonnage)])/sum(positions),
+            v_wo_engine_power = n_distinct(mmsi[is.na(engine_power)]),
+            fraction_pos_wo_power = 100*sum(positions[is.na(engine_power)])/sum(positions))           
+```
+
+
+```{r}
+complete_vessel_characteristics %>% 
+  filter(is_high_seas) %>%
+  summarise(v_wo_gear = n_distinct(mmsi[is.na(gear_type_all_years)]),
+            fraction_pos_wo_gear = 100*sum(positions[is.na(gear_type_all_years)])/sum(positions),
+            v_wo_length = n_distinct(mmsi[is.na(length)]),
+            fraction_pos_wo_length = 100*sum(positions[is.na(length)])/sum(positions),
+            v_wo_tonnage = n_distinct(mmsi[is.na(tonnage)]),
+            fraction_pos_wo_tonnage = 100*sum(positions[is.na(tonnage)])/sum(positions),
+            v_wo_engine_power = n_distinct(mmsi[is.na(engine_power)]),
+            fraction_pos_wo_power = 100*sum(positions[is.na(engine_power)])/sum(positions))  
+```
+
+
+```{r fill_in_gaps_with_nls_regressions}
+complete_vessel_characteristics <- complete_vessel_characteristics %>%
+  mutate(length = case_when(
+    is.na(length) & !is.na(tonnage) ~ (tonnage/coef(ton_length_nls)[[1]])^(1/coef(ton_length_nls)[[2]]),
+    TRUE ~ length)) %>% 
+  mutate(tonnage = case_when(
+    !is.na(length) & is.na(tonnage) ~ coef(ton_length_nls)[[1]]*length^(coef(ton_length_nls)[[2]]),
+    TRUE ~ tonnage))
+
+complete_vessel_characteristics <- complete_vessel_characteristics %>%
+  mutate(engine_power = case_when(
+    is.na(engine_power) & !is.na(length) ~ coef(KW_length_nls)[[1]]*length^(coef(KW_length_nls)[[2]]), 
+    TRUE ~ engine_power))
+```
+
+```{r}
+complete_vessel_characteristics %>% 
+  filter(is_high_seas) %>%
+  summarise(v_wo_gear = n_distinct(mmsi[is.na(gear_type_all_years)]),
+            fraction_pos_wo_gear = 100*sum(positions[is.na(gear_type_all_years)])/sum(positions),
+            v_wo_length = n_distinct(mmsi[is.na(length)]),
+            fraction_pos_wo_length = 100*sum(positions[is.na(length)])/sum(positions),
+            v_wo_tonnage = n_distinct(mmsi[is.na(tonnage)]),
+            fraction_pos_wo_tonnage = 100*sum(positions[is.na(tonnage)])/sum(positions),
+            v_wo_engine_power = n_distinct(mmsi[is.na(engine_power)]),
+            fraction_pos_wo_power = 100*sum(positions[is.na(engine_power)])/sum(positions))  
+```
+
+### Filling Aux engine power gaps
+
+#### Random Forest: aux_power ~ gear + length + tonnage
+
+```{r}
+unique_mmsi_for_aux_engine_power_rf <- filter(complete_vessel_characteristics, !is.na(gear_type_all_years), !is.na(length), !is.na(tonnage)) %>% 
+  left_join(ais_fishing_vessels %>% select(year, mmsi, known_aux_engine_power)) %>% 
+  filter(!is.na(known_aux_engine_power)) %>% 
+  distinct(mmsi, gear_type_all_years,  length, tonnage, known_aux_engine_power) %>% 
+  ungroup() %>% 
+  mutate_at(vars(gear_type_all_years), factor)
+```
+
+```{r aux_engine_power_RF, eval = FALSE}
+aux_power_trainIndex <- createDataPartition(unique_mmsi_for_aux_engine_power_rf$known_aux_engine_power, p = .7, 
+                                  list = FALSE, 
+                                  times = 1)
+
+aux_power_training_set <- unique_mmsi_for_aux_engine_power_rf[ aux_power_trainIndex,]
+
+aux_power_training_set %>% 
+  summarise(n(),n_distinct(mmsi))
+
+aux_power_testing_set  <- unique_mmsi_for_aux_engine_power_rf[-aux_power_trainIndex,]
+
+levels(aux_power_testing_set$gear_type_all_years) <- levels(aux_power_training_set$gear_type_all_years)
+
+
+```
+
+```{r}
+seeds <- vector(mode = "list", length = 51)
+for(i in 1:51) seeds[[i]] <- sample.int(1000, 2)
+
+registerDoMC(cores = 24)
+
+## Set fit controls
+
+fitControl <- trainControl(## 10-fold CV
+  method = "repeatedcv",
+  number = 10,
+  ## repeated ten times
+  repeats = 5,
+  seeds = seeds,
+  allowParallel = TRUE)
+
+## Random forest for Auxiliary engine power
+
+### With gear type 
+
+aux_power_training_set <- readRDS("source_info/aux_power_training_set")
+aux_power_testing_set  <- readRDS("source_info/aux_power_testing_set")
+
+aux_power_cforest <- train(x = aux_power_training_set[,c(2,3,4)],
+                           y = aux_power_training_set$registry_aux_engine_power,
+                           method = 'cforest',
+                           trControl = fitControl,
+                           controls = cforest_unbiased(ntree = 500))
+
+aux_power_cforest
+
+(aux_power_rf_rmse <- sqrt(sum((predict(aux_power_cforest,aux_power_testing_set) - aux_power_testing_set$registry_aux_engine_power)^2) / nrow(aux_power_testing_set)))
+
+saveRDS(aux_power_cforest, "saved_files/aux_power_cforest")
+
+aux_power_varImp_plot <- plot(varImp(aux_power_cforest, conditional = T))
+
+saveRDS(aux_power_varImp_plot, "saved_plots/aux_power_varImp_plot")
+
+rf_predicted_aux_power_vs_obs_plot <- plot(aux_power_testing_set$registry_aux_engine_power, predict(aux_power_cforest,aux_power_testing_set))
+
+saveRDS(rf_predicted_aux_power_vs_obs_plot, "saved_plots/predicted_vs_obs_aux_power_plot")
+```
+
+```{r}
+predicted_aux_power <- complete_vessel_characteristics %>% 
+  filter(gear_type_all_years %in% unique_mmsi_for_aux_engine_power_rf$gear_type_all_years) %>% 
+  mutate(gear_type_all_years = factor(gear_type_all_years)) %>% 
+  select(mmsi, gear_type_all_years, length, tonnage, year)
+
+levels(predicted_aux_power$inferred_label_allyears) <- levels(unique_mmsi_for_aux_engine_power_rf$inferred_label_allyears)
+
+predicted_aux_power <- predicted_aux_power %>% 
+  modelr::add_predictions(aux_power_cforest) %>% 
+  select(year, mmsi, rf_aux_power = pred)
+```
+
+#### Random Forest: aux_power ~  length + tonnage
+
+```{r}
+unique_mmsi_for_aux_engine_power_NO_GEAR_rf <- filter(complete_vessel_characteristics,  !is.na(length), !is.na(tonnage)) %>%
+  left_join(ais_fishing_vessels %>% select(year, mmsi, known_aux_engine_power)) %>% 
+  filter(!is.na(known_aux_engine_power)) %>% 
+  distinct(mmsi, length, tonnage, known_aux_engine_power) %>% 
+  ungroup()
+```
+
+
+```{r aux_engine_power_RF_NO_GEAR, eval = FALSE}
+aux_power_NO_GEAR_trainIndex <- createDataPartition(unique_mmsi_for_aux_engine_power_NO_GEAR_rf$known_aux_engine_power, p = .7, 
+                                  list = FALSE, 
+                                  times = 1)
+
+aux_power_NO_GEAR_training_set <- unique_mmsi_for_aux_engine_power_NO_GEAR_rf[ aux_power_NO_GEAR_trainIndex,]
+aux_power_NO_GEAR_testing_set  <- unique_mmsi_for_aux_engine_power_NO_GEAR_rf[-aux_power_NO_GEAR_trainIndex,]
+
+saveRDS(aux_power_NO_GEAR_training_set, "saved_files/random_forests/aux_power_NO_GEAR_training_set")
+saveRDS(aux_power_NO_GEAR_testing_set, "saved_files/random_forests/aux_power_NO_GEAR_testing_set")
+```
+
+```{r, eval = F}
+### Without gear type
+
+aux_power_NO_GEAR_training_set <- readRDS("source_info/aux_power_NO_GEAR_training_set")
+aux_power_NO_GEAR_testing_set  <- readRDS("source_info/aux_power_NO_GEAR_testing_set")
+
+aux_power_NO_GEAR_cforest <- train(x = aux_power_NO_GEAR_training_set[,c(2,3)],
+                                   y = aux_power_NO_GEAR_training_set$registry_aux_engine_power,
+                                   method = 'cforest',
+                                   trControl = fitControl,
+                                   controls = cforest_unbiased(ntree = 500))
+aux_power_NO_GEAR_cforest
+
+(aux_power_NO_GEAR_rf_rmse <- sqrt(sum((predict(aux_power_NO_GEAR_cforest,aux_power_NO_GEAR_testing_set) - aux_power_NO_GEAR_testing_set$registry_aux_engine_power)^2) / nrow(aux_power_NO_GEAR_testing_set)))
+
+saveRDS(aux_power_NO_GEAR_cforest, "saved_files/aux_power_NO_GEAR_cforest")
+
+### Plots
+
+aux_power_no_gear_varImp_plot <- plot(varImp(aux_power_NO_GEAR_cforest, conditional = TRUE))
+
+saveRDS(aux_power_no_gear_varImp_plot, "saved_plots/aux_power_no_gear_varImp_plot")
+
+rf_predicted_aux_power_NO_GEAR_vs_obs_plot <- plot(aux_power_NO_GEAR_testing_set$registry_aux_engine_power, predict(aux_power_NO_GEAR_cforest,aux_power_NO_GEAR_testing_set))
+
+saveRDS(rf_predicted_aux_power_NO_GEAR_vs_obs_plot, "saved_plots/predicted_vs_obs_aux_power_no_gear_plot")
+
+```
+
+
+```{r}
+predicted_aux_power_NO_GEAR <- complete_vessel_characteristics %>% 
+  select(mmsi, length, tonnage, year) %>% 
+  modelr::add_predictions(aux_power_NO_GEAR_cforest) %>% 
+  select(year, mmsi, rf_aux_power = pred)
+```
+
+```{r}
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(predicted_aux_power,
+            by = c("year","mmsi")) %>% 
+  left_join(predicted_aux_power_NO_GEAR %>% 
+              rename(rf_aux_power_NO_GEAR = rf_aux_power),
+            by = c("year","mmsi")) %>% 
+  mutate(rf_aux_power = ifelse(!is.na(rf_aux_power), rf_aux_power,rf_aux_power_NO_GEAR )) %>% 
+  select(-rf_aux_power_NO_GEAR)
+
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  left_join(ais_fishing_vessels %>% 
+              select(year, mmsi, known_aux_engine_power, rf_aux_power), by = c("mmsi", "year")) %>% 
+  mutate(aux_engine_power = ifelse(!is.na(known_aux_engine_power), known_aux_engine_power,rf_aux_power),
+         aux_engine_power_eea = ifelse(!is.na(known_aux_engine_power), known_aux_engine_power, 0.39*engine_power))%>% 
+  select(-known_aux_engine_power, -rf_aux_power)
+
+complete_vessel_characteristics %>% 
+  filter(year == 2016 & !is.na(engine_power)) %>% 
+  mutate(aux_frac = aux_engine_power/engine_power,
+         aux_frac_eea = aux_engine_power_eea/engine_power) %>% 
+  summarise(mean(aux_frac), mean(aux_frac_eea))
+```
+
+```{r}
+(engine_power_vs_AUX_engine_power_plot <- ais_fishing_vessels %>% 
+  filter(is_high_seas) %>% 
+  ggplot(aes(x = known_engine_power , y = known_aux_engine_power))+
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  theme_minimal()+
+  labs(x = "engine power (KW)", y = "auxiliary engine power (KW)"))
+
+save_high_res_plot(engine_power_vs_AUX_engine_power_plot, "saved_plots/relationships/engine_power_vs_aux_power")
+
+(known_vs_predicted_aux_engine_power_plot <- ais_fishing_vessels %>% 
+  filter(is_high_seas) %>% 
+  ggplot(aes(x = known_aux_engine_power, rf_aux_power))+
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  theme_minimal()+
+  labs(x = "known auxiliary engine power (KW)", y = "predicted auxiliary engine power (KW)"))
+
+saveRDS(known_vs_predicted_aux_engine_power_plot, "saved_plots/inferred_vs_known/known_vs_predicted_aux_engine_power_plot")
+
+save_high_res_plot(known_vs_predicted_aux_engine_power_plot, "saved_plots/inferred_vs_known/known_vs_predicted_aux_engine_power")
+```
+
+### Filling crew size gaps
+
+Our only apporach to fill in gaps in to use random forest models to predict crew based on vessel length and gear type
+
+#### RF: Crew ~ length + country + gear_type + high_seas
+
+```{r}
+unique_mmsi_for_crew_rf <- filter(complete_vessel_characteristics,  !is.na(flag_country_name), !is.na(gear_type_all_years), !is.na(length), !is.na(tonnage), year > 2013) %>% 
+  left_join(ais_fishing_vessels %>% 
+              filter(!is.na(known_crew)) %>% 
+              group_by(mmsi) %>% 
+              summarise(avg_crew = round(mean(known_crew)), 
+                        n_distinct = n_distinct(known_crew),
+                        sd_crew = sd(known_crew),
+                        cv_crew = sd_crew/avg_crew) %>% 
+              filter(n_distinct <= 1 | cv_crew <= .1) %>% 
+              select(mmsi, known_crew = avg_crew)) %>% 
+  filter(!is.na(known_crew)) %>% 
+  group_by(mmsi, flag_country_name,  gear_type_all_years) %>% 
+  summarize_at(vars(length, tonnage, known_crew), funs(mean, sd, n_distinct)) %>% 
+  ungroup() %>% 
+  transmute(mmsi = mmsi,
+            flag_country_name = flag_country_name, 
+            gear_type_all_years = gear_type_all_years,
+            length = ifelse(length_n_distinct <= 1 | length_sd/length_mean <= .1,length_mean, NA ),
+            tonnage = ifelse(tonnage_n_distinct <= 1 | tonnage_sd/tonnage_mean <= .1,tonnage_mean, NA ),
+            known_crew = ifelse(known_crew_n_distinct <= 1 | known_crew_sd/known_crew_mean <= .1,known_crew_mean, NA )) %>% 
+  mutate_at(vars(flag_country_name, gear_type_all_years), factor)  %>% 
+  na.omit()
+
+write_csv(unique_mmsi_for_crew_rf, "saved_files/random_forests/unique_mmsi_with_known_crew.csv")
+```
+
+```{r crew_data_for_random_forest_training, eval = F}
+crew_trainIndex <- createDataPartition(unique_mmsi_for_crew_rf$known_crew, p = .7, 
+                                  list = FALSE, 
+                                  times = 1)
+
+crew_training_set <- unique_mmsi_for_crew_rf[ crew_trainIndex,]
+
+crew_training_set %>% summarise(n(),n_distinct(mmsi))
+
+crew_testing_set  <- unique_mmsi_for_crew_rf[-crew_trainIndex,]
+
+levels(crew_testing_set$gear_type_all_years) <- levels(crew_training_set$gear_type_all_years)
+levels(crew_testing_set$flag_country_name) <- levels(crew_training_set$flag_country_name)
+
+saveRDS(crew_training_set, "saved_files/random_forests/crew_training_set")
+
+saveRDS(crew_testing_set, "saved_files/random_forests/crew_testing_set")
+```
+
+```{r}
+crew_training_set <- readRDS( "saved_files/random_forests/crew_training_set")
+
+crew_testing_set <- readRDS( "saved_files/random_forests/crew_testing_set")
+
+crew_cforest <- train(x = crew_training_set[,c(2,3,4,5)],
+                      y = crew_training_set$registry_crew,
+                      method = 'cforest',
+                      trControl = fitControl,
+                      controls = cforest_unbiased(ntree = 500))
+
+crew_cforest
+
+(crew_rf_rmse <- sqrt(sum((predict(crew_cforest,crew_testing_set) - crew_testing_set$registry_crew)^2) / nrow(crew_testing_set)))
+
+saveRDS(crew_cforest, "saved_files/crew_cforest")
+```
+
+```{r rf_plots}
+crew_varImp_plot <- plot(varImp(crew_cforest, conditional = TRUE))
+
+saveRDS(crew_varImp_plot, "saved_plots/crew_varImp_plot")
+
+rf_predicted_crew_vs_obs_plot <- plot(crew_testing_set$known_crew, predict(crew_cforest,crew_testing_set))
+
+saveRDS(rf_predicted_crew_vs_obs_plot, "saved_plots/predicted_vs_obs_crew_plot")
+```
+
+#### RF: Crew ~ length  + tonnnage + gear
+
+```{r}
+crew_cforest_wo_flag <- train(x = crew_training_set[,c(3,4,5)],
+                      y = crew_training_set$registry_crew,
+                      method = 'cforest',
+                      trControl = fitControl,
+                      controls = cforest_unbiased(ntree = 500))
+
+crew_cforest_wo_flag
+
+(crew_rf_no_flag_rmse <- sqrt(sum((predict(crew_cforest_wo_flag,crew_testing_set) - crew_testing_set$registry_crew)^2) / nrow(crew_testing_set)))
+
+saveRDS(crew_cforest_wo_flag, "saved_files/crew_cforest_wo_flag")
+```
+
+```{r}
+crew_varImp_plot_wo_flag <- plot(varImp(crew_cforest_wo_flag, conditional = TRUE))
+
+saveRDS(crew_varImp_plot_wo_flag, "saved_plots/crew_varImp_plot_wo_flag")
+
+rf_predicted_crew_vs_obs_plot_no_flag <- plot(crew_testing_set$known_crew, predict(crew_cforest_wo_flag,crew_testing_set))
+
+saveRDS(rf_predicted_crew_vs_obs_plot_no_flag, "saved_plots/rf_predicted_crew_vs_obs_plot_no_flag")
+```
+
+
+#### RF: Crew ~ length  + tonnnage
+
+```{r}
+unique_mmsi_for_crew_rf_length_n_tonnage <- filter(complete_vessel_characteristics, !is.na(length), !is.na(tonnage)) %>%
+  left_join(ais_fishing_vessels %>% 
+              filter(!is.na(known_crew)) %>% 
+              group_by(mmsi) %>% 
+              summarise(avg_crew = round(mean(known_crew)), 
+                        n_distinct = n_distinct(known_crew),
+                        sd_crew = sd(known_crew),
+                        cv_crew = sd_crew/avg_crew) %>% 
+              filter(n_distinct <= 1 | cv_crew <= .1) %>% 
+              select(mmsi, known_crew = avg_crew)) %>% 
+  filter(!is.na(known_crew)) %>% 
+  group_by(mmsi) %>% 
+  summarize_at(vars(length, tonnage,  known_crew), funs(mean, sd, n_distinct)) %>% 
+  ungroup() %>% 
+  transmute(mmsi = mmsi,
+            length = ifelse(length_n_distinct <= 1 | length_sd/length_mean <= .1,length_mean, NA ),
+            tonnage = ifelse(tonnage_n_distinct <= 1 | tonnage_sd/tonnage_mean <= .1,tonnage_mean, NA ),
+            known_crew = ifelse(known_crew_n_distinct <= 1 | known_crew_sd/known_crew_mean <= .1,known_crew_mean, NA )) %>% 
+  na.omit()
+```
+
+```{r, eval = FALSE}
+crew_trainIndex_length_n_tonnage <- createDataPartition(unique_mmsi_for_crew_rf_length_n_tonnage$known_crew, p = .7, 
+                                  list = FALSE, 
+                                  times = 1)
+
+crew_training_set_length_n_tonnage <- unique_mmsi_for_crew_rf_length_n_tonnage[ crew_trainIndex_length_n_tonnage,]
+crew_testing_set_length_n_tonnage  <- unique_mmsi_for_crew_rf_length_n_tonnage[-crew_trainIndex_length_n_tonnage,]
+
+crew_training_set_length_n_tonnage %>% 
+  summarise(n(),n_distinct(mmsi))
+
+saveRDS(crew_training_set_length_n_tonnage, "saved_files/random_forests/crew_training_set_length_n_tonnage")
+saveRDS(crew_testing_set_length_n_tonnage, "saved_files/random_forests/crew_testing_set_length_n_tonnage")
+```
+
+```{r}
+crew_cforest_length_n_tonnage <- train(x = crew_training_set_length_n_tonnage[,c(2,3)],
+                                  y = crew_training_set_length_n_tonnage$registry_crew,
+                                  method = 'cforest',
+                                  trControl = fitControl,
+                                  controls = cforest_unbiased(ntree = 500))
+
+
+crew_cforest_length_n_tonnage
+
+(crew_rf_rmse_length_only <- sqrt(sum((predict(crew_cforest_length_n_tonnage,crew_testing_set_length_n_tonnage) - crew_testing_set_length_n_tonnage$registry_crew)^2) / nrow(crew_testing_set_length_n_tonnage)))
+
+saveRDS(crew_cforest_length_n_tonnage, "saved_files/crew_cforest_length_n_tonnage")
+
+crew_varImp_plot_length_n_tonnage <- plot(varImp(crew_cforest_length_n_tonnage, conditional = TRUE))
+
+saveRDS(crew_varImp_plot_length_n_tonnage, "saved_plots/crew_varImp_plot_length_n_tonnage")
+
+rf_predicted_crew_length_only_vs_obs_plot <- plot(crew_testing_set_length_n_tonnage$known_crew, predict(crew_cforest_length_n_tonnage,crew_testing_set_length_n_tonnage))
+
+```
+
+#### Predict RFs:
+
+```{r}
+rf_predicted_crew_with_gear_and_flag <-  complete_vessel_characteristics %>%
+  filter(flag_country_name %in% unique_mmsi_for_crew_rf$flag_country_name & gear_type_all_years %in% unique_mmsi_for_crew_rf$gear_type_all_years) %>% 
+  mutate(flag_country_name = factor(flag_country_name),
+         gear_type_all_years = factor(gear_type_all_years))
+
+levels(rf_predicted_crew_with_gear_and_flag$flag_country_name) <- levels(unique_mmsi_for_crew_rf$flag_country_name)
+levels(rf_predicted_crew_with_gear_and_flag$gear_type_all_years) <- levels(unique_mmsi_for_crew_rf$gear_type_all_years)
+```
+
+```{r}
+rf_predicted_crew_with_gear_and_flag <- rf_predicted_crew_with_gear_and_flag %>% 
+  select(mmsi,flag_country_name,  gear_type_all_years, length, tonnage, year) %>% 
+  modelr::add_predictions(crew_cforest) %>% 
+  select(year, mmsi, rf_crew_with_flag_and_gear = pred)
+
+rf_predicted_crew_wo_flag <- complete_vessel_characteristics %>%
+  filter(gear_type_all_years %in% unique_mmsi_for_crew_rf$gear_type_all_years) %>% 
+  mutate(gear_type_all_years = factor(gear_type_all_years))
+
+levels(rf_predicted_crew_wo_flag$gear_type_all_years) <- levels(unique_mmsi_for_crew_rf$gear_type_all_years)
+
+rf_predicted_crew_wo_flag <- rf_predicted_crew_wo_flag %>% 
+  select(mmsi,flag_country_name,  gear_type_all_years, length, tonnage, year) %>% 
+  modelr::add_predictions(crew_cforest_wo_flag) %>% 
+  select(year, mmsi, rf_crew_wo_flag = pred)
+
+rf_predicted_crew_length_n_tonnage <-  complete_vessel_characteristics %>%
+  select(mmsi, length, tonnage, year) %>% 
+  modelr::add_predictions(crew_cforest_length_n_tonnage) %>% 
+  select(year, mmsi, rf_crew_length_n_tonnage = pred)
+
+write_csv(rf_predicted_crew_length_n_tonnage, "saved_files/random_forests/rf_predicted_crew_with_length_n_tonnage.csv")
+write_csv(rf_predicted_crew_wo_flag, "saved_files/random_forests/rf_predicted_crew_with_length_n_tonnage_n_gear.csv")
+write_csv(rf_predicted_crew_with_gear_and_flag, "saved_files/random_forests/rf_predicted_crew_with_length_tonnage_gear_and_flag.csv")
+```
+
+
+```{r}
+ais_fishing_vessels <- ais_fishing_vessels %>% 
+  left_join(rf_predicted_crew_with_gear_and_flag, by = c('year','mmsi')) %>% 
+  left_join(rf_predicted_crew_wo_flag, by = c('year','mmsi')) %>% 
+  left_join(rf_predicted_crew_length_n_tonnage, by = c('year','mmsi'))
+```
+
+```{r}
+(known_vs_rf_predicted_crew_size_plot <- ais_fishing_vessels %>% 
+  filter(is_high_seas) %>% 
+  ggplot(aes(x = known_crew, rf_crew_length_n_tonnage))+
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  geom_line(aes(x = known_crew, y = known_crew*(1.1)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_crew, y = known_crew*(0.9)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_crew, y = known_crew*(1.2)), col = "green", linetype = "dashed")+
+  geom_line(aes(x = known_crew, y = known_crew*(0.8)), col = "green", linetype = "dashed")+
+  theme_minimal()+
+  labs(x = "known crew size", y = "predicted crew size", caption = "predicted with length + tonnage"))
+
+save_high_res_plot(known_vs_rf_predicted_crew_size_plot, "saved_plots/inferred_vs_known/known_vs_rf_predicted_crew_size_with_length_n_tonnage")
+
+(known_vs_rf_predicted_crew_size_plot <- ais_fishing_vessels %>% 
+  filter(is_high_seas) %>% 
+  ggplot(aes(x = known_crew, rf_crew_wo_flag))+
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  geom_line(aes(x = known_crew, y = known_crew*(1.1)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_crew, y = known_crew*(0.9)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_crew, y = known_crew*(1.2)), col = "green", linetype = "dashed")+
+  geom_line(aes(x = known_crew, y = known_crew*(0.8)), col = "green", linetype = "dashed")+
+  theme_minimal()+
+  labs(x = "known crew size", y = "predicted crew size",caption = "predicted with length + tonnage + gear"))
+
+save_high_res_plot(known_vs_rf_predicted_crew_size_plot, "saved_plots/inferred_vs_known/known_vs_rf_predicted_crew_size_with_length_n_tonnage_n_gear")
+
+(known_vs_rf_predicted_crew_size_plot <- ais_fishing_vessels %>% 
+  filter(is_high_seas) %>% 
+  ggplot(aes(x = known_crew, rf_crew_with_flag_and_gear))+
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, color = "red")+
+  geom_line(aes(x = known_crew, y = known_crew*(1.1)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_crew, y = known_crew*(0.9)), col = "blue", linetype = "dashed")+
+  geom_line(aes(x = known_crew, y = known_crew*(1.2)), col = "green", linetype = "dashed")+
+  geom_line(aes(x = known_crew, y = known_crew*(0.8)), col = "green", linetype = "dashed")+
+  theme_minimal()+
+  labs(x = "known crew size", y = "predicted crew size", caption = "predicted with length + tonnage + gear + flag"))
+
+save_high_res_plot(known_vs_rf_predicted_crew_size_plot, "saved_plots/inferred_vs_known/known_vs_rf_predicted_crew_size_with_length_n_tonnage_n_gear_n_flag")
+```
+
+```{r}
+ais_fishing_vessels %>% 
+  filter(year == 2016) %>% 
+  group_by(inferred_label_allyears) %>% 
+  summarise_at(vars(rf_crew_length_n_tonnage, rf_crew_wo_flag, rf_crew_with_flag_and_gear),mean, na.rm = TRUE)
+
+
+ais_fishing_vessels %>% 
+  filter(year == 2016) %>% 
+   ggplot(aes(x = round(rf_crew_length_n_tonnage), y = fct_reorder(inferred_label_allyears,rf_crew_length_n_tonnage,mean), fill = inferred_label_allyears)) +
+   ggjoy::geom_joy(show.legend = FALSE) +
+   theme_minimal()+
+   labs(y = "", title = 'Distributions of crew size by gear type',
+        subtitle = "Random Forest", x = "Crew size")+
+   theme(plot.title = element_text(hjust = -.4))+
+   scale_fill_manual(values = ggpubr::get_palette(palette = "npg", 11), name = " ")
+```
+
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  left_join(ais_fishing_vessels %>% 
+              select(year, mmsi, known_crew, rf_crew_length_n_tonnage, rf_crew_with_flag_and_gear, rf_crew_wo_flag,inferred_crew_size), by = c("mmsi", "year")) %>%
+  mutate(rf_crew = floor(ifelse(!is.na(known_crew), known_crew, 
+                                ifelse(!is.na(rf_crew_with_flag_and_gear), rf_crew_with_flag_and_gear, 
+                                       ifelse(!is.na(rf_crew_wo_flag),rf_crew_wo_flag,rf_crew_length_n_tonnage))))) %>% 
+  select(-known_crew, -rf_crew_length_n_tonnage,  -rf_crew_with_flag_and_gear, -rf_crew_wo_flag, -inferred_crew_size)
+```
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  filter(!is.na(length))
+```
+
+## Final data summary 
+
+```{r message=FALSE}
+complete_vessel_characteristics$flag_country_name[complete_vessel_characteristics$mmsi == 451004112] <- "Federated States of Micronesia"
+complete_vessel_characteristics$sovereign_flag_country_name[complete_vessel_characteristics$mmsi == 451004112] <- "Federated States of Micronesia"
+complete_vessel_characteristics$flag_iso3[complete_vessel_characteristics$mmsi == 451004112] <- "FSM"
+complete_vessel_characteristics$sovereign_flag_iso3[complete_vessel_characteristics$mmsi == 451004112] <- "FSM"
+```
+
+```{r}
+ESP_Calvo_fleet <- c(359001000,359102000,617045000,359003000,359004000,617038000,359101000,359002000)
+
+complete_vessel_characteristics %>% 
+  filter(mmsi %in% ESP_Calvo_fleet)
+```
+
+```{r}
+ESP_Albacora_fleet <-  c(353171000, 306094000, 306783000, 617094000, 312191000, 312590000, 306012000)
+
+
+complete_vessel_characteristics %>% filter(imo == 9710995) #http://mfmr.gov.sl/images/Publication/UPDATED_INDUSTRIAL_FISHING_VESSELS_LICENSED_LIST_AS_AT_24_January_2017.pdf 
+```
+
+```{r}
+complete_vessel_characteristics$sovereign_flag_country_name[complete_vessel_characteristics$mmsi %in% ESP_Albacora_fleet | 
+                                                              complete_vessel_characteristics$mmsi %in% ESP_Calvo_fleet | 
+                                                               complete_vessel_characteristics$imo == 9710995] <- "Spain"
+
+complete_vessel_characteristics$sovereign_flag_iso3[complete_vessel_characteristics$mmsi %in% ESP_Albacora_fleet |
+                                                      complete_vessel_characteristics$mmsi %in% ESP_Calvo_fleet|
+                                                       complete_vessel_characteristics$imo == 9710995] <- "ESP"
+```
+
+```{r}
+#Taiwanese vessel flagged in Maldives
+
+complete_vessel_characteristics$sovereign_flag_country_name[complete_vessel_characteristics$mmsi %in% c(455359000, 455360000)] <- "Taiwan"
+complete_vessel_characteristics$sovereign_flag_iso3[complete_vessel_characteristics$mmsi %in% c(455359000, 455360000)] <- "TWN"
+```
+
+After curating the dataset, we have `r n_distinct(complete_vessel_characteristics$mmsi[complete_vessel_characteristics$is_high_seas & complete_vessel_characteristics$year == 2016])` vessels fishing in the high seas in 2016
+
+```{r}
+complete_vessel_characteristics %>% 
+  filter(is_high_seas) %>% 
+  group_by(year) %>% 
+  summarise(n(),
+            high_seas_vessels = n_distinct(mmsi))
+```
+
+### Flags
+
+```{r}
+top_high_seas_countries_2016 <- (complete_vessel_characteristics %>% 
+                              filter(is_high_seas & year == 2016) %>% 
+                              group_by(sovereign_flag_country_name) %>% 
+                              summarise(vessels = n_distinct(mmsi),
+                                        total_days = sum(days)) %>% 
+                              top_n(20,total_days) %>% 
+                              arrange(desc(total_days)))
+
+(vessel_by_flag_and_gear.plot <- complete_vessel_characteristics %>% 
+    mutate(gear_type_all_years = stringr::str_to_title(stringr::str_replace_all(gear_type_all_years, pattern = "_", " "))) %>% 
+    filter(is_high_seas & year == 2016 & sovereign_flag_country_name %in% top_high_seas_countries_2016$sovereign_flag_country_name & !is.na(gear_type_all_years) & !is.na(sovereign_flag_country_name)) %>% 
+    ggplot()+
+    geom_bar(aes(x = forcats::fct_reorder(sovereign_flag_country_name,mmsi, fun = n_distinct), fill = gear_type_all_years))+
+    coord_flip()+
+    theme_minimal()+
+    xlab("")+
+    ylab("Vessels")+
+    #scale_fill_viridis_d(direction = -1, option = "F"))
+    scale_fill_manual(values = ggpubr::get_palette(palette = "npg", 7), name = " ")+
+    theme(legend.text = element_text(size = 8, hjust = 3, vjust = 3),
+          legend.key.size = unit(.5, "cm")))
+
+save_high_res_plot(vessel_by_flag_and_gear.plot, "saved_plots/summary_plots/vessels_by_flag_and_gear")
+```
+
+### Gear
+
+```{r}
+(vessels_by_flag_and_gear_DT <- complete_vessel_characteristics %>% 
+  filter(year == 2016 & is_high_seas) %>% 
+  replace_na(list(sovereign_flag_country_name = "unknown")) %>% 
+  group_by(gear_type_all_years, sovereign_flag_country_name) %>% 
+  summarise(vessels = n_distinct(mmsi),
+            total_days = sum(days)) %>% 
+  mutate(p_vessels = vessels/sum(vessels),
+         p_days = total_days/sum(total_days)) %>% 
+  top_n(20, p_days) %>% 
+  mutate_at(vars(p_vessels, p_days), funs(round(., digits = 2))) %>% 
+  arrange(desc(total_days)) %>% 
+  DT::datatable())
+```
+
+### Length
+
+```{r}
+(length_distribution_by_gear_plot <- complete_vessel_characteristics %>% 
+   filter(year == 2016, !sub_gear_type_all_years %in% c("whaling", "other_fishing")) %>% 
+   mutate(gear_type_all_years = stringr::str_to_title(stringr::str_replace_all(sub_gear_type_all_years, pattern = "_", " "))) %>% 
+   filter(is_high_seas & !is.na(gear_type_all_years)) %>% 
+   ggplot(aes(x = length, y = fct_reorder(gear_type_all_years, length, mean), fill = gear_type_all_years)) +
+   ggjoy::geom_joy(scale = 2, show.legend = FALSE, rel_min_height = 0.00001) +
+   theme_minimal()+
+   labs(y = "", title = 'Distributions of vessel length by gear type', x = "length (m)")+
+   theme(plot.title = element_text(hjust = -.45))+
+   scale_fill_manual(values = ggpubr::get_palette(palette = "npg", 11), name = " "))
+
+save_high_res_plot(length_distribution_by_gear_plot, "saved_plots/summary_plots/length_distribution_by_gear")
+```
+
+
+### Tonnnage
+
+```{r}
+(tonnage_distribution_by_gear_plot <- complete_vessel_characteristics %>% 
+   mutate(gear_type_all_years = stringr::str_to_title(stringr::str_replace(gear_type_all_years, pattern = "_", " "))) %>% 
+   filter( is_high_seas & !is.na(gear_type_all_years)) %>% 
+           ggplot(aes(x = log(tonnage), y = gear_type_all_years)) +
+   ggjoy::geom_joy() +
+   theme_minimal()+
+   labs(x = "log tonnage (GT)", y = "", title = 'Distribution of vessel tonnage by gear type'))+
+  theme(plot.title = element_text(hjust = -.45))
+
+```
+
+
+### Power
+
+```{r}
+(power_distribution_by_gear_plot <- complete_vessel_characteristics %>% 
+   filter(!sub_gear_type_all_years %in% c("whaling", "other_fishing")) %>% 
+   mutate(gear_type_all_years = stringr::str_to_title(stringr::str_replace_all(sub_gear_type_all_years, pattern = "_", " "))) %>% 
+   filter(year == 2016, is_high_seas & !is.na(gear_type_all_years)) %>% 
+   ggplot(aes(x = engine_power, y = fct_reorder(gear_type_all_years, engine_power, mean), fill = gear_type_all_years)) +
+   ggjoy::geom_joy(scale = 2, show.legend = FALSE, rel_min_height = 0.0000000001) +
+   theme_minimal()+
+   scale_x_log10()+
+   labs(y = "", title = 'Distributions of engine power by gear type', x = "Engine power (KW)")+
+   theme(plot.title = element_text(hjust = -.45))+
+   scale_fill_manual(values = ggpubr::get_palette(palette = "npg", 11), name = " "))
+
+save_high_res_plot(power_distribution_by_gear_plot, "saved_plots/summary_plots/power_distribution_by_gear")
+```
+
+### Aux engine power 
+
+```{r}
+(aux_power_distribution_by_gear_plot <- complete_vessel_characteristics %>% 
+   mutate(gear_type_all_years = stringr::str_to_title(stringr::str_replace(sub_gear_type_all_years, pattern = "_", " "))) %>% 
+   filter(is_high_seas & !is.na(gear_type_all_years)) %>% 
+   ggplot(aes(x = log(aux_engine_power), y = fct_reorder(gear_type_all_years, aux_engine_power, mean))) +
+   ggjoy::geom_joy() +
+   theme_minimal()+
+   labs(x = "Log auxiliary engine power (KW)", y = "", title = 'Distribution of auxiliary engine power by gear type'))+
+  theme(plot.title = element_text(hjust = -.6))
+```
+
+### Crew
+
+```{r}
+(crew_distribution_by_gear_plot_rf <- complete_vessel_characteristics %>% 
+   filter(year == 2016, is_high_seas & !is.na(gear_type_all_years)) %>% 
+   filter(!sub_gear_type_all_years %in% c("whaling", "other_fishing")) %>% 
+   mutate(gear_type_all_years = stringr::str_to_title(stringr::str_replace_all(sub_gear_type_all_years, pattern = "_", " "))) %>% 
+   ggplot(aes(x = round(rf_crew), y = fct_reorder(gear_type_all_years,rf_crew,mean), fill = gear_type_all_years)) +
+   ggjoy::geom_joy(show.legend = FALSE) +
+   theme_minimal()+
+   labs(y = "", title = 'Distributions of crew size by gear type',
+        subtitle = "Random Forest", x = "Crew size")+
+   theme(plot.title = element_text(hjust = -.4))+
+   scale_fill_manual(values = ggpubr::get_palette(palette = "npg", 11), name = " "))
+
+save_high_res_plot(crew_distribution_by_gear_plot_rf, "saved_plots/summary_plots/crew_size_distribution_by_gear")
+```
+
+### Design speed
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  mutate(design_speed_old = 3.30*10^(-4)*engine_power+2.151*10^(-5)*tonnage-2.742*10^(-9)*engine_power*tonnage+12.93,
+         design_speed_ihs = 10.4818 + 0.0012*engine_power -3.84710*10^(-8)*engine_power^2)
+```
+
+```{r}
+(design_speed_distribution_by_gear_plot <- complete_vessel_characteristics %>% 
+   filter(!sub_gear_type_all_years %in% c("whaling", "other_fishing")) %>% 
+   mutate(gear_type_all_years = stringr::str_to_title(stringr::str_replace_all(sub_gear_type_all_years, pattern = "_", " "))) %>% 
+   filter(is_high_seas & !is.na(gear_type_all_years)) %>% 
+   ggplot(aes(x = design_speed_ihs, y = fct_reorder(gear_type_all_years,design_speed_ihs,mean), fill = gear_type_all_years)) +
+   ggjoy::geom_joy(scale = 4, show.legend = FALSE) +
+   theme_minimal()+
+   labs(x ="design speed (kts)",y = "", title = 'Distribution of design speed by gear type')+
+   geom_vline(aes(xintercept = 11.3), linetype = 2, color = "orange")+
+   theme(plot.title = element_text(hjust = -.4))+
+   scale_fill_manual(values = ggpubr::get_palette(palette = "npg", 11), name = " "))
+
+save_high_res_plot(design_speed_distribution_by_gear_plot,"saved_plots/summary_plots/design_speed_distribution_by_gear" )
+```
+
+### SFC 
+
+According to the EEA and the FAO these are estimates of the specific fuel consumption of vessels by country and size class. Furthermore, there are estimates of SFC for cruising vs manouvering and for aux engine. 
+
+```{r}
+(sfc_by_country <- data_frame(country = c("China", "EU","Iceland","Norway", "South Korea", "Russia"),
+                             sfc = c(280,270,250,250,260,250)))
+
+(sfc_by_activity <- data_frame(phase = c("cruising","manouvering"),
+                              sfc = c(203,223)))
+
+(sfc_by_size_class <- data_frame(size_class = c("0-12","12-24",">24"),
+                              sfc = c(240,220,180)))
+
+aux_engine_sfc = 217
+```
+
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  mutate(
+    main_sfc = case_when(
+      flag_country_name == "China" ~ 280,
+      sovereign_flag_country_name %in% c("Austria", "Belgium", "Denmark", "Finland", "France",
+                                       "Germany", "Greece", "Ireland", "Italy", "Luxembourg",
+                                       "Netherlands", "Portugal", "Spain", "Sweden", "United Kingdom") ~ 270,
+      flag_country_name == "Iceland" ~ 250,
+      sovereign_flag_country_name == "Norway" ~ 250,
+      flag_country_name == "South Korea" ~ 260,
+      flag_country_name == "Russia" ~ 250,
+      length < 12 ~ 240,
+      length >= 12 & length < 24 ~ 220,
+      TRUE ~ 180),
+    main_sfc_low = case_when(
+      length < 12 ~ 240,
+      length >= 12 & length < 24 ~ 220,
+      TRUE ~ 180),
+    aux_sfc = 217
+    )
+```
+
+# Export data to BQ
+
+Based on what we have learned, lets subset the relevant data and export to BQ. 
+
+```{r}
+complete_vessel_characteristics <- complete_vessel_characteristics %>% 
+  mutate(mmsi = as.integer(mmsi),
+         year = as.integer(year))
+
+write_csv(complete_vessel_characteristics, "saved_files/complete_ais_vessel_characteristics.csv")
+
+complete_ais_vessel_characteristics <- read_csv("saved_files/complete_ais_vessel_characteristics.csv") %>% 
+  mutate(mmsi = as.integer(mmsi),
+         year = as.integer(year))
+
+BQ_connection <-  dbConnect(dbi_driver(), dataset = "vessel_characteristics", project = "high-seas", billing = "world-fishing-827")
+
+if(dbExistsTable(BQ_connection, "complete_ais_vessel_characteristics")) {
+  dbRemoveTable(BQ_connection, "complete_ais_vessel_characteristics") 
+  dbWriteTable(BQ_connection, "complete_ais_vessel_characteristics", complete_ais_vessel_characteristics)
+} else {dbWriteTable(BQ_connection, "complete_ais_vessel_characteristics", complete_ais_vessel_characteristics)}
+```
+
+
+
+
+
